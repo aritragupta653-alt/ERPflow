@@ -2,3 +2,6 @@ target/
 .idea/
 *.iml
 .DS_Store
+
+run.sh
+sql.sh
