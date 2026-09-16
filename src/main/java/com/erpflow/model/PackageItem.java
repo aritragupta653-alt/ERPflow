@@ -3,23 +3,24 @@ package com.erpflow.model;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "inventory")
-public class Inventory {
+@Table(name = "package_items")
+public class PackageItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "inventory_id")
     private int id;
 
-    @OneToOne
-    @JoinColumn(name = "item_id", nullable = false, unique = true)
+    @ManyToOne
+    @JoinColumn(name = "package_id", nullable = false)
+    private Package packageEntity;
+
+    @ManyToOne
+    @JoinColumn(name = "item_id", nullable = false)
     private Item item;
 
     @Column(nullable = false)
     private int quantity;
 
-    @Column(nullable = false)
-    private int committedQuantity;
 
     public int getId() {
         return id;
@@ -29,6 +30,16 @@ public class Inventory {
         this.id = id;
     }
 
+
+    public Package getPackageEntity() {
+        return packageEntity;
+    }
+
+    public void setPackageEntity(Package packageEntity) {
+        this.packageEntity = packageEntity;
+    }
+
+
     public Item getItem() {
         return item;
     }
@@ -37,19 +48,12 @@ public class Inventory {
         this.item = item;
     }
 
+
     public int getQuantity() {
         return quantity;
     }
 
     public void setQuantity(int quantity) {
         this.quantity = quantity;
-    }
-
-    public int getCommittedQuantity() {
-        return committedQuantity;
-    }
-
-    public void setCommittedQuantity(int committedQuantity) {
-        this.committedQuantity = committedQuantity;
     }
 }

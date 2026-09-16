@@ -57,6 +57,9 @@
         <mapping class="com.erpflow.model.SalesOrderItem"/>
 
         <mapping class="com.erpflow.model.Customer"/>
+        <mapping class="com.erpflow.model.Package"/>
+        <mapping class="com.erpflow.model.PackageItem"/>
+        <mapping class="com.erpflow.model.Shipment"/>
 
 
     </session-factory>

@@ -119,7 +119,7 @@ public class SalesOrderServlet extends HttpServlet {
 
         // Complete Sales Order
 
-        if ("complete".equals(action)) {
+        /*if ("complete".equals(action)) {
 
             int salesOrderId = Integer.parseInt(
                     request.getParameter("salesOrderId")
@@ -137,7 +137,7 @@ public class SalesOrderServlet extends HttpServlet {
             );
 
             return;
-        }
+        }*/
 
 
         // Create Sales Order

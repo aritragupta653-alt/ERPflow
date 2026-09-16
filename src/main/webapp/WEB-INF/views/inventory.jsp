@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+
 <%@ page contentType="text/html;charset=UTF-8" isELIgnored="false" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 
@@ -112,6 +112,8 @@
         <th>Name</th>
         <th>SKU</th>
         <th>Current Stock</th>
+        <th>Comitted Stock</th>
+        <th>Available Stock</th>
     </tr>
 
     <c:forEach var="inventory" items="${inventories}">
@@ -125,6 +127,9 @@
             <td>${inventory.item.sku}</td>
 
             <td>${inventory.quantity}</td>
+
+            <td>${inventory.committedQuantity}</td>
+            <td>${inventory.quantity-inventory.committedQuantity}</td>
 
         </tr>
 

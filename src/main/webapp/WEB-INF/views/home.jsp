@@ -210,7 +210,30 @@
             </p>
 
         </a>
+        <a href="${pageContext.request.contextPath}/shipments"
+   class="dashboard-card">
 
+    <div class="card-icon">🚚</div>
+
+    <h3>Shipments</h3>
+
+    <p>
+        View shipped packages and shipment details.
+    </p>
+
+</a>
+<a href="${pageContext.request.contextPath}/packages"
+   class="dashboard-card">
+
+    <div class="card-icon"></div>
+
+    <h3>Packages</h3>
+
+    <p>
+        View packages and manage them.
+    </p>
+
+</a>
 
     </div>
 

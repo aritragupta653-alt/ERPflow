@@ -19,24 +19,55 @@ public class SalesOrderService {
             new InventoryService();
 
 
-    // Create Sales Order
+    // CREATE SALES ORDER
 
     public void createSalesOrder(
             SalesOrder salesOrder,
             List<SalesOrderItem> salesOrderItems) {
 
-        salesOrderDAO.save(salesOrder);
+        if (salesOrderItems == null ||
+                salesOrderItems.isEmpty()) {
+
+            throw new RuntimeException(
+                    "Sales Order must contain at least one item"
+            );
+        }
+
+
+        // RESERVE STOCK
 
         for (SalesOrderItem item : salesOrderItems) {
 
-            item.setSalesOrder(salesOrder);
+            inventoryService.reserveStock(
+                    item.getItem(),
+                    item.getQuantity()
+            );
+        }
 
-            salesOrderItemDAO.save(item);
+
+        // SAVE SALES ORDER
+
+        salesOrderDAO.save(
+                salesOrder
+        );
+
+
+        // SAVE SALES ORDER ITEMS
+
+        for (SalesOrderItem item : salesOrderItems) {
+
+            item.setSalesOrder(
+                    salesOrder
+            );
+
+            salesOrderItemDAO.save(
+                    item
+            );
         }
     }
 
 
-    // Get all Sales Orders
+    // GET ALL SALES ORDERS
 
     public List<SalesOrder> getAllSalesOrders() {
 
@@ -44,61 +75,23 @@ public class SalesOrderService {
     }
 
 
-    // Get Sales Order by ID
+    // GET SALES ORDER BY ID
 
-    public SalesOrder getSalesOrderById(int id) {
+    public SalesOrder getSalesOrderById(
+            int id) {
 
         return salesOrderDAO.findById(id);
     }
 
 
-    // Get items belonging to a Sales Order
+    // GET ITEMS OF SALES ORDER
 
     public List<SalesOrderItem> getSalesOrderItems(
             SalesOrder salesOrder) {
 
-        return salesOrderItemDAO.findBySalesOrder(salesOrder);
-    }
-
-
-    // Complete Sales Order
-
-    public void completeSalesOrder(int salesOrderId) {
-
-        SalesOrder salesOrder =
-                salesOrderDAO.findById(salesOrderId);
-
-        if (salesOrder == null) {
-            throw new RuntimeException(
-                    "Sales Order not found"
-            );
-        }
-
-        if ("COMPLETED".equals(salesOrder.getStatus())) {
-            throw new RuntimeException(
-                    "Sales Order already completed"
-            );
-        }
-
-        List<SalesOrderItem> salesOrderItems =
-                salesOrderItemDAO.findBySalesOrder(salesOrder);
-
-
-        // Remove items from inventory
-
-        for (SalesOrderItem orderItem : salesOrderItems) {
-
-            inventoryService.stockOut(
-                    orderItem.getItem(),
-                    orderItem.getQuantity()
-            );
-        }
-
-
-        // Update order status
-
-        salesOrder.setStatus("COMPLETED");
-
-        salesOrderDAO.update(salesOrder);
+        return salesOrderItemDAO
+                .findBySalesOrder(
+                        salesOrder
+                );
     }
 }

@@ -125,36 +125,31 @@
 
     <!-- Complete Sales Order -->
 
-    <c:if test="${salesOrder.status == 'CREATED'}">
+   <c:if test="${salesOrder.status == 'CREATED'}">
 
-        <form action="${pageContext.request.contextPath}/sales-orders"
-              method="post">
+    <a href="${pageContext.request.contextPath}/packages?action=create&salesOrderId=${salesOrder.id}"
+       style="
+           display: inline-block;
+           padding: 10px 18px;
+           background: #2563eb;
+           color: white;
+           text-decoration: none;
+           border-radius: 6px;
+           margin-top: 20px;
+       ">
+        Create Package
+    </a>
 
-            <input type="hidden"
-                   name="action"
-                   value="complete">
-
-            <input type="hidden"
-                   name="salesOrderId"
-                   value="${salesOrder.id}">
-
-            <button type="submit">
-                Complete Order
-            </button>
-
-        </form>
-
-    </c:if>
+</c:if>
 
 
-    <c:if test="${salesOrder.status == 'COMPLETED'}">
+<c:if test="${salesOrder.status == 'COMPLETED'}">
 
-        <p>
-            <strong>✓ Order Completed</strong>
-        </p>
+    <p>
+        <strong>✓ Order Completed</strong>
+    </p>
 
-    </c:if>
-
+</c:if>
 
     <br>
 
