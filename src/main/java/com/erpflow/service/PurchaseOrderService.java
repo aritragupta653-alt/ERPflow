@@ -5,7 +5,6 @@ import com.erpflow.dao.PurchaseOrderItemDAO;
 import com.erpflow.model.PurchaseOrder;
 import com.erpflow.model.PurchaseOrderItem;
 
-
 import java.util.List;
 
 public class PurchaseOrderService {
@@ -17,9 +16,7 @@ public class PurchaseOrderService {
             new PurchaseOrderItemDAO();
 
     private final InventoryService inventoryService =
-        new InventoryService();
-
-
+            new InventoryService();
 
 
     // CREATE PURCHASE ORDER
@@ -29,26 +26,40 @@ public class PurchaseOrderService {
             List<PurchaseOrderItem> purchaseOrderItems
     ) {
 
-        // SAVE MAIN PURCHASE ORDER
+        if (purchaseOrder == null) {
+            throw new RuntimeException(
+                    "Purchase Order is required"
+            );
+        }
+
+        if (purchaseOrder.getSupplier() == null) {
+            throw new RuntimeException(
+                    "Supplier is required"
+            );
+        }
+
+        if (purchaseOrderItems == null ||
+                purchaseOrderItems.isEmpty()) {
+
+            throw new RuntimeException(
+                    "At least one item is required"
+            );
+        }
+
 
         purchaseOrderDAO.save(
                 purchaseOrder
         );
 
 
-        // SAVE ALL PURCHASE ORDER ITEMS
-
         for (
                 PurchaseOrderItem item
                 : purchaseOrderItems
         ) {
 
-            // CONNECT ITEM TO PURCHASE ORDER
-
             item.setPurchaseOrder(
                     purchaseOrder
             );
-
 
             purchaseOrderItemDAO.save(
                     item
@@ -59,8 +70,7 @@ public class PurchaseOrderService {
 
     // GET ALL PURCHASE ORDERS
 
-    public List<PurchaseOrder>
-    getAllPurchaseOrders() {
+    public List<PurchaseOrder> getAllPurchaseOrders() {
 
         return purchaseOrderDAO.findAll();
     }
@@ -76,7 +86,7 @@ public class PurchaseOrderService {
     }
 
 
-    // GET ITEMS OF PURCHASE ORDER
+    // GET PURCHASE ORDER ITEMS
 
     public List<PurchaseOrderItem>
     getPurchaseOrderItems(
@@ -89,78 +99,64 @@ public class PurchaseOrderService {
                 );
     }
 
+
+    // RECEIVE PURCHASE ORDER
+
     public void receivePurchaseOrder(
-        int purchaseOrderId
-) {
-
-    // GET PURCHASE ORDER
-
-    PurchaseOrder purchaseOrder =
-            purchaseOrderDAO.findById(
-                    purchaseOrderId
-            );
-
-
-    if (purchaseOrder == null) {
-
-        throw new RuntimeException(
-                "Purchase Order not found"
-        );
-    }
-
-
-    // PREVENT RECEIVING TWICE
-
-    if ("RECEIVED".equals(
-            purchaseOrder.getStatus()
-    )) {
-
-        throw new RuntimeException(
-                "Purchase Order already received"
-        );
-    }
-
-
-    // GET ALL ITEMS IN THIS PURCHASE ORDER
-
-    List<PurchaseOrderItem> purchaseOrderItems =
-            purchaseOrderItemDAO
-                    .findByPurchaseOrder(
-                            purchaseOrder
-                    );
-
-
-    // PROCESS EVERY ITEM
-
-    for (
-            PurchaseOrderItem orderItem
-            : purchaseOrderItems
+            int purchaseOrderId
     ) {
 
-        // 1. STOCK IN
+        PurchaseOrder purchaseOrder =
+                purchaseOrderDAO.findById(
+                        purchaseOrderId
+                );
 
-        inventoryService.stockIn(
-                orderItem.getItem(),
-                orderItem.getQuantity()
+
+        if (purchaseOrder == null) {
+
+            throw new RuntimeException(
+                    "Purchase Order not found"
+            );
+        }
+
+
+        if ("RECEIVED".equals(
+                purchaseOrder.getStatus()
+        )) {
+
+            throw new RuntimeException(
+                    "Purchase Order already received"
+            );
+        }
+
+
+        List<PurchaseOrderItem>
+                purchaseOrderItems =
+                purchaseOrderItemDAO
+                        .findByPurchaseOrder(
+                                purchaseOrder
+                        );
+
+
+        for (
+                PurchaseOrderItem orderItem
+                : purchaseOrderItems
+        ) {
+
+            inventoryService.stockIn(
+                    orderItem.getItem(),
+                    orderItem.getQuantity()
+            );
+        }
+
+
+        purchaseOrder.setStatus(
+                "RECEIVED"
         );
 
 
-       
-
-
+        purchaseOrderDAO.update(
+                purchaseOrder
+        );
     }
-
-
-    // 3. UPDATE PURCHASE ORDER STATUS
-
-    purchaseOrder.setStatus(
-            "RECEIVED"
-    );
-
-
-    purchaseOrderDAO.update(
-            purchaseOrder
-    );
-}
-
 }

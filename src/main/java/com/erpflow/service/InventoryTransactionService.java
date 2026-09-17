@@ -5,15 +5,15 @@ import com.erpflow.model.InventoryTransaction;
 
 import java.util.List;
 
-
 public class InventoryTransactionService {
 
-    private final InventoryTransactionDAO
-            inventoryTransactionDAO =
+    private final InventoryTransactionDAO inventoryTransactionDAO =
             new InventoryTransactionDAO();
 
 
+    // =========================================================
     // SAVE INVENTORY TRANSACTION
+    // =========================================================
 
     public void addTransaction(
             InventoryTransaction inventoryTransaction
@@ -25,10 +25,11 @@ public class InventoryTransactionService {
     }
 
 
+    // =========================================================
     // GET ALL INVENTORY TRANSACTIONS
+    // =========================================================
 
-    public List<InventoryTransaction>
-    getAllTransactions() {
+    public List<InventoryTransaction> getAllTransactions() {
 
         return inventoryTransactionDAO.findAll();
     }

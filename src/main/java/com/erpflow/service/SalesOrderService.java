@@ -18,9 +18,6 @@ public class SalesOrderService {
     private final InventoryService inventoryService =
             new InventoryService();
 
-
-    // CREATE SALES ORDER
-
     public void createSalesOrder(
             SalesOrder salesOrder,
             List<SalesOrderItem> salesOrderItems) {
@@ -33,9 +30,7 @@ public class SalesOrderService {
             );
         }
 
-
-        // RESERVE STOCK
-
+        // Reserve stock first
         for (SalesOrderItem item : salesOrderItems) {
 
             inventoryService.reserveStock(
@@ -44,54 +39,33 @@ public class SalesOrderService {
             );
         }
 
+        // Save sales order
+        salesOrderDAO.save(salesOrder);
 
-        // SAVE SALES ORDER
-
-        salesOrderDAO.save(
-                salesOrder
-        );
-
-
-        // SAVE SALES ORDER ITEMS
-
+        // Save order items
         for (SalesOrderItem item : salesOrderItems) {
 
-            item.setSalesOrder(
-                    salesOrder
-            );
+            item.setSalesOrder(salesOrder);
 
-            salesOrderItemDAO.save(
-                    item
-            );
+            salesOrderItemDAO.save(item);
         }
     }
-
-
-    // GET ALL SALES ORDERS
 
     public List<SalesOrder> getAllSalesOrders() {
 
         return salesOrderDAO.findAll();
     }
 
-
-    // GET SALES ORDER BY ID
-
-    public SalesOrder getSalesOrderById(
-            int id) {
+    public SalesOrder getSalesOrderById(int id) {
 
         return salesOrderDAO.findById(id);
     }
 
-
-    // GET ITEMS OF SALES ORDER
-
     public List<SalesOrderItem> getSalesOrderItems(
             SalesOrder salesOrder) {
 
-        return salesOrderItemDAO
-                .findBySalesOrder(
-                        salesOrder
-                );
+        return salesOrderItemDAO.findBySalesOrder(
+                salesOrder
+        );
     }
 }

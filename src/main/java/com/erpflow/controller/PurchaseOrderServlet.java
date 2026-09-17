@@ -1,15 +1,16 @@
 package com.erpflow.controller;
 
-import com.erpflow.model.Item;
 import com.erpflow.model.PurchaseOrder;
 import com.erpflow.model.PurchaseOrderItem;
 import com.erpflow.model.Supplier;
+import com.erpflow.model.Item;
 
-import com.erpflow.service.ItemService;
 import com.erpflow.service.PurchaseOrderService;
 import com.erpflow.service.SupplierService;
+import com.erpflow.service.ItemService;
 
-import jakarta.servlet.ServletException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,10 +20,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-
-@WebServlet("/purchase-orders")
+@WebServlet("/api/purchase-orders/*")
 public class PurchaseOrderServlet extends HttpServlet {
 
     private final PurchaseOrderService purchaseOrderService =
@@ -34,243 +36,566 @@ public class PurchaseOrderServlet extends HttpServlet {
     private final ItemService itemService =
             new ItemService();
 
+    private final ObjectMapper objectMapper =
+            new ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
-    // DISPLAY PURCHASE ORDERS
+
+    // ========================================
+    // GET
+    // ========================================
 
     @Override
     protected void doGet(
             HttpServletRequest request,
             HttpServletResponse response
-    ) throws ServletException, IOException {
-        String action = request.getParameter("action");
+    ) throws IOException {
 
-
-    if ("view".equals(action)) {
-
-        int id = Integer.parseInt(
-                request.getParameter("id")
+        response.setContentType(
+                "application/json"
         );
 
-        PurchaseOrder purchaseOrder =
-                purchaseOrderService
-                        .getPurchaseOrderById(id);
-
-
-        List<PurchaseOrderItem> purchaseOrderItems =
-                purchaseOrderService
-                        .getPurchaseOrderItems(
-                                purchaseOrder
-                        );
-
-
-        request.setAttribute(
-                "purchaseOrder",
-                purchaseOrder
-        );
-
-        request.setAttribute(
-                "purchaseOrderItems",
-                purchaseOrderItems
+        response.setCharacterEncoding(
+                "UTF-8"
         );
 
 
-        request.getRequestDispatcher(
-                "/WEB-INF/views/purchaseOrderDetails.jsp"
-        ).forward(request, response);
+        String pathInfo =
+                request.getPathInfo();
 
-        return;
+
+        try {
+
+            // GET /api/purchase-orders
+
+            if (pathInfo == null ||
+                    pathInfo.equals("/")) {
+
+                List<PurchaseOrder> orders =
+                        purchaseOrderService
+                                .getAllPurchaseOrders();
+
+                List<Map<String, Object>> result =
+                        new ArrayList<>();
+
+
+                for (PurchaseOrder order : orders) {
+
+                    result.add(
+                            convertOrder(order)
+                    );
+                }
+
+
+                objectMapper.writeValue(
+                        response.getWriter(),
+                        result
+                );
+
+                return;
+            }
+
+
+            // GET /api/purchase-orders/{id}
+
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
+
+
+            PurchaseOrder order =
+                    purchaseOrderService
+                            .getPurchaseOrderById(id);
+
+
+            if (order == null) {
+
+                sendError(
+                        response,
+                        404,
+                        "Purchase Order not found"
+                );
+
+                return;
+            }
+
+
+            Map<String, Object> result =
+                    convertOrder(order);
+
+
+            List<PurchaseOrderItem> items =
+                    purchaseOrderService
+                            .getPurchaseOrderItems(
+                                    order
+                            );
+
+
+            List<Map<String, Object>> itemList =
+                    new ArrayList<>();
+
+
+            for (PurchaseOrderItem orderItem
+                    : items) {
+
+                Map<String, Object> itemMap =
+                        new HashMap<>();
+
+                itemMap.put(
+                        "id",
+                        orderItem.getId()
+                );
+
+                itemMap.put(
+                        "quantity",
+                        orderItem.getQuantity()
+                );
+
+                itemMap.put(
+                        "purchasePrice",
+                        orderItem.getPurchasePrice()
+                );
+
+                if (orderItem.getItem() != null) {
+
+                    Map<String, Object> item =
+                            new HashMap<>();
+
+                    item.put(
+                            "id",
+                            orderItem.getItem().getId()
+                    );
+
+                    item.put(
+                            "name",
+                            orderItem.getItem().getName()
+                    );
+
+                    item.put(
+                            "sku",
+                            orderItem.getItem().getSku()
+                    );
+
+                    itemMap.put(
+                            "item",
+                            item
+                    );
+                }
+
+
+                itemList.add(itemMap);
+            }
+
+
+            result.put(
+                    "items",
+                    itemList
+            );
+
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    result
+            );
+
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    400,
+                    "Invalid purchase order ID"
+            );
+
+        } catch (RuntimeException e) {
+
+            e.printStackTrace();
+
+            sendError(
+                    response,
+                    400,
+                    e.getMessage()
+            );
+        }
     }
 
 
-        List<PurchaseOrder> purchaseOrders =
-                purchaseOrderService
-                        .getAllPurchaseOrders();
-
-
-        List<Supplier> suppliers =
-                supplierService
-                        .getAllSuppliers();
-
-
-        List<Item> items =
-                itemService
-                        .getAllItems();
-
-
-        request.setAttribute(
-                "purchaseOrders",
-                purchaseOrders
-        );
-
-        request.setAttribute(
-                "suppliers",
-                suppliers
-        );
-
-        request.setAttribute(
-                "items",
-                items
-        );
-
-
-        request.getRequestDispatcher(
-                "/WEB-INF/views/purchaseOrders.jsp"
-        ).forward(request, response);
-    }
-
-
-    // CREATE PURCHASE ORDER
+    // ========================================
+    // POST
+    // ========================================
 
     @Override
     protected void doPost(
             HttpServletRequest request,
             HttpServletResponse response
-    ) throws ServletException, IOException {
-        String action =
-            request.getParameter("action");
+    ) throws IOException {
 
-
-    // RECEIVE PURCHASE ORDER
-
-    if ("receive".equals(action)) {
-
-        int purchaseOrderId =
-                Integer.parseInt(
-                        request.getParameter(
-                                "purchaseOrderId"
-                        )
-                );
-
-
-        purchaseOrderService
-                .receivePurchaseOrder(
-                        purchaseOrderId
-                );
-
-
-        response.sendRedirect(
-                request.getContextPath()
-                        + "/purchase-orders"
-                        + "?action=view&id="
-                        + purchaseOrderId
+        response.setContentType(
+                "application/json"
         );
 
-        return;
+        response.setCharacterEncoding(
+                "UTF-8"
+        );
+
+
+        try {
+
+            String pathInfo =
+                    request.getPathInfo();
+
+
+            // RECEIVE
+
+            if (pathInfo != null &&
+                    pathInfo.matches("/\\d+/receive")) {
+
+                int id =
+                        Integer.parseInt(
+                                pathInfo
+                                        .split("/")[1]
+                        );
+
+
+                purchaseOrderService
+                        .receivePurchaseOrder(id);
+
+
+                response.setStatus(
+                        HttpServletResponse.SC_OK
+                );
+
+
+                Map<String, Object> result =
+                        new HashMap<>();
+
+                result.put(
+                        "message",
+                        "Purchase Order received successfully"
+                );
+
+                result.put(
+                        "purchaseOrderId",
+                        id
+                );
+
+
+                objectMapper.writeValue(
+                        response.getWriter(),
+                        result
+                );
+
+                return;
+            }
+
+
+            // CREATE
+
+            Map<String, Object> body =
+                    objectMapper.readValue(
+                            request.getReader(),
+                            Map.class
+                    );
+
+
+            Number supplierIdNumber =
+                    (Number) body.get(
+                            "supplierId"
+                    );
+
+
+            if (supplierIdNumber == null) {
+
+                sendError(
+                        response,
+                        400,
+                        "Supplier ID is required"
+                );
+
+                return;
+            }
+
+
+            int supplierId =
+                    supplierIdNumber.intValue();
+
+
+            Supplier supplier =
+                    supplierService
+                            .getSupplierById(
+                                    supplierId
+                            );
+
+
+            if (supplier == null) {
+
+                sendError(
+                        response,
+                        404,
+                        "Supplier not found"
+                );
+
+                return;
+            }
+
+
+            PurchaseOrder purchaseOrder =
+                    new PurchaseOrder();
+
+
+            purchaseOrder.setSupplier(
+                    supplier
+            );
+
+            purchaseOrder.setStatus(
+                    "CREATED"
+            );
+
+            purchaseOrder.setOrderDate(
+                    LocalDateTime.now()
+            );
+
+
+            List<Map<String, Object>> items =
+                    (List<Map<String, Object>>)
+                            body.get("items");
+
+
+            if (items == null ||
+                    items.isEmpty()) {
+
+                sendError(
+                        response,
+                        400,
+                        "At least one item is required"
+                );
+
+                return;
+            }
+
+
+            List<PurchaseOrderItem>
+                    purchaseOrderItems =
+                    new ArrayList<>();
+
+
+            for (
+                    Map<String, Object> itemData
+                    : items
+            ) {
+
+                Number itemIdNumber =
+                        (Number) itemData.get(
+                                "itemId"
+                        );
+
+                Number quantityNumber =
+                        (Number) itemData.get(
+                                "quantity"
+                        );
+
+
+                if (itemIdNumber == null ||
+                        quantityNumber == null) {
+
+                    throw new RuntimeException(
+                            "Item ID and quantity are required"
+                    );
+                }
+
+
+                Item item =
+                        itemService.getItemById(
+                                itemIdNumber.intValue()
+                        );
+
+
+                if (item == null) {
+
+                    throw new RuntimeException(
+                            "Item not found"
+                    );
+                }
+
+
+                PurchaseOrderItem
+                        purchaseOrderItem =
+                        new PurchaseOrderItem();
+
+
+                purchaseOrderItem.setItem(
+                        item
+                );
+
+
+                purchaseOrderItem.setQuantity(
+                        quantityNumber.intValue()
+                );
+
+
+                Object price =
+                        itemData.get(
+                                "purchasePrice"
+                        );
+
+
+                if (price == null) {
+
+                    purchaseOrderItem
+                            .setPurchasePrice(
+                                    item.getPurchasePrice()
+                            );
+
+                } else {
+
+                    purchaseOrderItem
+                            .setPurchasePrice(
+                                    new BigDecimal(
+                                            price.toString()
+                                    )
+                            );
+                }
+
+
+                purchaseOrderItems.add(
+                        purchaseOrderItem
+                );
+            }
+
+
+            purchaseOrderService
+                    .createPurchaseOrder(
+                            purchaseOrder,
+                            purchaseOrderItems
+                    );
+
+
+            response.setStatus(
+                    HttpServletResponse.SC_CREATED
+            );
+
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    convertOrder(purchaseOrder)
+            );
+
+
+        } catch (RuntimeException e) {
+
+            e.printStackTrace();
+
+            sendError(
+                    response,
+                    400,
+                    e.getMessage()
+            );
+        }
     }
 
 
-        // GET SUPPLIER
+    // ========================================
+    // CONVERT ORDER TO JSON
+    // ========================================
 
-        int supplierId =
-                Integer.parseInt(
-                        request.getParameter("supplierId")
-                );
+    private Map<String, Object> convertOrder(
+            PurchaseOrder order
+    ) {
 
-
-        Supplier supplier =
-                supplierService.getSupplierById(
-                        supplierId
-                );
+        Map<String, Object> result =
+                new HashMap<>();
 
 
-        // CREATE PURCHASE ORDER
-
-        PurchaseOrder purchaseOrder =
-                new PurchaseOrder();
-
-        purchaseOrder.setSupplier(
-                supplier
+        result.put(
+                "id",
+                order.getId()
         );
 
-        purchaseOrder.setStatus(
-                "CREATED"
+        result.put(
+                "status",
+                order.getStatus()
         );
 
-        purchaseOrder.setOrderDate(
-                LocalDateTime.now()
+        result.put(
+                "orderDate",
+                order.getOrderDate()
         );
 
 
-        // GET MULTIPLE ITEMS
+        if (order.getSupplier() != null) {
 
-        String[] itemIds =
-                request.getParameterValues(
-                        "itemId"
-                );
+            Map<String, Object> supplier =
+                    new HashMap<>();
 
-        String[] quantities =
-                request.getParameterValues(
-                        "quantity"
-                );
+            supplier.put(
+                    "id",
+                    order.getSupplier().getId()
+            );
 
-        String[] purchasePrices =
-                request.getParameterValues(
-                        "purchasePrice"
-                );
+            supplier.put(
+                    "name",
+                    order.getSupplier().getName()
+            );
 
+            supplier.put(
+                    "contactPerson",
+                    order.getSupplier()
+                            .getContactPerson()
+            );
 
-        List<PurchaseOrderItem>
-                purchaseOrderItems =
-                new ArrayList<>();
+            supplier.put(
+                    "phone",
+                    order.getSupplier().getPhone()
+            );
 
+            supplier.put(
+                    "email",
+                    order.getSupplier().getEmail()
+            );
 
-        // CREATE PURCHASE ORDER ITEMS
-
-        for (int i = 0; i < itemIds.length; i++) {
-
-
-            int itemId =
-                    Integer.parseInt(
-                            itemIds[i]
-                    );
-
-
-            Item item =
-                    itemService.getItemById(
-                            itemId
-                    );
-
-
-            PurchaseOrderItem purchaseOrderItem =
-                    new PurchaseOrderItem();
-
-
-            purchaseOrderItem.setItem(
-                    item
+            supplier.put(
+                    "address",
+                    order.getSupplier().getAddress()
             );
 
 
-            purchaseOrderItem.setQuantity(
-                    Integer.parseInt(
-                            quantities[i]
-                    )
-            );
-
-
-            purchaseOrderItem.setPurchasePrice(
-                    new BigDecimal(
-                            purchasePrices[i]
-                    )
-            );
-
-
-            purchaseOrderItems.add(
-                    purchaseOrderItem
+            result.put(
+                    "supplier",
+                    supplier
             );
         }
 
 
-        // SAVE PURCHASE ORDER
+        return result;
+    }
 
-        purchaseOrderService.createPurchaseOrder(
-                purchaseOrder,
-                purchaseOrderItems
+
+    // ========================================
+    // ERROR
+    // ========================================
+
+    private void sendError(
+            HttpServletResponse response,
+            int status,
+            String message
+    ) throws IOException {
+
+        response.setStatus(status);
+
+        Map<String, String> error =
+                new HashMap<>();
+
+        error.put(
+                "error",
+                message != null
+                        ? message
+                        : "Unknown error"
         );
 
 
-        response.sendRedirect(
-                request.getContextPath()
-                        + "/purchase-orders"
+        objectMapper.writeValue(
+                response.getWriter(),
+                error
         );
     }
 }

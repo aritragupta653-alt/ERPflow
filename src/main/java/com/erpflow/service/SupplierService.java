@@ -17,11 +17,28 @@ public class SupplierService {
             Supplier supplier
     ) {
 
-        supplierDAO.save(supplier);
+        if (supplier == null) {
+            throw new RuntimeException(
+                    "Supplier is required"
+            );
+        }
+
+        if (supplier.getName() == null ||
+                supplier.getName().trim().isEmpty()) {
+
+            throw new RuntimeException(
+                    "Supplier name is required"
+            );
+        }
+
+
+        supplierDAO.save(
+                supplier
+        );
     }
 
 
-    // GET ALL SUPPLIERS
+    // GET ALL
 
     public List<Supplier> getAllSuppliers() {
 
@@ -29,7 +46,7 @@ public class SupplierService {
     }
 
 
-    // GET SUPPLIER BY ID
+    // GET BY ID
 
     public Supplier getSupplierById(
             int id
@@ -39,17 +56,25 @@ public class SupplierService {
     }
 
 
-    // UPDATE SUPPLIER
+    // UPDATE
 
     public void updateSupplier(
             Supplier supplier
     ) {
 
-        supplierDAO.update(supplier);
+        if (supplier == null) {
+            throw new RuntimeException(
+                    "Supplier is required"
+            );
+        }
+
+        supplierDAO.update(
+                supplier
+        );
     }
 
 
-    // DELETE SUPPLIER
+    // DELETE
 
     public void deleteSupplier(
             int id

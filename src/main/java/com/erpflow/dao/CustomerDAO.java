@@ -1,101 +1,228 @@
 package com.erpflow.dao;
 
 import com.erpflow.model.Customer;
-import com.erpflow.util.HibernateUtil;
-import org.hibernate.Session;
-import org.hibernate.Transaction;
+import com.erpflow.util.DBConnection;
 
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class CustomerDAO {
 
     public void save(Customer customer) {
-        Transaction transaction = null;
 
-        try (Session session =
-                     HibernateUtil.getSessionFactory().openSession()) {
+        String sql = """
+                INSERT INTO customers
+                (name, email, phone, address, status)
+                VALUES (?, ?, ?, ?, ?)
+                """;
 
-            transaction = session.beginTransaction();
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(
+                             sql,
+                             Statement.RETURN_GENERATED_KEYS
+                     )) {
 
-            session.persist(customer);
+            statement.setString(1, customer.getName());
+            statement.setString(2, customer.getEmail());
+            statement.setString(3, customer.getPhone());
+            statement.setString(4, customer.getAddress());
+            statement.setString(5, customer.getStatus());
 
-            transaction.commit();
+            statement.executeUpdate();
 
-        } catch (Exception e) {
+            try (ResultSet resultSet =
+                         statement.getGeneratedKeys()) {
 
-            if (transaction != null && transaction.isActive()) {
-                transaction.rollback();
+                if (resultSet.next()) {
+                    customer.setId(
+                            resultSet.getInt(1)
+                    );
+                }
             }
 
-            throw e;
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error saving customer",
+                    e
+            );
         }
     }
+
 
     public List<Customer> findAll() {
-        try (Session session =
-                     HibernateUtil.getSessionFactory().openSession()) {
 
-            return session.createQuery(
-                    "FROM Customer c WHERE c.status = 'ACTIVE'",
-                    Customer.class
-            ).getResultList();
+        String sql = """
+                SELECT id, name, email, phone,
+                       address, status
+                FROM customers
+                WHERE status = 'ACTIVE'
+                ORDER BY id
+                """;
+
+        List<Customer> customers =
+                new ArrayList<>();
+
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql);
+             ResultSet resultSet =
+                     statement.executeQuery()) {
+
+            while (resultSet.next()) {
+
+                customers.add(
+                        mapRowToCustomer(resultSet)
+                );
+            }
+
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error fetching customers",
+                    e
+            );
         }
+
+        return customers;
     }
+
 
     public Customer findById(int id) {
-        try (Session session =
-                     HibernateUtil.getSessionFactory().openSession()) {
 
-            return session.get(Customer.class, id);
+        String sql = """
+                SELECT id, name, email, phone,
+                       address, status
+                FROM customers
+                WHERE id = ?
+                """;
+
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setInt(1, id);
+
+            try (ResultSet resultSet =
+                         statement.executeQuery()) {
+
+                if (resultSet.next()) {
+
+                    return mapRowToCustomer(
+                            resultSet
+                    );
+                }
+            }
+
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error fetching customer",
+                    e
+            );
         }
+
+        return null;
     }
+
 
     public void update(Customer customer) {
-        Transaction transaction = null;
 
-        try (Session session =
-                     HibernateUtil.getSessionFactory().openSession()) {
+        String sql = """
+                UPDATE customers
+                SET name = ?,
+                    email = ?,
+                    phone = ?,
+                    address = ?
+                WHERE id = ?
+                """;
 
-            transaction = session.beginTransaction();
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
 
-            session.merge(customer);
+            statement.setString(1, customer.getName());
+            statement.setString(2, customer.getEmail());
+            statement.setString(3, customer.getPhone());
+            statement.setString(4, customer.getAddress());
+            statement.setInt(5, customer.getId());
 
-            transaction.commit();
+            statement.executeUpdate();
 
-        } catch (Exception e) {
+        } catch (SQLException e) {
 
-            if (transaction != null && transaction.isActive()) {
-                transaction.rollback();
-            }
-
-            throw e;
+            throw new RuntimeException(
+                    "Error updating customer",
+                    e
+            );
         }
     }
 
+
     public void delete(int id) {
-        Transaction transaction = null;
 
-        try (Session session =
-                     HibernateUtil.getSessionFactory().openSession()) {
+        String sql = """
+                UPDATE customers
+                SET status = 'INACTIVE'
+                WHERE id = ?
+                """;
 
-            transaction = session.beginTransaction();
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
 
-            Customer customer = session.get(Customer.class, id);
+            statement.setInt(1, id);
 
-            if (customer != null) {
-                customer.setStatus("INACTIVE");
-                session.merge(customer);
-            }
+            statement.executeUpdate();
 
-            transaction.commit();
+        } catch (SQLException e) {
 
-        } catch (Exception e) {
-
-            if (transaction != null && transaction.isActive()) {
-                transaction.rollback();
-            }
-
-            throw e;
+            throw new RuntimeException(
+                    "Error deleting customer",
+                    e
+            );
         }
+    }
+
+
+    private Customer mapRowToCustomer(
+            ResultSet resultSet)
+            throws SQLException {
+
+        Customer customer =
+                new Customer();
+
+        customer.setId(
+                resultSet.getInt("id")
+        );
+
+        customer.setName(
+                resultSet.getString("name")
+        );
+
+        customer.setEmail(
+                resultSet.getString("email")
+        );
+
+        customer.setPhone(
+                resultSet.getString("phone")
+        );
+
+        customer.setAddress(
+                resultSet.getString("address")
+        );
+
+        customer.setStatus(
+                resultSet.getString("status")
+        );
+
+        return customer;
     }
 }

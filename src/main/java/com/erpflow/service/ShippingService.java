@@ -112,7 +112,7 @@ public class ShippingService {
         // Sales Order is now shipped
 
         salesOrder.setStatus(
-                "SHIPPED"
+                "COMPLETED"
         );
 
         salesOrderDAO.update(

@@ -1,131 +1,300 @@
 package com.erpflow.dao;
 
 import com.erpflow.model.Inventory;
-import com.erpflow.util.HibernateUtil;
+import com.erpflow.model.Item;
+import com.erpflow.util.DBConnection;
 
-import org.hibernate.Session;
-import org.hibernate.Transaction;
-
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class InventoryDAO {
 
     public void save(Inventory inventory) {
 
-        Transaction transaction = null;
+        String sql = """
+                INSERT INTO inventory
+                (item_id, quantity, committedquantity)
+                VALUES (?, ?, ?)
+                """;
 
-        try (Session session =
-                     HibernateUtil
-                             .getSessionFactory()
-                             .openSession()) {
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(
+                             sql,
+                             Statement.RETURN_GENERATED_KEYS
+                     )) {
 
-            transaction =
-                    session.beginTransaction();
+            statement.setInt(
+                    1,
+                    inventory.getItem().getId()
+            );
 
-            session.persist(inventory);
+            statement.setInt(
+                    2,
+                    inventory.getQuantity()
+            );
 
-            transaction.commit();
+            statement.setInt(
+                    3,
+                    inventory.getCommittedQuantity()
+            );
 
-        } catch (Exception e) {
+            statement.executeUpdate();
 
-            if (transaction != null) {
-                transaction.rollback();
+            try (ResultSet resultSet =
+                         statement.getGeneratedKeys()) {
+
+                if (resultSet.next()) {
+
+                    inventory.setId(
+                            resultSet.getInt(1)
+                    );
+                }
             }
 
-            throw e;
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error saving inventory",
+                    e
+            );
         }
     }
+
+
     public Inventory findByItemId(int itemId) {
 
-    try (Session session =
-                 HibernateUtil
-                         .getSessionFactory()
-                         .openSession()) {
+        String sql = """
+                SELECT
+                    i.inventory_id,
+                    i.item_id,
+                    i.quantity,
+                    i.committedquantity,
+                    it.name,
+                    it.sku,
+                    it.description,
+                    it.purchase_price,
+                    it.selling_price,
+                    it.reorder_level,
+                    it.status
+                FROM inventory i
+                JOIN items it
+                    ON i.item_id = it.item_id
+                WHERE i.item_id = ?
+                """;
 
-        return session.createQuery(
-                        "FROM Inventory WHERE item.id = :itemId",
-                        Inventory.class
-                )
-                .setParameter("itemId", itemId)
-                .uniqueResult();
-    }
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
 
-}
+            statement.setInt(1, itemId);
 
-public List<Inventory> findAll() {
+            try (ResultSet resultSet =
+                         statement.executeQuery()) {
 
-    try (Session session =
-                 HibernateUtil
-                         .getSessionFactory()
-                         .openSession()) {
+                if (resultSet.next()) {
 
-        return session.createQuery(
-                        "FROM Inventory",
-                        Inventory.class
-                )
-                .getResultList();
-    }
-}
-public void update(Inventory inventory) {
+                    return mapRowToInventory(
+                            resultSet
+                    );
+                }
+            }
 
-    Transaction transaction = null;
+        } catch (SQLException e) {
 
-    try (Session session =
-                 HibernateUtil
-                         .getSessionFactory()
-                         .openSession()) {
-
-        transaction = session.beginTransaction();
-
-        session.merge(inventory);
-
-        transaction.commit();
-
-    } catch (Exception e) {
-
-        if (transaction != null
-                && transaction.isActive()) {
-
-            transaction.rollback();
+            throw new RuntimeException(
+                    "Error fetching inventory",
+                    e
+            );
         }
 
-        throw e;
+        return null;
     }
-}
-public void deleteByItemId(int itemId) {
 
-    Transaction transaction = null;
 
-    try (
-            Session session =
-                    HibernateUtil
-                            .getSessionFactory()
-                            .openSession()
-    ) {
+    public List<Inventory> findAll() {
 
-        transaction =
-                session.beginTransaction();
+        String sql = """
+                SELECT
+                    i.inventory_id,
+                    i.item_id,
+                    i.quantity,
+                    i.committedquantity,
+                    it.name,
+                    it.sku,
+                    it.description,
+                    it.purchase_price,
+                    it.selling_price,
+                    it.reorder_level,
+                    it.status
+                FROM inventory i
+                JOIN items it
+                    ON i.item_id = it.item_id
+                ORDER BY i.inventory_id
+                """;
 
-        session.createMutationQuery(
-                "DELETE FROM Inventory " +
-                "WHERE item.id = :itemId"
-        )
-        .setParameter(
-                "itemId",
-                itemId
-        )
-        .executeUpdate();
+        List<Inventory> inventories =
+                new ArrayList<>();
 
-        transaction.commit();
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql);
+             ResultSet resultSet =
+                     statement.executeQuery()) {
 
-    } catch (Exception e) {
+            while (resultSet.next()) {
 
-        if (transaction != null) {
+                inventories.add(
+                        mapRowToInventory(resultSet)
+                );
+            }
 
-            transaction.rollback();
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error fetching inventory",
+                    e
+            );
         }
 
-        throw e;
+        return inventories;
     }
-}
+
+
+    public void update(Inventory inventory) {
+
+        String sql = """
+                UPDATE inventory
+                SET quantity = ?,
+                    committedquantity = ?
+                WHERE inventory_id = ?
+                """;
+
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setInt(
+                    1,
+                    inventory.getQuantity()
+            );
+
+            statement.setInt(
+                    2,
+                    inventory.getCommittedQuantity()
+            );
+
+            statement.setInt(
+                    3,
+                    inventory.getId()
+            );
+
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error updating inventory",
+                    e
+            );
+        }
+    }
+
+
+    public void deleteByItemId(int itemId) {
+
+        String sql = """
+                DELETE FROM inventory
+                WHERE item_id = ?
+                """;
+
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setInt(1, itemId);
+
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error deleting inventory",
+                    e
+            );
+        }
+    }
+
+
+    private Inventory mapRowToInventory(
+            ResultSet resultSet)
+            throws SQLException {
+
+        Item item = new Item();
+
+        item.setId(
+                resultSet.getInt("item_id")
+        );
+
+        item.setName(
+                resultSet.getString("name")
+        );
+
+        item.setSku(
+                resultSet.getString("sku")
+        );
+
+        item.setDescription(
+                resultSet.getString("description")
+        );
+
+        item.setPurchasePrice(
+                resultSet.getBigDecimal(
+                        "purchase_price"
+                )
+        );
+
+        item.setSellingPrice(
+                resultSet.getBigDecimal(
+                        "selling_price"
+                )
+        );
+
+        item.setReorderLevel(
+                resultSet.getInt(
+                        "reorder_level"
+                )
+        );
+
+        item.setStatus(
+                resultSet.getString("status")
+        );
+
+        Inventory inventory =
+                new Inventory();
+
+        inventory.setId(
+                resultSet.getInt("inventory_id")
+        );
+
+        inventory.setItem(item);
+
+        inventory.setQuantity(
+                resultSet.getInt("quantity")
+        );
+
+        inventory.setCommittedQuantity(
+                resultSet.getInt(
+                        "committedquantity"
+                )
+        );
+
+        return inventory;
+    }
 }

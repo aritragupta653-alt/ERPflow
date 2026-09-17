@@ -3,26 +3,25 @@ package com.erpflow.model;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "customers")
+
 public class Customer {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    
+    
     private int id;
 
-    @Column(nullable = false)
+    
     private String name;
 
-    @Column(nullable = false)
+    
     private String email;
 
-    @Column(nullable = false)
     private String phone;
 
-    @Column(nullable = false)
+
     private String address;
 
-    @Column(nullable = false)
+    
     private String status;
 
     public int getId() {

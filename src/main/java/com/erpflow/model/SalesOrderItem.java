@@ -1,28 +1,13 @@
 package com.erpflow.model;
 
-import jakarta.persistence.*;
 import java.math.BigDecimal;
 
-@Entity
-@Table(name = "sales_order_items")
 public class SalesOrderItem {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-
-    @ManyToOne
-    @JoinColumn(name = "sales_order_id", nullable = false)
     private SalesOrder salesOrder;
-
-    @ManyToOne
-    @JoinColumn(name = "item_id", nullable = false)
     private Item item;
-
-    @Column(nullable = false)
     private int quantity;
-
-    @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal sellingPrice;
 
     public int getId() {

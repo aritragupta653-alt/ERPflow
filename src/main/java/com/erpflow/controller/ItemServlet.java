@@ -1,9 +1,9 @@
 package com.erpflow.controller;
 
-
 import com.erpflow.model.Item;
-
 import com.erpflow.service.ItemService;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -12,214 +12,280 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.List;
 
-@WebServlet("/items")
+@WebServlet("/api/items/*")
 public class ItemServlet extends HttpServlet {
 
     private final ItemService itemService =
             new ItemService();
 
+    private final ObjectMapper objectMapper =
+            new ObjectMapper();
+
 
     @Override
     protected void doGet(
             HttpServletRequest request,
-            HttpServletResponse response
-    ) throws ServletException, IOException {
+            HttpServletResponse response)
+            throws ServletException, IOException {
 
-        String action =
-                request.getParameter("action");
+        setJsonResponse(response);
 
+        String pathInfo =
+                request.getPathInfo();
 
-        // EDIT ITEM
-        if ("edit".equals(action)) {
+        // GET /api/items
+        if (pathInfo == null ||
+                pathInfo.equals("/")) {
 
-            int id = Integer.parseInt(
-                    request.getParameter("id")
+            List<Item> items =
+                    itemService.getAllItems();
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    items
             );
-
-            Item item =
-                    itemService.getItemById(id);
-
-            request.setAttribute(
-                    "item",
-                    item
-            );
-
-            request.getRequestDispatcher(
-                    "/WEB-INF/views/editItem.jsp"
-            ).forward(request, response);
 
             return;
         }
 
 
-        // DISPLAY ALL ITEMS
+        // GET /api/items/{id}
+        try {
 
-        List<Item> items =
-                itemService.getAllItems();
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
 
-        request.setAttribute(
-                "items",
-                items
-        );
+            Item item =
+                    itemService.getItemById(id);
 
-        request.getRequestDispatcher(
-                "/WEB-INF/views/items.jsp"
-        ).forward(request, response);
+            if (item == null) {
+
+                sendError(
+                        response,
+                        HttpServletResponse.SC_NOT_FOUND,
+                        "Item not found"
+                );
+
+                return;
+            }
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    item
+            );
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid item ID"
+            );
+        }
     }
 
 
     @Override
     protected void doPost(
             HttpServletRequest request,
-            HttpServletResponse response
-    ) throws ServletException, IOException {
+            HttpServletResponse response)
+            throws ServletException, IOException {
 
-        String action =
-                request.getParameter("action");
+        setJsonResponse(response);
 
+        try {
 
-        // =========================
-        // DELETE ITEM
-        // =========================
+            Item item =
+                    objectMapper.readValue(
+                            request.getReader(),
+                            Item.class
+                    );
 
-        if ("delete".equals(action)) {
+            itemService.createItem(item);
 
-            int id = Integer.parseInt(
-                    request.getParameter("id")
+            response.setStatus(
+                    HttpServletResponse.SC_CREATED
             );
 
-            itemService.deleteItem(id);
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    item
+            );
 
-            response.sendRedirect(
-                    request.getContextPath()
-                            + "/items"
+        } catch (RuntimeException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    e.getMessage()
+            );
+        }
+    }
+
+
+    @Override
+    protected void doPut(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
+        setJsonResponse(response);
+
+        String pathInfo =
+                request.getPathInfo();
+
+        if (pathInfo == null ||
+                pathInfo.equals("/")) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Item ID is required"
             );
 
             return;
         }
 
 
-        // =========================
-        // UPDATE ITEM
-        // =========================
+        try {
 
-        if ("update".equals(action)) {
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
 
-            int id = Integer.parseInt(
-                    request.getParameter("id")
-            );
-
-
-            Item item = itemService.getItemById(id);
+            Item item =
+                    objectMapper.readValue(
+                            request.getReader(),
+                            Item.class
+                    );
 
             item.setId(id);
 
-            item.setName(
-                    request.getParameter("name")
-            );
-
-            item.setSku(
-                    request.getParameter("sku")
-            );
-
-            item.setDescription(
-                    request.getParameter("description")
-            );
-
-            item.setPurchasePrice(
-                    new BigDecimal(
-                            request.getParameter(
-                                    "purchasePrice"
-                            )
-                    )
-            );
-
-            item.setSellingPrice(
-                    new BigDecimal(
-                            request.getParameter(
-                                    "sellingPrice"
-                            )
-                    )
-            );
-
-            item.setReorderLevel(
-                    Integer.parseInt(
-                            request.getParameter(
-                                    "reorderLevel"
-                            )
-                    )
-            );
-
-
             itemService.updateItem(item);
 
-       
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    item
+            );
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid item ID"
+            );
+
+        } catch (RuntimeException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    e.getMessage()
+            );
+        }
+    }
 
 
-            response.sendRedirect(
-                    request.getContextPath()
-                            + "/items"
+    @Override
+    protected void doDelete(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
+        setJsonResponse(response);
+
+        String pathInfo =
+                request.getPathInfo();
+
+        if (pathInfo == null ||
+                pathInfo.equals("/")) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Item ID is required"
             );
 
             return;
         }
 
 
-        // =========================
-        // ADD ITEM
-        // =========================
+        try {
 
-        Item item = new Item();
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
+
+            itemService.deleteItem(id);
+
+            response.setStatus(
+                    HttpServletResponse.SC_NO_CONTENT
+            );
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid item ID"
+            );
+
+        } catch (RuntimeException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_NOT_FOUND,
+                    e.getMessage()
+            );
+        }
+    }
 
 
-        item.setName(
-                request.getParameter("name")
+    private void setJsonResponse(
+            HttpServletResponse response) {
+
+        response.setContentType(
+                "application/json"
         );
 
-        item.setSku(
-                request.getParameter("sku")
+        response.setCharacterEncoding(
+                "UTF-8"
         );
+    }
 
-        item.setDescription(
-                request.getParameter("description")
+
+    private void sendError(
+            HttpServletResponse response,
+            int status,
+            String message)
+            throws IOException {
+
+        response.setStatus(status);
+
+        objectMapper.writeValue(
+                response.getWriter(),
+                new ErrorResponse(message)
         );
-
-        item.setPurchasePrice(
-                new BigDecimal(
-                        request.getParameter(
-                                "purchasePrice"
-                        )
-                )
-        );
-
-        item.setSellingPrice(
-                new BigDecimal(
-                        request.getParameter(
-                                "sellingPrice"
-                        )
-                )
-        );
-
-        item.setReorderLevel(
-                Integer.parseInt(
-                        request.getParameter(
-                                "reorderLevel"
-                        )
-                )
-        );
-        item.setStatus("ACTIVE");
+    }
 
 
-        itemService.addItem(item);
-    
+    private static class ErrorResponse {
 
+        private final String error;
 
-        response.sendRedirect(
-                request.getContextPath()
-                        + "/items"
-        );
+        public ErrorResponse(String error) {
+            this.error = error;
+        }
+
+        public String getError() {
+            return error;
+        }
     }
 }

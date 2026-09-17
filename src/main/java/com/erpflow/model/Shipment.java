@@ -1,24 +1,12 @@
 package com.erpflow.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "shipments")
 public class Shipment {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-
-    @OneToOne
-    @JoinColumn(name = "package_id", nullable = false, unique = true)
     private Package packageEntity;
-
-    @Column(nullable = false)
     private LocalDateTime shipmentDate;
-
-    @Column(nullable = false)
     private String status;
 
     public int getId() {

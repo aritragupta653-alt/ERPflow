@@ -15,6 +15,17 @@ public class DBConnection {
     private static final String PASSWORD =
             "";
 
+    static {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(
+                    "MySQL JDBC Driver not found",
+                    e
+            );
+        }
+    }
+
     public static Connection getConnection()
             throws SQLException {
 

@@ -3,6 +3,8 @@ package com.erpflow.controller;
 import com.erpflow.model.Customer;
 import com.erpflow.service.CustomerService;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -10,102 +12,287 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.List;
 
-@WebServlet("/customers")
+@WebServlet("/api/customers/*")
 public class CustomerServlet extends HttpServlet {
 
-    private final CustomerService customerService = new CustomerService();
+    private final CustomerService customerService =
+            new CustomerService();
+
+    private final ObjectMapper objectMapper =
+            new ObjectMapper();
+
 
     @Override
-    protected void doGet(HttpServletRequest request,
-                          HttpServletResponse response)
+    protected void doGet(
+            HttpServletRequest request,
+            HttpServletResponse response)
             throws ServletException, IOException {
 
-        String action = request.getParameter("action");
+        setJsonResponse(response);
 
-        // Edit customer
-        if ("edit".equals(action)) {
+        String pathInfo =
+                request.getPathInfo();
 
-            int id = Integer.parseInt(request.getParameter("id"));
 
-            Customer customer = customerService.getCustomerById(id);
+        // GET /api/customers
+        if (pathInfo == null ||
+                pathInfo.equals("/")) {
 
-            request.setAttribute("customer", customer);
+            List<Customer> customers =
+                    customerService.getAllCustomers();
 
-            request.getRequestDispatcher(
-                    "/WEB-INF/views/editCustomer.jsp"
-            ).forward(request, response);
-
-            return;
-        }
-
-        // Display all customers
-        request.setAttribute(
-                "customers",
-                customerService.getAllCustomers()
-        );
-
-        request.getRequestDispatcher(
-                "/WEB-INF/views/customers.jsp"
-        ).forward(request, response);
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest request,
-                           HttpServletResponse response)
-            throws ServletException, IOException {
-
-        String action = request.getParameter("action");
-
-        // Delete customer
-        if ("delete".equals(action)) {
-
-            int id = Integer.parseInt(request.getParameter("id"));
-
-            customerService.deleteCustomer(id);
-
-            response.sendRedirect(
-                    request.getContextPath() + "/customers"
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    customers
             );
 
             return;
         }
 
-        // Update customer
-        if ("update".equals(action)) {
 
-            int id = Integer.parseInt(request.getParameter("id"));
+        // GET /api/customers/{id}
+        try {
+
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
 
             Customer customer =
                     customerService.getCustomerById(id);
 
-            customer.setName(request.getParameter("name"));
-            customer.setEmail(request.getParameter("email"));
-            customer.setPhone(request.getParameter("phone"));
-            customer.setAddress(request.getParameter("address"));
+            if (customer == null) {
 
-            customerService.updateCustomer(customer);
+                sendError(
+                        response,
+                        HttpServletResponse.SC_NOT_FOUND,
+                        "Customer not found"
+                );
 
-            response.sendRedirect(
-                    request.getContextPath() + "/customers"
+                return;
+            }
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    customer
+            );
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid customer ID"
+            );
+        }
+    }
+
+
+    @Override
+    protected void doPost(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
+        setJsonResponse(response);
+
+        try {
+
+            Customer customer =
+                    objectMapper.readValue(
+                            request.getReader(),
+                            Customer.class
+                    );
+
+            customerService.createCustomer(
+                    customer
+            );
+
+            response.setStatus(
+                    HttpServletResponse.SC_CREATED
+            );
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    customer
+            );
+
+        } catch (RuntimeException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    e.getMessage()
+            );
+        }
+    }
+
+
+    @Override
+    protected void doPut(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
+        setJsonResponse(response);
+
+        String pathInfo =
+                request.getPathInfo();
+
+
+        if (pathInfo == null ||
+                pathInfo.equals("/")) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Customer ID is required"
             );
 
             return;
         }
 
-        // Create customer
-        Customer customer = new Customer();
 
-        customer.setName(request.getParameter("name"));
-        customer.setEmail(request.getParameter("email"));
-        customer.setPhone(request.getParameter("phone"));
-        customer.setAddress(request.getParameter("address"));
-        customer.setStatus("ACTIVE");
+        try {
 
-        customerService.addCustomer(customer);
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
 
-        response.sendRedirect(
-                request.getContextPath() + "/customers"
+            Customer customer =
+                    objectMapper.readValue(
+                            request.getReader(),
+                            Customer.class
+                    );
+
+            customer.setId(id);
+
+            customerService.updateCustomer(
+                    customer
+            );
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    customer
+            );
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid customer ID"
+            );
+
+        } catch (RuntimeException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    e.getMessage()
+            );
+        }
+    }
+
+
+    @Override
+    protected void doDelete(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
+        setJsonResponse(response);
+
+        String pathInfo =
+                request.getPathInfo();
+
+
+        if (pathInfo == null ||
+                pathInfo.equals("/")) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Customer ID is required"
+            );
+
+            return;
+        }
+
+
+        try {
+
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
+
+            customerService.deleteCustomer(id);
+
+            response.setStatus(
+                    HttpServletResponse.SC_NO_CONTENT
+            );
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid customer ID"
+            );
+
+        } catch (RuntimeException e) {
+
+            sendError(
+                    response,
+                    HttpServletResponse.SC_NOT_FOUND,
+                    e.getMessage()
+            );
+        }
+    }
+
+
+    private void setJsonResponse(
+            HttpServletResponse response) {
+
+        response.setContentType(
+                "application/json"
         );
+
+        response.setCharacterEncoding(
+                "UTF-8"
+        );
+    }
+
+
+    private void sendError(
+            HttpServletResponse response,
+            int status,
+            String message)
+            throws IOException {
+
+        response.setStatus(status);
+
+        objectMapper.writeValue(
+                response.getWriter(),
+                new ErrorResponse(message)
+        );
+    }
+
+
+    private static class ErrorResponse {
+
+        private final String error;
+
+        public ErrorResponse(String error) {
+            this.error = error;
+        }
+
+        public String getError() {
+            return error;
+        }
     }
 }

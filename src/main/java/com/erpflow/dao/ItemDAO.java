@@ -1,133 +1,238 @@
 package com.erpflow.dao;
-import java.util.List;
-import com.erpflow.model.Item;
-import com.erpflow.util.HibernateUtil;
 
-import org.hibernate.Session;
-import org.hibernate.Transaction;
+import com.erpflow.model.Item;
+import com.erpflow.util.DBConnection;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ItemDAO {
 
     public void save(Item item) {
 
-        Transaction transaction = null;
+        String sql = """
+                INSERT INTO items
+                (name, sku, description, purchase_price,
+                 selling_price, reorder_level, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """;
 
-        try (Session session =
-                     HibernateUtil
-                             .getSessionFactory()
-                             .openSession()) {
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(
+                             sql,
+                             Statement.RETURN_GENERATED_KEYS
+                     )) {
 
-            transaction =
-                    session.beginTransaction();
+            statement.setString(1, item.getName());
+            statement.setString(2, item.getSku());
+            statement.setString(3, item.getDescription());
+            statement.setBigDecimal(4, item.getPurchasePrice());
+            statement.setBigDecimal(5, item.getSellingPrice());
+            statement.setInt(6, item.getReorderLevel());
+            statement.setString(7, item.getStatus());
 
-            session.persist(item);
+            statement.executeUpdate();
 
-            transaction.commit();
+            try (ResultSet resultSet =
+                         statement.getGeneratedKeys()) {
 
-        } catch (Exception e) {
-
-            if (transaction != null && transaction.isActive()) {
-                transaction.rollback();
+                if (resultSet.next()) {
+                    item.setId(resultSet.getInt(1));
+                }
             }
 
-            throw e;
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error saving item",
+                    e
+            );
         }
     }
+
 
     public List<Item> findAll() {
 
-    try (Session session =
-                 HibernateUtil
-                         .getSessionFactory()
-                         .openSession()) {
-        
+        String sql = """
+                SELECT item_id, name, sku, description,
+                       purchase_price, selling_price,
+                       reorder_level, status
+                FROM items
+                WHERE status = 'ACTIVE'
+                ORDER BY item_id
+                """;
 
-        return session
-                .createQuery(
-                        "FROM Item i "+"WHERE i.status ='ACTIVE'",
-                        Item.class
-                )
-                .getResultList();
-    }
-}
-public void delete(int id) {
+        List<Item> items = new ArrayList<>();
 
-    Transaction transaction = null;
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql);
+             ResultSet resultSet =
+                     statement.executeQuery()) {
 
-    try (
-            Session session =
-                    HibernateUtil
-                            .getSessionFactory()
-                            .openSession()
-    ) {
+            while (resultSet.next()) {
 
-        transaction =
-                session.beginTransaction();
-
-        Item item =
-                session.get(
-                        Item.class,
-                        id
+                items.add(
+                        mapRowToItem(resultSet)
                 );
+            }
 
-        if (item != null) {
+        } catch (SQLException e) {
 
-            item.setStatus(
-                    "INACTIVE"
+            throw new RuntimeException(
+                    "Error fetching items",
+                    e
             );
-
-            session.merge(item);
         }
 
-        transaction.commit();
-
-    } catch (Exception e) {
-
-        if (transaction != null) {
-
-            transaction.rollback();
-        }
-
-        throw e;
+        return items;
     }
-}
-public Item findById(int id) {
 
-    try (Session session =
-                 HibernateUtil
-                         .getSessionFactory()
-                         .openSession()) {
 
-        return session.get(
-                Item.class,
-                id
+    public Item findById(int id) {
+
+        String sql = """
+                SELECT item_id, name, sku, description,
+                       purchase_price, selling_price,
+                       reorder_level, status
+                FROM items
+                WHERE item_id = ?
+                """;
+
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setInt(1, id);
+
+            try (ResultSet resultSet =
+                         statement.executeQuery()) {
+
+                if (resultSet.next()) {
+
+                    return mapRowToItem(resultSet);
+                }
+            }
+
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error fetching item",
+                    e
+            );
+        }
+
+        return null;
+    }
+
+
+    public void update(Item item) {
+
+        String sql = """
+                UPDATE items
+                SET name = ?,
+                    sku = ?,
+                    description = ?,
+                    purchase_price = ?,
+                    selling_price = ?,
+                    reorder_level = ?
+                WHERE item_id = ?
+                """;
+
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setString(1, item.getName());
+            statement.setString(2, item.getSku());
+            statement.setString(3, item.getDescription());
+            statement.setBigDecimal(4, item.getPurchasePrice());
+            statement.setBigDecimal(5, item.getSellingPrice());
+            statement.setInt(6, item.getReorderLevel());
+            statement.setInt(7, item.getId());
+
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error updating item",
+                    e
+            );
+        }
+    }
+
+
+    public void delete(int id) {
+
+        String sql = """
+                UPDATE items
+                SET status = 'INACTIVE'
+                WHERE item_id = ?
+                """;
+
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
+
+            statement.setInt(1, id);
+
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error deleting item",
+                    e
+            );
+        }
+    }
+
+
+    private Item mapRowToItem(ResultSet resultSet)
+            throws SQLException {
+
+        Item item = new Item();
+
+        item.setId(
+                resultSet.getInt("item_id")
         );
+
+        item.setName(
+                resultSet.getString("name")
+        );
+
+        item.setSku(
+                resultSet.getString("sku")
+        );
+
+        item.setDescription(
+                resultSet.getString("description")
+        );
+
+        item.setPurchasePrice(
+                resultSet.getBigDecimal("purchase_price")
+        );
+
+        item.setSellingPrice(
+                resultSet.getBigDecimal("selling_price")
+        );
+
+        item.setReorderLevel(
+                resultSet.getInt("reorder_level")
+        );
+
+        item.setStatus(
+                resultSet.getString("status")
+        );
+
+        return item;
     }
-}
-public void update(Item item) {
-
-    Transaction transaction = null;
-
-    try (Session session =
-                 HibernateUtil
-                         .getSessionFactory()
-                         .openSession()) {
-
-        transaction = session.beginTransaction();
-
-        session.merge(item);
-
-        transaction.commit();
-
-    } catch (Exception e) {
-
-        if (transaction != null
-                && transaction.isActive()) {
-
-            transaction.rollback();
-        }
-
-        throw e;
-    }
-}
 }

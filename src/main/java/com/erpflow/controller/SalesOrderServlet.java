@@ -7,6 +7,8 @@ import com.erpflow.model.SalesOrderItem;
 import com.erpflow.service.CustomerService;
 import com.erpflow.service.ItemService;
 import com.erpflow.service.SalesOrderService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -18,9 +20,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-@WebServlet("/sales-orders")
+@WebServlet("/api/sales-orders/*")
 public class SalesOrderServlet extends HttpServlet {
 
     private final SalesOrderService salesOrderService =
@@ -32,189 +36,399 @@ public class SalesOrderServlet extends HttpServlet {
     private final ItemService itemService =
             new ItemService();
 
-
-    @Override
-    protected void doGet(HttpServletRequest request,
-                          HttpServletResponse response)
-            throws ServletException, IOException {
-
-        String action = request.getParameter("action");
-
-
-        // View Sales Order
-
-        if ("view".equals(action)) {
-
-            int id = Integer.parseInt(
-                    request.getParameter("id")
-            );
-
-            SalesOrder salesOrder =
-                    salesOrderService.getSalesOrderById(id);
-
-            List<SalesOrderItem> salesOrderItems =
-                    salesOrderService.getSalesOrderItems(
-                            salesOrder
+    private final ObjectMapper objectMapper =
+            new ObjectMapper()
+                    .registerModule(
+                            new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule()
                     );
 
-            request.setAttribute(
-                    "salesOrder",
-                    salesOrder
+    // =========================
+    // GET
+    // =========================
+
+    @Override
+    protected void doGet(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        try {
+
+            String path = request.getPathInfo();
+
+            // ==========================================
+            // GET /api/sales-orders/{id}/items
+            // ==========================================
+
+            if (path != null && !path.equals("/")) {
+
+                String[] parts = path.split("/");
+
+                if (parts.length == 3 &&
+                        "items".equalsIgnoreCase(parts[2])) {
+
+                    int salesOrderId =
+                            Integer.parseInt(parts[1]);
+
+                    SalesOrder order =
+                            salesOrderService.getSalesOrderById(
+                                    salesOrderId
+                            );
+
+                    if (order == null) {
+
+                        response.setStatus(
+                                HttpServletResponse.SC_NOT_FOUND
+                        );
+
+                        Map<String, String> error =
+                                new HashMap<>();
+
+                        error.put(
+                                "error",
+                                "Sales order not found"
+                        );
+
+                        objectMapper.writeValue(
+                                response.getWriter(),
+                                error
+                        );
+
+                        return;
+                    }
+
+                    List<SalesOrderItem> orderItems =
+                            salesOrderService.getSalesOrderItems(
+                                    order
+                            );
+
+                    /*
+                     * Return only the information needed
+                     * by the Package page.
+                     *
+                     * This also avoids Jackson recursion.
+                     */
+
+                    List<Map<String, Object>> result =
+                            new ArrayList<>();
+
+                    for (SalesOrderItem orderItem : orderItems) {
+
+                        Map<String, Object> item =
+                                new HashMap<>();
+
+                        item.put(
+                                "itemId",
+                                orderItem.getItem().getId()
+                        );
+
+                        item.put(
+                                "name",
+                                orderItem.getItem().getName()
+                        );
+
+                        item.put(
+                                "sku",
+                                orderItem.getItem().getSku()
+                        );
+
+                        item.put(
+                                "quantity",
+                                orderItem.getQuantity()
+                        );
+
+                        item.put(
+                                "sellingPrice",
+                                orderItem.getSellingPrice()
+                        );
+
+                        result.add(item);
+                    }
+
+                    objectMapper.writeValue(
+                            response.getWriter(),
+                            result
+                    );
+
+                    return;
+                }
+            }
+
+            // ==========================================
+            // GET /api/sales-orders
+            // ==========================================
+
+            String idParameter =
+                    request.getParameter("id");
+
+            if (idParameter == null ||
+                    idParameter.isBlank()) {
+
+                List<SalesOrder> orders =
+                        salesOrderService
+                                .getAllSalesOrders();
+
+                objectMapper.writeValue(
+                        response.getWriter(),
+                        orders
+                );
+
+                return;
+            }
+
+            // ==========================================
+            // GET /api/sales-orders?id=1
+            // ==========================================
+
+            int id =
+                    Integer.parseInt(idParameter);
+
+            SalesOrder order =
+                    salesOrderService
+                            .getSalesOrderById(id);
+
+            if (order == null) {
+
+                response.setStatus(
+                        HttpServletResponse.SC_NOT_FOUND
+                );
+
+                Map<String, String> error =
+                        new HashMap<>();
+
+                error.put(
+                        "error",
+                        "Sales order not found"
+                );
+
+                objectMapper.writeValue(
+                        response.getWriter(),
+                        error
+                );
+
+                return;
+            }
+
+            List<SalesOrderItem> orderItems =
+                    salesOrderService
+                            .getSalesOrderItems(order);
+
+            Map<String, Object> result =
+                    new HashMap<>();
+
+            result.put("order", order);
+            result.put("items", orderItems);
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    result
             );
 
-            request.setAttribute(
-                    "salesOrderItems",
+        } catch (NumberFormatException e) {
+
+            response.setStatus(
+                    HttpServletResponse.SC_BAD_REQUEST
+            );
+
+            Map<String, String> error =
+                    new HashMap<>();
+
+            error.put(
+                    "error",
+                    "Invalid sales order ID"
+            );
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    error
+            );
+
+        } catch (Exception e) {
+
+            response.setStatus(
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR
+            );
+
+            Map<String, String> error =
+                    new HashMap<>();
+
+            error.put(
+                    "error",
+                    e.getMessage()
+            );
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    error
+            );
+        }
+    }
+
+    // =========================
+    // POST
+    // =========================
+
+    @Override
+    protected void doPost(
+            HttpServletRequest request,
+            HttpServletResponse response)
+            throws ServletException, IOException {
+
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        try {
+
+            JsonNode root =
+                    objectMapper.readTree(
+                            request.getInputStream()
+                    );
+
+            int customerId =
+                    root.get("customerId").asInt();
+
+            Customer customer =
+                    customerService
+                            .getCustomerById(customerId);
+
+            if (customer == null) {
+
+                response.setStatus(
+                        HttpServletResponse.SC_BAD_REQUEST
+                );
+
+                Map<String, String> error =
+                        new HashMap<>();
+
+                error.put(
+                        "error",
+                        "Customer not found"
+                );
+
+                objectMapper.writeValue(
+                        response.getWriter(),
+                        error
+                );
+
+                return;
+            }
+
+            SalesOrder salesOrder =
+                    new SalesOrder();
+
+            salesOrder.setCustomer(customer);
+
+            salesOrder.setOrderDate(
+                    LocalDateTime.now()
+            );
+
+            salesOrder.setStatus("CREATED");
+
+            List<SalesOrderItem> salesOrderItems =
+                    new ArrayList<>();
+
+            JsonNode itemsNode =
+                    root.get("items");
+
+            if (itemsNode == null ||
+                    !itemsNode.isArray() ||
+                    itemsNode.isEmpty()) {
+
+                throw new RuntimeException(
+                        "Sales Order must contain at least one item"
+                );
+            }
+
+            for (JsonNode itemNode : itemsNode) {
+
+                int itemId =
+                        itemNode
+                                .get("itemId")
+                                .asInt();
+
+                int quantity =
+                        itemNode
+                                .get("quantity")
+                                .asInt();
+
+                BigDecimal sellingPrice =
+                        itemNode
+                                .get("sellingPrice")
+                                .decimalValue();
+
+                Item item =
+                        itemService
+                                .getItemById(itemId);
+
+                if (item == null) {
+
+                    throw new RuntimeException(
+                            "Item not found: " + itemId
+                    );
+                }
+
+                SalesOrderItem orderItem =
+                        new SalesOrderItem();
+
+                orderItem.setItem(item);
+
+                orderItem.setQuantity(quantity);
+
+                orderItem.setSellingPrice(
+                        sellingPrice
+                );
+
+                salesOrderItems.add(orderItem);
+            }
+
+            salesOrderService.createSalesOrder(
+                    salesOrder,
                     salesOrderItems
             );
 
-            request.getRequestDispatcher(
-                    "/WEB-INF/views/salesOrderDetails.jsp"
-            ).forward(request, response);
-
-            return;
-        }
-
-
-        // Sales Order List
-
-        List<SalesOrder> salesOrders =
-                salesOrderService.getAllSalesOrders();
-
-        List<Customer> customers =
-                customerService.getAllCustomers();
-
-        List<Item> items =
-                itemService.getAllItems();
-
-
-        request.setAttribute(
-                "salesOrders",
-                salesOrders
-        );
-
-        request.setAttribute(
-                "customers",
-                customers
-        );
-
-        request.setAttribute(
-                "items",
-                items
-        );
-
-
-        request.getRequestDispatcher(
-                "/WEB-INF/views/salesOrders.jsp"
-        ).forward(request, response);
-    }
-
-
-    @Override
-    protected void doPost(HttpServletRequest request,
-                           HttpServletResponse response)
-            throws ServletException, IOException {
-
-        String action = request.getParameter("action");
-
-
-        // Complete Sales Order
-
-        /*if ("complete".equals(action)) {
-
-            int salesOrderId = Integer.parseInt(
-                    request.getParameter("salesOrderId")
+            response.setStatus(
+                    HttpServletResponse.SC_CREATED
             );
 
-            salesOrderService.completeSalesOrder(
-                    salesOrderId
+            Map<String, Object> result =
+                    new HashMap<>();
+
+            result.put(
+                    "message",
+                    "Sales order created successfully"
             );
 
-            response.sendRedirect(
-                    request.getContextPath()
-                            + "/sales-orders"
-                            + "?action=view&id="
-                            + salesOrderId
+            result.put(
+                    "salesOrderId",
+                    salesOrder.getId()
             );
 
-            return;
-        }*/
-
-
-        // Create Sales Order
-
-        int customerId = Integer.parseInt(
-                request.getParameter("customerId")
-        );
-
-        Customer customer =
-                customerService.getCustomerById(
-                        customerId
-                );
-
-
-        SalesOrder salesOrder = new SalesOrder();
-
-        salesOrder.setCustomer(customer);
-
-        salesOrder.setStatus("CREATED");
-
-        salesOrder.setOrderDate(
-                LocalDateTime.now()
-        );
-
-
-        String[] itemIds =
-                request.getParameterValues("itemId");
-
-        String[] quantities =
-                request.getParameterValues("quantity");
-
-        String[] sellingPrices =
-                request.getParameterValues("sellingPrice");
-
-
-        List<SalesOrderItem> salesOrderItems =
-                new ArrayList<>();
-
-
-        for (int i = 0; i < itemIds.length; i++) {
-
-            int itemId =
-                    Integer.parseInt(itemIds[i]);
-
-            Item item =
-                    itemService.getItemById(itemId);
-
-
-            SalesOrderItem salesOrderItem =
-                    new SalesOrderItem();
-
-            salesOrderItem.setItem(item);
-
-            salesOrderItem.setQuantity(
-                    Integer.parseInt(quantities[i])
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    result
             );
 
-            salesOrderItem.setSellingPrice(
-                    new BigDecimal(sellingPrices[i])
+        } catch (Exception e) {
+
+            response.setStatus(
+                    HttpServletResponse.SC_BAD_REQUEST
             );
 
+            Map<String, String> error =
+                    new HashMap<>();
 
-            salesOrderItems.add(
-                    salesOrderItem
+            error.put(
+                    "error",
+                    e.getMessage()
+            );
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    error
             );
         }
-
-
-        salesOrderService.createSalesOrder(
-                salesOrder,
-                salesOrderItems
-        );
-
-
-        response.sendRedirect(
-                request.getContextPath()
-                        + "/sales-orders"
-        );
     }
 }

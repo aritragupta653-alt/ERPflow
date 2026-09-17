@@ -3,7 +3,8 @@ package com.erpflow.controller;
 import com.erpflow.model.Supplier;
 import com.erpflow.service.SupplierService;
 
-import jakarta.servlet.ServletException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,173 +12,382 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
-
-@WebServlet("/suppliers")
+@WebServlet("/api/suppliers/*")
 public class SupplierServlet extends HttpServlet {
 
     private final SupplierService supplierService =
             new SupplierService();
 
-
-    // DISPLAY SUPPLIERS
-
-    @Override
-    
-protected void doGet(
-        HttpServletRequest request,
-        HttpServletResponse response
-) throws ServletException, IOException {
-
-    String action =
-            request.getParameter("action");
+    private final ObjectMapper objectMapper = new ObjectMapper()
+                        .registerModule(
+                                        new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
 
-    // EDIT SUPPLIER
-    if ("edit".equals(action)) {
-
-        int id = Integer.parseInt(
-                request.getParameter("id")
-        );
-
-        Supplier supplier =
-                supplierService.getSupplierById(id);
-
-        request.setAttribute(
-                "supplier",
-                supplier
-        );
-
-        request.getRequestDispatcher(
-                "/WEB-INF/views/editSupplier.jsp"
-        ).forward(request, response);
-
-        return;
-    }
-
-
-    // DISPLAY ALL SUPPLIERS
-
-    List<Supplier> suppliers =
-            supplierService.getAllSuppliers();
-
-    request.setAttribute(
-            "suppliers",
-            suppliers
-    );
-
-    request.getRequestDispatcher(
-            "/WEB-INF/views/suppliers.jsp"
-    ).forward(request, response);
-}
-
-
-    // ADD SUPPLIER
+    // ========================================
+    // GET
+    // ========================================
 
     @Override
-protected void doPost(
-        HttpServletRequest request,
-        HttpServletResponse response
-) throws ServletException, IOException {
+    protected void doGet(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
 
-    String action =
-            request.getParameter("action");
+        setJsonResponse(response);
 
 
-    // DELETE SUPPLIER
-    if ("delete".equals(action)) {
+        String pathInfo =
+                request.getPathInfo();
 
-        int id = Integer.parseInt(
-                request.getParameter("id")
-        );
 
-        supplierService.deleteSupplier(id);
+        try {
 
-        response.sendRedirect(
-                request.getContextPath()
-                        + "/suppliers"
-        );
+            // GET /api/suppliers
 
-        return;
+            if (pathInfo == null ||
+                    pathInfo.equals("/")) {
+
+                List<Supplier> suppliers =
+                        supplierService
+                                .getAllSuppliers();
+
+
+                objectMapper.writeValue(
+                        response.getWriter(),
+                        suppliers
+                );
+
+                return;
+            }
+
+
+            // GET /api/suppliers/{id}
+
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
+
+
+            Supplier supplier =
+                    supplierService
+                            .getSupplierById(id);
+
+
+            if (supplier == null) {
+
+                sendError(
+                        response,
+                        404,
+                        "Supplier not found"
+                );
+
+                return;
+            }
+
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    supplier
+            );
+
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    400,
+                    "Invalid supplier ID"
+            );
+
+        } catch (RuntimeException e) {
+
+            e.printStackTrace();
+
+            sendError(
+                    response,
+                    400,
+                    e.getMessage()
+            );
+        }
     }
 
 
-    // UPDATE SUPPLIER
-    if ("update".equals(action)) {
+    // ========================================
+    // POST
+    // ========================================
 
-        int id = Integer.parseInt(
-                request.getParameter("id")
-        );
+    @Override
+    protected void doPost(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
 
-        Supplier supplier = new Supplier();
-
-        supplier.setId(id);
-
-        supplier.setName(
-                request.getParameter("name")
-        );
-
-        supplier.setContactPerson(
-                request.getParameter("contactPerson")
-        );
-
-        supplier.setPhone(
-                request.getParameter("phone")
-        );
-
-        supplier.setEmail(
-                request.getParameter("email")
-        );
-
-        supplier.setAddress(
-                request.getParameter("address")
-        );
+        setJsonResponse(response);
 
 
-        supplierService.updateSupplier(
-                supplier
-        );
+        try {
 
-        response.sendRedirect(
-                request.getContextPath()
-                        + "/suppliers"
-        );
+            Supplier supplier =
+                    objectMapper.readValue(
+                            request.getReader(),
+                            Supplier.class
+                    );
 
-        return;
+
+            supplierService.addSupplier(
+                    supplier
+            );
+
+
+            response.setStatus(
+                    HttpServletResponse.SC_CREATED
+            );
+
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    supplier
+            );
+
+
+        } catch (RuntimeException e) {
+
+            e.printStackTrace();
+
+            sendError(
+                    response,
+                    400,
+                    e.getMessage()
+            );
+        }
     }
 
 
-    // ADD SUPPLIER
+    // ========================================
+    // PUT
+    // ========================================
 
-    Supplier supplier = new Supplier();
+    @Override
+    protected void doPut(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
 
-    supplier.setName(
-            request.getParameter("name")
-    );
-
-    supplier.setContactPerson(
-            request.getParameter("contactPerson")
-    );
-
-    supplier.setPhone(
-            request.getParameter("phone")
-    );
-
-    supplier.setEmail(
-            request.getParameter("email")
-    );
-
-    supplier.setAddress(
-            request.getParameter("address")
-    );
+        setJsonResponse(response);
 
 
-    supplierService.addSupplier(supplier);
+        String pathInfo =
+                request.getPathInfo();
 
 
-    response.sendRedirect(
-            request.getContextPath()
-                    + "/suppliers"
-    );
-}
+        if (pathInfo == null ||
+                pathInfo.equals("/")) {
+
+            sendError(
+                    response,
+                    400,
+                    "Supplier ID is required"
+            );
+
+            return;
+        }
+
+
+        try {
+
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
+
+
+            Supplier supplier =
+                    objectMapper.readValue(
+                            request.getReader(),
+                            Supplier.class
+                    );
+
+
+            supplier.setId(id);
+
+
+            Supplier existing =
+                    supplierService
+                            .getSupplierById(id);
+
+
+            if (existing == null) {
+
+                sendError(
+                        response,
+                        404,
+                        "Supplier not found"
+                );
+
+                return;
+            }
+
+
+            supplierService.updateSupplier(
+                    supplier
+            );
+
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    supplier
+            );
+
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    400,
+                    "Invalid supplier ID"
+            );
+
+        } catch (RuntimeException e) {
+
+            e.printStackTrace();
+
+            sendError(
+                    response,
+                    400,
+                    e.getMessage()
+            );
+        }
+    }
+
+
+    // ========================================
+    // DELETE
+    // ========================================
+
+    @Override
+    protected void doDelete(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
+
+        setJsonResponse(response);
+
+
+        String pathInfo =
+                request.getPathInfo();
+
+
+        if (pathInfo == null ||
+                pathInfo.equals("/")) {
+
+            sendError(
+                    response,
+                    400,
+                    "Supplier ID is required"
+            );
+
+            return;
+        }
+
+
+        try {
+
+            int id =
+                    Integer.parseInt(
+                            pathInfo.substring(1)
+                    );
+
+
+            Supplier existing =
+                    supplierService
+                            .getSupplierById(id);
+
+
+            if (existing == null) {
+
+                sendError(
+                        response,
+                        404,
+                        "Supplier not found"
+                );
+
+                return;
+            }
+
+
+            supplierService.deleteSupplier(
+                    id
+            );
+
+
+            response.setStatus(
+                    HttpServletResponse.SC_NO_CONTENT
+            );
+
+
+        } catch (NumberFormatException e) {
+
+            sendError(
+                    response,
+                    400,
+                    "Invalid supplier ID"
+            );
+
+        } catch (RuntimeException e) {
+
+            e.printStackTrace();
+
+            sendError(
+                    response,
+                    400,
+                    e.getMessage()
+            );
+        }
+    }
+
+
+    // ========================================
+    // JSON RESPONSE
+    // ========================================
+
+    private void setJsonResponse(
+            HttpServletResponse response
+    ) {
+
+        response.setContentType(
+                "application/json"
+        );
+
+        response.setCharacterEncoding(
+                "UTF-8"
+        );
+    }
+
+
+    // ========================================
+    // ERROR
+    // ========================================
+
+    private void sendError(
+            HttpServletResponse response,
+            int status,
+            String message
+    ) throws IOException {
+
+        response.setStatus(status);
+
+
+        objectMapper.writeValue(
+                response.getWriter(),
+                Map.of(
+                        "error",
+                        message != null
+                                ? message
+                                : "Unknown error"
+                )
+        );
+    }
 }

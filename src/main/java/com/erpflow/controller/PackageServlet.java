@@ -1,11 +1,15 @@
 package com.erpflow.controller;
 
+import com.erpflow.model.Item;
 import com.erpflow.model.Package;
 import com.erpflow.model.PackageItem;
 import com.erpflow.model.SalesOrder;
 import com.erpflow.model.SalesOrderItem;
+import com.erpflow.service.ItemService;
 import com.erpflow.service.PackageService;
 import com.erpflow.service.SalesOrderService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -15,339 +19,362 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-@WebServlet("/packages")
+@WebServlet("/api/packages")
 public class PackageServlet extends HttpServlet {
 
-    private final PackageService packageService =
-            new PackageService();
+        private final PackageService packageService = new PackageService();
 
-    private final SalesOrderService salesOrderService =
-            new SalesOrderService();
+        private final SalesOrderService salesOrderService = new SalesOrderService();
 
+        private final ItemService itemService = new ItemService();
 
-    @Override
-    protected void doGet(
-            HttpServletRequest request,
-            HttpServletResponse response)
-            throws ServletException, IOException {
+        private final ObjectMapper objectMapper = new ObjectMapper()
+                        .registerModule(
+                                        new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
 
-        String action =
-                request.getParameter("action");
+        // =========================
+        // GET
+        // =========================
 
+        @Override
+        protected void doGet(
+                        HttpServletRequest request,
+                        HttpServletResponse response)
+                        throws ServletException, IOException {
 
-        // VIEW PACKAGE
+                setJsonResponse(response);
 
-        if ("view".equals(action)) {
+                try {
 
-            int packageId =
-                    Integer.parseInt(
-                            request.getParameter("id")
-                    );
+                        String idParameter = request.getParameter("id");
 
+                        String salesOrderIdParameter = request.getParameter("salesOrderId");
 
-            Package packageEntity =
-                    packageService.getPackageById(
-                            packageId
-                    );
+                        // GET /api/packages?id=1
+                        if (idParameter != null &&
+                                        !idParameter.isBlank()) {
 
+                                int packageId = Integer.parseInt(idParameter);
 
-            if (packageEntity == null) {
+                                Package packageEntity = packageService.getPackageById(
+                                                packageId);
 
-                response.sendError(
-                        HttpServletResponse.SC_NOT_FOUND,
-                        "Package not found"
-                );
+                                if (packageEntity == null) {
 
-                return;
-            }
+                                        sendError(
+                                                        response,
+                                                        HttpServletResponse.SC_NOT_FOUND,
+                                                        "Package not found");
 
+                                        return;
+                                }
 
-            List<PackageItem> packageItems =
-                    packageService.getPackageItems(
-                            packageEntity
-                    );
+                                List<PackageItem> packageItems = packageService.getPackageItems(
+                                                packageEntity);
 
+                                Map<String, Object> result = new HashMap<>();
 
-            request.setAttribute(
-                    "packageEntity",
-                    packageEntity
-            );
+                                result.put(
+                                                "package",
+                                                packageEntity);
 
-            request.setAttribute(
-                    "packageItems",
-                    packageItems
-            );
+                                result.put(
+                                                "items",
+                                                packageItems);
 
+                                objectMapper.writeValue(
+                                                response.getWriter(),
+                                                result);
 
-            request.getRequestDispatcher(
-                    "/WEB-INF/views/packageDetails.jsp"
-            ).forward(
-                    request,
-                    response
-            );
+                                return;
+                        }
 
-            return;
+                        // GET /api/packages?salesOrderId=1
+                        if (salesOrderIdParameter != null &&
+                                        !salesOrderIdParameter.isBlank()) {
+
+                                int salesOrderId = Integer.parseInt(
+                                                salesOrderIdParameter);
+
+                                SalesOrder salesOrder = salesOrderService
+                                                .getSalesOrderById(
+                                                                salesOrderId);
+
+                                if (salesOrder == null) {
+
+                                        sendError(
+                                                        response,
+                                                        HttpServletResponse.SC_NOT_FOUND,
+                                                        "Sales Order not found");
+
+                                        return;
+                                }
+
+                                List<Package> packages = packageService
+                                                .getPackagesBySalesOrder(
+                                                                salesOrder);
+
+                                objectMapper.writeValue(
+                                                response.getWriter(),
+                                                packages);
+
+                                return;
+                        }
+
+                        // GET /api/packages
+                        List<Package> packages = packageService.getAllPackages();
+
+                        objectMapper.writeValue(
+                                        response.getWriter(),
+                                        packages);
+
+                } catch (NumberFormatException e) {
+
+                        sendError(
+                                        response,
+                                        HttpServletResponse.SC_BAD_REQUEST,
+                                        "Invalid ID");
+
+                } catch (Exception e) {
+
+                        sendError(
+                                        response,
+                                        HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                                        e.getMessage());
+                }
         }
 
+        // =========================
+        // POST
+        // =========================
 
-        // CREATE PACKAGE PAGE
+        @Override
+        protected void doPost(
+                        HttpServletRequest request,
+                        HttpServletResponse response)
+                        throws ServletException, IOException {
 
-        if ("create".equals(action)) {
+                setJsonResponse(response);
 
-            int salesOrderId =
-                    Integer.parseInt(
-                            request.getParameter(
-                                    "salesOrderId"
-                            )
-                    );
+                try {
 
+                        JsonNode root = objectMapper.readTree(
+                                        request.getInputStream());
 
-            SalesOrder salesOrder =
-                    salesOrderService.getSalesOrderById(
-                            salesOrderId
-                    );
+                        // Sales Order ID
+                        if (!root.has("salesOrderId")) {
 
+                                sendError(
+                                                response,
+                                                HttpServletResponse.SC_BAD_REQUEST,
+                                                "salesOrderId is required");
 
-            if (salesOrder == null) {
+                                return;
+                        }
 
-                response.sendError(
-                        HttpServletResponse.SC_NOT_FOUND,
-                        "Sales Order not found"
-                );
+                        int salesOrderId = root.get("salesOrderId")
+                                        .asInt();
 
-                return;
-            }
+                        // Find Sales Order
+                        SalesOrder salesOrder = salesOrderService
+                                        .getSalesOrderById(
+                                                        salesOrderId);
 
+                        if (salesOrder == null) {
 
-            List<SalesOrderItem> salesOrderItems =
-                    salesOrderService.getSalesOrderItems(
-                            salesOrder
-                    );
+                                sendError(
+                                                response,
+                                                HttpServletResponse.SC_NOT_FOUND,
+                                                "Sales Order not found");
 
+                                return;
+                        }
 
-            request.setAttribute(
-                    "salesOrder",
-                    salesOrder
-            );
+                        // Items
+                        JsonNode itemsNode = root.get("items");
 
-            request.setAttribute(
-                    "salesOrderItems",
-                    salesOrderItems
-            );
+                        if (itemsNode == null ||
+                                        !itemsNode.isArray() ||
+                                        itemsNode.isEmpty()) {
 
+                                sendError(
+                                                response,
+                                                HttpServletResponse.SC_BAD_REQUEST,
+                                                "Package must contain at least one item");
 
-            request.getRequestDispatcher(
-                    "/WEB-INF/views/createPackage.jsp"
-            ).forward(
-                    request,
-                    response
-            );
+                                return;
+                        }
 
-            return;
+                        List<SalesOrderItem> salesOrderItems = salesOrderService
+                                        .getSalesOrderItems(
+                                                        salesOrder);
+
+                        List<PackageItem> packageItems = new ArrayList<>();
+
+                        // Build Package Items
+                        for (JsonNode itemNode : itemsNode) {
+
+                                int itemId = itemNode
+                                                .get("itemId")
+                                                .asInt();
+
+                                int quantity = itemNode
+                                                .get("quantity")
+                                                .asInt();
+
+                                if (quantity <= 0) {
+
+                                        throw new RuntimeException(
+                                                        "Package quantity must be greater than zero");
+                                }
+
+                                // Check item exists
+                                Item item = itemService
+                                                .getItemById(itemId);
+
+                                if (item == null) {
+
+                                        throw new RuntimeException(
+                                                        "Item not found: " + itemId);
+                                }
+
+                                // Check item belongs to Sales Order
+                                SalesOrderItem matchingOrderItem = null;
+
+                                for (SalesOrderItem orderItem : salesOrderItems) {
+
+                                        if (orderItem.getItem().getId() == itemId) {
+
+                                                matchingOrderItem = orderItem;
+
+                                                break;
+                                        }
+                                }
+
+                                if (matchingOrderItem == null) {
+
+                                        throw new RuntimeException(
+                                                        "Item does not belong to Sales Order");
+                                }
+
+                                // Create Package Item
+                                PackageItem packageItem = new PackageItem();
+
+                                packageItem.setItem(item);
+
+                                packageItem.setQuantity(
+                                                quantity);
+
+                                packageItems.add(
+                                                packageItem);
+                        }
+
+                        // Weight
+                        if (!root.has("weight")) {
+
+                                sendError(
+                                                response,
+                                                HttpServletResponse.SC_BAD_REQUEST,
+                                                "weight is required");
+
+                                return;
+                        }
+
+                        double weight = root.get("weight")
+                                        .asDouble();
+
+                        // Create Package
+                        packageService.createPackage(
+                                        salesOrder,
+                                        packageItems,
+                                        weight);
+
+                        // Response
+                        response.setStatus(
+                                        HttpServletResponse.SC_CREATED);
+
+                        Map<String, Object> result = new HashMap<>();
+
+                        result.put(
+                                        "message",
+                                        "Package created successfully");
+
+                        result.put(
+                                        "packageId",
+                                        packageItems.get(0)
+                                                        .getPackageEntity());
+
+                        // Better response using the newly
+                        // created package ID
+                        Package latestPackage = null;
+
+                        List<Package> packages = packageService
+                                        .getPackagesBySalesOrder(
+                                                        salesOrder);
+
+                        if (!packages.isEmpty()) {
+
+                                latestPackage = packages.get(0);
+                        }
+
+                        if (latestPackage != null) {
+
+                                result.put(
+                                                "packageId",
+                                                latestPackage.getId());
+
+                                result.put(
+                                                "status",
+                                                latestPackage.getStatus());
+                        }
+
+                        objectMapper.writeValue(
+                                        response.getWriter(),
+                                        result);
+
+                } catch (Exception e) {
+
+                        sendError(
+                                        response,
+                                        HttpServletResponse.SC_BAD_REQUEST,
+                                        e.getMessage());
+                }
         }
 
+        // =========================
+        // HELPERS
+        // =========================
 
-        // LIST PACKAGES
+        private void setJsonResponse(
+                        HttpServletResponse response) {
 
-        List<Package> packages =
-                packageService.getAllPackages();
+                response.setContentType(
+                                "application/json");
 
-
-        request.setAttribute(
-                "packages",
-                packages
-        );
-
-
-        request.getRequestDispatcher(
-                "/WEB-INF/views/packages.jsp"
-        ).forward(
-                request,
-                response
-        );
-    }
-
-
-    @Override
-    protected void doPost(
-            HttpServletRequest request,
-            HttpServletResponse response)
-            throws ServletException, IOException {
-
-        String action =
-                request.getParameter("action");
-
-
-        // CREATE PACKAGE
-
-        if ("create".equals(action)) {
-
-            int salesOrderId =
-                    Integer.parseInt(
-                            request.getParameter(
-                                    "salesOrderId"
-                            )
-                    );
-
-
-            SalesOrder salesOrder =
-                    salesOrderService.getSalesOrderById(
-                            salesOrderId
-                    );
-
-
-            if (salesOrder == null) {
-
-                throw new RuntimeException(
-                        "Sales Order not found"
-                );
-            }
-
-
-            // Get Sales Order Items
-
-            List<SalesOrderItem> salesOrderItems =
-                    salesOrderService.getSalesOrderItems(
-                            salesOrder
-                    );
-
-
-            String[] itemIds =
-                    request.getParameterValues(
-                            "itemId"
-                    );
-
-            String[] quantities =
-                    request.getParameterValues(
-                            "quantity"
-                    );
-
-
-            if (itemIds == null ||
-                    quantities == null) {
-
-                throw new RuntimeException(
-                        "No package items selected"
-                );
-            }
-
-
-            List<PackageItem> packageItems =
-                    new ArrayList<>();
-
-
-            // Build Package Items
-
-            for (int i = 0;
-                 i < itemIds.length;
-                 i++) {
-
-                int quantity =
-                        Integer.parseInt(
-                                quantities[i]
-                        );
-
-
-                // Ignore zero quantities
-
-                if (quantity <= 0) {
-                    continue;
-                }
-
-
-                int itemId =
-                        Integer.parseInt(
-                                itemIds[i]
-                        );
-
-
-                SalesOrderItem matchingOrderItem =
-                        null;
-
-
-                // Find matching Sales Order Item
-
-                for (SalesOrderItem orderItem :
-                        salesOrderItems) {
-
-                    if (orderItem.getItem().getId()
-                            == itemId) {
-
-                        matchingOrderItem =
-                                orderItem;
-
-                        break;
-                    }
-                }
-
-
-                if (matchingOrderItem == null) {
-
-                    throw new RuntimeException(
-                            "Invalid item in package"
-                    );
-                }
-
-
-                // Create Package Item
-
-                PackageItem packageItem =
-                        new PackageItem();
-
-
-                packageItem.setItem(
-                        matchingOrderItem.getItem()
-                );
-
-
-                packageItem.setQuantity(
-                        quantity
-                );
-
-
-                packageItems.add(
-                        packageItem
-                );
-            }
-
-
-            if (packageItems.isEmpty()) {
-
-                throw new RuntimeException(
-                        "Package must contain at least one item"
-                );
-            }
-
-
-            // Weight
-
-            double weight =
-                    Double.parseDouble(
-                            request.getParameter(
-                                    "weight"
-                            )
-                    );
-
-
-            // Create Package
-
-            packageService.createPackage(
-                    salesOrder,
-                    packageItems,
-                    weight
-            );
-
-
-            // Redirect to Packages
-
-            response.sendRedirect(
-                    request.getContextPath()
-                            + "/packages"
-            );
-
-            return;
+                response.setCharacterEncoding(
+                                "UTF-8");
         }
-    }
+
+        private void sendError(
+                        HttpServletResponse response,
+                        int status,
+                        String message)
+                        throws IOException {
+
+                response.setStatus(status);
+
+                Map<String, String> error = new HashMap<>();
+
+                error.put(
+                                "error",
+                                message);
+
+                objectMapper.writeValue(
+                                response.getWriter(),
+                                error);
+        }
 }
