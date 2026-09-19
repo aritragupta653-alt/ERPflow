@@ -1,15 +1,25 @@
 package com.erpflow.service;
 
+import com.erpflow.dao.CarrierServiceDAO;
 import com.erpflow.dao.PackageDAO;
 import com.erpflow.dao.PackageItemDAO;
 import com.erpflow.dao.SalesOrderDAO;
+import com.erpflow.dao.SalesOrderItemDAO;
+import com.erpflow.dao.ShipmentDAO;
+
+import com.erpflow.model.CarrierService;
 import com.erpflow.model.Package;
 import com.erpflow.model.PackageItem;
 import com.erpflow.model.SalesOrder;
+import com.erpflow.model.SalesOrderItem;
 import com.erpflow.model.Shipment;
-import java.time.LocalDateTime;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ShippingService {
 
@@ -22,44 +32,60 @@ public class ShippingService {
     private final SalesOrderDAO salesOrderDAO =
             new SalesOrderDAO();
 
+    private final SalesOrderItemDAO salesOrderItemDAO =
+            new SalesOrderItemDAO();
+
+    private final ShipmentDAO shipmentDAO =
+            new ShipmentDAO();
+
     private final InventoryService inventoryService =
             new InventoryService();
-    private final ShipmentService shipmentService =
-        new ShipmentService();
+
+    private final CarrierServiceDAO carrierServiceDAO =
+            new CarrierServiceDAO();
+
+    private final ShippingRateService shippingRateService =
+            new ShippingRateService();
 
 
-    // SHIP PACKAGE
+    // =====================================================
+    // SHIP SELECTED PACKAGES
+    // =====================================================
 
-    public void shipPackage(int packageId) {
+    public Shipment shipPackages(
+            int salesOrderId,
+            List<Integer> packageIds,
+            int carrierServiceId,
+            Shipment shipment) {
 
-        Package packageEntity =
-                packageDAO.findById(
-                        packageId
-                );
+        // -------------------------------------------------
+        // BASIC VALIDATION
+        // -------------------------------------------------
 
-
-        if (packageEntity == null) {
+        if (packageIds == null ||
+                packageIds.isEmpty()) {
 
             throw new RuntimeException(
-                    "Package not found"
+                    "Select at least one package"
+            );
+        }
+
+        if (carrierServiceId <= 0) {
+
+            throw new RuntimeException(
+                    "Carrier service is required"
             );
         }
 
 
-        // Only PACKED packages can be shipped
-
-        if (!"PACKED".equals(
-                packageEntity.getStatus())) {
-
-            throw new RuntimeException(
-                    "Only PACKED packages can be shipped"
-            );
-        }
-
+        // -------------------------------------------------
+        // FIND SALES ORDER
+        // -------------------------------------------------
 
         SalesOrder salesOrder =
-                packageEntity.getSalesOrder();
-
+                salesOrderDAO.findById(
+                        salesOrderId
+                );
 
         if (salesOrder == null) {
 
@@ -69,61 +95,371 @@ public class ShippingService {
         }
 
 
-        // Get package items
+        // -------------------------------------------------
+        // PREVENT DUPLICATE PACKAGE IDS
+        // -------------------------------------------------
 
-        List<PackageItem> packageItems =
-                packageItemDAO.findByPackage(
-                        packageEntity
+        Set<Integer> uniquePackageIds =
+                new HashSet<>(packageIds);
+
+        if (uniquePackageIds.size()
+                != packageIds.size()) {
+
+            throw new RuntimeException(
+                    "Duplicate package selected"
+            );
+        }
+
+
+        // -------------------------------------------------
+        // FIND CARRIER SERVICE
+        // -------------------------------------------------
+
+        CarrierService carrierService =
+                carrierServiceDAO.findById(
+                        carrierServiceId
+                );
+
+        if (carrierService == null) {
+
+            throw new RuntimeException(
+                    "Carrier service not found"
+            );
+        }
+
+        if (carrierService.getCarrier() == null) {
+
+            throw new RuntimeException(
+                    "Carrier not found for selected service"
+            );
+        }
+
+
+        // -------------------------------------------------
+        // VALIDATE ALL PACKAGES FIRST
+        // -------------------------------------------------
+
+        for (Integer packageId : packageIds) {
+
+            Package pkg =
+                    packageDAO.findById(
+                            packageId
+                    );
+
+            if (pkg == null) {
+
+                throw new RuntimeException(
+                        "Package not found: "
+                                + packageId
+                );
+            }
+
+
+            // Package must belong to this Sales Order
+
+            if (pkg.getSalesOrder() == null ||
+                    pkg.getSalesOrder().getId()
+                            != salesOrderId) {
+
+                throw new RuntimeException(
+                        "Package "
+                                + packageId
+                                + " does not belong to Sales Order "
+                                + salesOrderId
+                );
+            }
+
+
+            // Only PACKED packages can be shipped
+
+            if (!"PACKED".equals(
+                    pkg.getStatus())) {
+
+                throw new RuntimeException(
+                        "Package "
+                                + packageId
+                                + " is not ready for shipping"
+                );
+            }
+
+
+            // Package cannot already belong to shipment
+
+            if (shipmentDAO.isPackageAlreadyShipped(
+                    packageId)) {
+
+                throw new RuntimeException(
+                        "Package "
+                                + packageId
+                                + " has already been shipped"
+                );
+            }
+
+
+            // Package must contain items
+
+            List<PackageItem> packageItems =
+                    packageItemDAO.findByPackage(
+                            pkg
+                    );
+
+            if (packageItems == null ||
+                    packageItems.isEmpty()) {
+
+                throw new RuntimeException(
+                        "Package "
+                                + packageId
+                                + " contains no items"
+                );
+            }
+        }
+
+
+        // -------------------------------------------------
+        // CALCULATE SHIPPING RATE
+        // -------------------------------------------------
+
+        ShippingRateService.ShippingRate rate =
+                shippingRateService.calculateRate(
+                        packageIds,
+                        carrierServiceId
                 );
 
 
-        if (packageItems == null ||
-                packageItems.isEmpty()) {
+        // -------------------------------------------------
+        // CREATE SHIPMENT OBJECT
+        // -------------------------------------------------
 
-            throw new RuntimeException(
-                    "Package contains no items"
+        if (shipment == null) {
+            shipment = new Shipment();
+        }
+
+        shipment.setShipmentDate(
+                LocalDateTime.now()
+        );
+
+        shipment.setStatus("CREATED");
+
+        shipment.setCarrier(
+                carrierService.getCarrier()
+        );
+
+        shipment.setCarrierService(
+                carrierService
+        );
+
+        shipment.setShippingCharge(
+                rate.getTotalCharge().doubleValue()
+        );
+
+
+        // -------------------------------------------------
+        // ESTIMATED DELIVERY DATE
+        // -------------------------------------------------
+
+        int estimatedDays =
+                carrierService.getEstimatedDays();
+
+        if (estimatedDays > 0) {
+
+            shipment.setEstimatedDeliveryDate(
+                    LocalDate.now().plusDays(
+                            estimatedDays
+                    )
             );
         }
 
 
-        // Ship every item
+        // -------------------------------------------------
+        // CREATE SHIPMENT IN DATABASE
+        // -------------------------------------------------
 
-        for (PackageItem packageItem :
-                packageItems) {
+        shipmentDAO.save(shipment);
 
-            inventoryService.shipReservedStock(
-                    packageItem.getItem(),
-                    packageItem.getQuantity()
+
+        // -------------------------------------------------
+        // GENERATE SHIPMENT NUMBER
+        // -------------------------------------------------
+
+        shipment.setShipmentNumber(
+                String.format(
+                        "SH-%06d",
+                        shipment.getId()
+                )
+        );
+
+
+        shipmentDAO.update(
+                shipment
+        );
+
+
+        // -------------------------------------------------
+        // SHIP INVENTORY
+        // -------------------------------------------------
+
+        for (Integer packageId : packageIds) {
+
+            Package pkg =
+                    packageDAO.findById(
+                            packageId
+                    );
+
+            List<PackageItem> packageItems =
+                    packageItemDAO.findByPackage(
+                            pkg
+                    );
+
+            for (PackageItem packageItem :
+                    packageItems) {
+
+                inventoryService.shipReservedStock(
+                        packageItem.getItem(),
+                        packageItem.getQuantity()
+                );
+            }
+
+            // Mark package as shipped
+
+            pkg.setStatus("SHIPPED");
+
+            packageDAO.update(pkg);
+        }
+
+
+        // -------------------------------------------------
+        // LINK PACKAGES TO SHIPMENT
+        // -------------------------------------------------
+
+        for (Integer packageId : packageIds) {
+
+            shipmentDAO.addPackage(
+                    shipment.getId(),
+                    packageId
             );
         }
 
 
-        // Package is now shipped
+        // -------------------------------------------------
+        // UPDATE SALES ORDER STATUS
+        // -------------------------------------------------
 
-        packageEntity.setStatus(
-                "SHIPPED"
+        updateSalesOrderStatus(
+                salesOrder
         );
 
-        packageDAO.update(
-                packageEntity
-        );
+
+        return shipment;
+    }
 
 
-        // Sales Order is now shipped
+    // =====================================================
+    // UPDATE SALES ORDER STATUS
+    // =====================================================
 
-        salesOrder.setStatus(
-                "COMPLETED"
-        );
+    private void updateSalesOrderStatus(
+            SalesOrder salesOrder) {
+
+        List<SalesOrderItem> orderItems =
+                salesOrderItemDAO.findBySalesOrder(
+                        salesOrder
+                );
+
+        boolean allShipped = true;
+        boolean anyShipped = false;
+
+
+        for (SalesOrderItem orderItem :
+                orderItems) {
+
+            int orderedQuantity =
+                    orderItem.getQuantity();
+
+            int shippedQuantity =
+                    getShippedQuantity(
+                            salesOrder.getId(),
+                            orderItem.getItem().getId()
+                    );
+
+
+            if (shippedQuantity > 0) {
+                anyShipped = true;
+            }
+
+
+            if (shippedQuantity <
+                    orderedQuantity) {
+
+                allShipped = false;
+            }
+        }
+
+
+        if (allShipped) {
+
+            salesOrder.setStatus(
+                    "SHIPPED"
+            );
+
+        } else if (anyShipped) {
+
+            salesOrder.setStatus(
+                    "PARTIALLY_SHIPPED"
+            );
+        }
+
 
         salesOrderDAO.update(
                 salesOrder
         );
-        Shipment shipment = new Shipment();
+    }
 
-shipment.setPackageEntity(packageEntity);
-shipment.setShipmentDate(LocalDateTime.now());
-shipment.setStatus("SHIPPED");
 
-shipmentService.createShipment(shipment);
+    // =====================================================
+    // GET SHIPPED QUANTITY
+    // =====================================================
+
+    private int getShippedQuantity(
+            int salesOrderId,
+            int itemId) {
+
+        List<Package> packages =
+                packageDAO.findBySalesOrder(
+                        salesOrderId
+                );
+
+        int total = 0;
+
+
+        for (Package pkg : packages) {
+
+            if (!"SHIPPED".equals(
+                    pkg.getStatus())) {
+
+                continue;
+            }
+
+
+            List<PackageItem> items =
+                    packageItemDAO.findByPackage(
+                            pkg
+                    );
+
+
+            for (PackageItem packageItem :
+                    items) {
+
+                if (packageItem.getItem() != null &&
+                        packageItem.getItem().getId()
+                                == itemId) {
+
+                    total +=
+                            packageItem.getQuantity();
+                }
+            }
+        }
+
+
+        return total;
     }
 }

@@ -2,28 +2,61 @@
 
 <!DOCTYPE html>
 <html>
-
 <head>
+    <meta charset="UTF-8">
+    <title>Sales Orders - ERPFlow</title>
 
-    <title>ERPFlow - Sales Orders</title>
+    <link rel="stylesheet" href="/erpflow/css/app.css">
 
-    <link rel="stylesheet"
-          href="/erpflow/css/app.css">
+    <style>
+        .order-summary {
+            max-width: 500px;
+            margin: 25px 0 10px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
 
+        .order-summary > div {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+
+        .order-summary .grand-total {
+            margin-top: 10px;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+            font-size: 18px;
+        }
+
+        .order-summary .grand-total strong {
+            font-size: 20px;
+        }
+
+        .tax-note {
+            margin-top: 6px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .form-section {
+            margin-bottom: 25px;
+        }
+    </style>
 </head>
 
 <body>
 
 <header class="navbar">
 
-    <a href="/erpflow/home.jsp"
-       class="logo">
-
-        <img src="/erpflow/images/erpflow-logo.png"
-             alt="ERPFlow Logo">
-
+    <a href="/erpflow/home.jsp" class="logo">
+        <img
+            src="/erpflow/images/erpflow-logo.png"
+            alt="ERPFlow Logo"
+        >
         <span>ERPFlow</span>
-
     </a>
 
 </header>
@@ -38,39 +71,23 @@
             <p>Create and manage customer sales orders.</p>
         </div>
 
-        <a href="/erpflow/home.jsp"
-           class="btn secondary-btn">
-            ← Back to Dashboard
-        </a>
-
     </div>
 
 
-    <!-- MESSAGE -->
-
-    <div id="messageBox"
-         class="message-box"
-         style="display:none;">
-    </div>
+    <div id="messageBox"></div>
 
 
+    <!-- ========================= -->
     <!-- CREATE SALES ORDER -->
+    <!-- ========================= -->
 
     <div class="form-section">
 
-        <div class="section-header">
+        <h2>Create Sales Order</h2>
 
-            <div>
-                <h2>Create Sales Order</h2>
-                <p>Select a customer and add products to the order.</p>
-            </div>
+        <div class="form-grid">
 
-        </div>
-
-
-        <form id="salesOrderForm">
-
-            <!-- CUSTOMER -->
+            <!-- Customer -->
 
             <div class="form-group">
 
@@ -78,112 +95,214 @@
                     Customer
                 </label>
 
-                <select id="customerSelect"
-                        required>
-
+                <select id="customerSelect">
                     <option value="">
-                        Loading customers...
+                        Select Customer
                     </option>
-
                 </select>
 
             </div>
 
 
-            <!-- ORDER ITEMS -->
+            <!-- Tax -->
 
-            <div class="section-header">
+            <div class="form-group">
 
-                <div>
-                    <h3>Order Items</h3>
+                <label for="taxRate">
+                    Tax Rate
+                </label>
+
+                <select id="taxRate">
+
+                    <option value="0">
+                        No Tax (0%)
+                    </option>
+
+                    <option value="5">
+                        GST 5%
+                    </option>
+
+                    <option value="12">
+                        GST 12%
+                    </option>
+
+                    <option value="18">
+                        GST 18%
+                    </option>
+
+                    <option value="28">
+                        GST 28%
+                    </option>
+
+                </select>
+
+                <div class="tax-note">
+                    Tax is calculated automatically from the order subtotal.
                 </div>
 
             </div>
 
-
-            <div id="itemContainer">
-
-                <div class="sales-item-row">
-
-                    <select class="item-select"
-                            required>
-
-                        <option value="">
-                            Loading items...
-                        </option>
-
-                    </select>
-
-
-                    <input type="number"
-                           class="quantity-input"
-                           placeholder="Quantity"
-                           min="1"
-                           required>
-
-
-                    <input type="number"
-                           class="price-input"
-                           placeholder="Selling Price"
-                           min="0"
-                           step="0.01"
-                           required>
-
-
-                    <button type="button"
-                            class="btn small-btn danger-btn remove-item-btn">
-                        Remove
-                    </button>
-
-                </div>
-
-            </div>
-
-
-            <div class="form-actions">
-
-                <button type="button"
-                        id="addItemButton"
-                        class="btn secondary-btn">
-                    + Add Another Item
-                </button>
-
-
-                <button type="submit"
-                        class="btn primary-btn">
-                    Create Sales Order
-                </button>
-
-            </div>
-
-        </form>
+        </div>
 
     </div>
 
 
-    <!-- SALES ORDER LIST -->
+
+    <!-- ========================= -->
+    <!-- ORDER ITEMS -->
+    <!-- ========================= -->
 
     <div class="table-section">
 
         <div class="section-header">
 
             <div>
+                <h2>Order Items</h2>
+            </div>
 
-                <h2>Sales Order List</h2>
+            <button
+                type="button"
+                id="addItemButton"
+                class="primary-button"
+            >
+                + Add Item
+            </button>
 
-                <p>
-                    <span id="salesOrderCount">0</span>
-                    orders
-                </p>
+        </div>
+
+
+        <div class="table-container">
+
+            <table>
+
+                <thead>
+
+                <tr>
+
+                    <th>Item</th>
+
+                    <th>SKU</th>
+
+                    <th>Available Stock</th>
+
+                    <th>Quantity</th>
+
+                    <th>Selling Price</th>
+
+                    <th>Line Total</th>
+
+                    <th>Action</th>
+
+                </tr>
+
+                </thead>
+
+
+                <tbody id="salesOrderItemsTableBody">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ========================= -->
+    <!-- ORDER SUMMARY -->
+    <!-- ========================= -->
+
+    <div class="form-section">
+
+        <h2>Tax & Order Summary</h2>
+
+
+        <div class="order-summary">
+
+            <div>
+
+                <span>
+                    Subtotal
+                </span>
+
+                <strong id="subtotalDisplay">
+                    ₹0.00
+                </strong>
 
             </div>
 
 
+            <div>
+
+                <span>
+                    Tax
+                    (<span id="taxRateDisplay">0.00</span>%)
+                </span>
+
+                <strong id="taxAmountDisplay">
+                    ₹0.00
+                </strong>
+
+            </div>
+
+
+            <div class="grand-total">
+
+                <span>
+                    Grand Total
+                </span>
+
+                <strong id="totalAmountDisplay">
+                    ₹0.00
+                </strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ========================= -->
+    <!-- CREATE BUTTON -->
+    <!-- ========================= -->
+
+    <div class="form-actions">
+
+        <button
+            type="button"
+            id="createSalesOrderButton"
+            class="primary-button"
+        >
+            Create Sales Order
+        </button>
+
+    </div>
+
+
+
+    <!-- ========================= -->
+    <!-- EXISTING SALES ORDERS -->
+    <!-- ========================= -->
+
+    <div class="table-section">
+
+        <div class="section-header">
+
+            <div>
+                <h2>Sales Orders</h2>
+            </div>
+
             <div class="search-box">
 
-                <input type="text"
-                       id="searchInput"
-                       placeholder="Search orders...">
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search sales orders..."
+                >
 
             </div>
 
@@ -198,11 +317,17 @@
 
                 <tr>
 
-                    <th>ID</th>
+                    <th>Order ID</th>
 
                     <th>Customer</th>
 
                     <th>Order Date</th>
+
+                    <th>Subtotal</th>
+
+                    <th>Tax</th>
+
+                    <th>Total</th>
 
                     <th>Status</th>
 
@@ -226,15 +351,11 @@
 </div>
 
 
-<script>
 
-    const contextPath = "/erpflow";
-
+<script
+    src="/erpflow/js/salesOrders.js?v=tax1"
+    defer>
 </script>
 
-<script src="/erpflow/js/salesOrders.js"
-        defer></script>
-
 </body>
-
 </html>

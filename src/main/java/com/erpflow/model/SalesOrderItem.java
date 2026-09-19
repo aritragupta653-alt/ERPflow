@@ -10,6 +10,11 @@ public class SalesOrderItem {
     private int quantity;
     private BigDecimal sellingPrice;
 
+
+    // =========================
+    // ID
+    // =========================
+
     public int getId() {
         return id;
     }
@@ -17,6 +22,11 @@ public class SalesOrderItem {
     public void setId(int id) {
         this.id = id;
     }
+
+
+    // =========================
+    // SALES ORDER
+    // =========================
 
     public SalesOrder getSalesOrder() {
         return salesOrder;
@@ -26,6 +36,11 @@ public class SalesOrderItem {
         this.salesOrder = salesOrder;
     }
 
+
+    // =========================
+    // ITEM
+    // =========================
+
     public Item getItem() {
         return item;
     }
@@ -34,6 +49,11 @@ public class SalesOrderItem {
         this.item = item;
     }
 
+
+    // =========================
+    // QUANTITY
+    // =========================
+
     public int getQuantity() {
         return quantity;
     }
@@ -41,6 +61,11 @@ public class SalesOrderItem {
     public void setQuantity(int quantity) {
         this.quantity = quantity;
     }
+
+
+    // =========================
+    // SELLING PRICE
+    // =========================
 
     public BigDecimal getSellingPrice() {
         return sellingPrice;

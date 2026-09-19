@@ -1,140 +1,205 @@
-<%@ page contentType="text/html;charset=UTF-8" %>
-
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>ERPFlow - Packages</title>
+    <meta charset="UTF-8">
+    <title>Packages - ERPFlow</title>
 
-    <link rel="stylesheet"
-          href="/erpflow/css/app.css">
+    <link rel="stylesheet" href="/erpflow/css/app.css">
 </head>
 
 <body>
 
-<header class="navbar">
-
-    <a href="/erpflow/home.jsp" class="logo">
-
-        <img src="/erpflow/images/erpflow-logo.png"
-             alt="ERPFlow Logo">
-
-        <span>ERPFlow</span>
-
-    </a>
-
-</header>
-
-
 <div class="container">
 
     <div class="page-header">
-
         <div>
             <h1>Packages</h1>
-            <p>Create and manage sales order packages.</p>
+            <p>Manage packages created from sales orders</p>
         </div>
 
-        <a href="/erpflow/home.jsp"
-           class="btn secondary-btn">
-            ← Dashboard
-        </a>
+        <button class="btn btn-primary" onclick="openCreatePackage()">
+            + Create Package
+        </button>
+    </div>
+
+    <!-- Packages Table -->
+    <div class="card">
+
+        <div class="card-header">
+            <h2>All Packages</h2>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                <tr>
+                    <th>Package</th>
+                    <th>Sales Order</th>
+                    <th>Customer</th>
+                    <th>Weight</th>
+                    <th>Dimensions</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+
+                <tbody id="packagesTableBody">
+                <tr>
+                    <td colspan="7" style="text-align:center;">
+                        Loading packages...
+                    </td>
+                </tr>
+                </tbody>
+
+            </table>
+        </div>
 
     </div>
 
-
-    <div id="messageBox"
-         class="message-box"
-         style="display:none;">
-    </div>
+</div>
 
 
-    <!-- CREATE PACKAGE -->
+<!-- Create Package Modal -->
 
-    <div class="form-section">
+<div id="createPackageModal" class="modal" style="display:none;">
 
-        <h2>Create Package</h2>
+    <div class="modal-content">
 
-        <p>Package items from an existing sales order.</p>
+        <div class="modal-header">
+            <h2>Create Package</h2>
+
+            <button class="close-btn"
+                    onclick="closeCreatePackage()">
+                &times;
+            </button>
+        </div>
+
+        <form id="createPackageForm">
+
+            <!-- Sales Order -->
+
+            <div class="form-group">
+
+                <label for="salesOrderId">
+                    Sales Order
+                </label>
+
+                <select id="salesOrderId"
+                        required
+                        onchange="loadSalesOrderItems()">
+
+                    <option value="">
+                        Select Sales Order
+                    </option>
+
+                </select>
+
+            </div>
 
 
-        <form id="packageForm">
+            <!-- Order Items -->
 
-            <div class="form-grid">
+            <div class="form-group">
 
-                <div class="form-group">
+                <label>
+                    Items
+                </label>
 
-                    <label>Sales Order</label>
+                <div id="orderItemsContainer">
 
-                    <select id="salesOrderSelect"
-                            required>
-
-                        <option value="">
-                            Loading orders...
-                        </option>
-
-                    </select>
+                    <p class="muted">
+                        Select a sales order first.
+                    </p>
 
                 </div>
 
+            </div>
+
+
+            <!-- Weight -->
+
+            <div class="form-group">
+
+                <label for="weight">
+                    Weight (kg)
+                </label>
+
+                <input type="number"
+                       id="weight"
+                       step="0.01"
+                       min="0.01"
+                       required>
+
+            </div>
+
+
+            <!-- Dimensions -->
+
+            <div class="form-row">
 
                 <div class="form-group">
 
-                    <label>Weight</label>
+                    <label for="length">
+                        Length (cm)
+                    </label>
 
                     <input type="number"
-                           id="weightInput"
-                           min="0"
+                           id="length"
                            step="0.01"
-                           placeholder="Weight"
+                           min="0.01"
                            required>
 
                 </div>
 
-            </div>
 
+                <div class="form-group">
 
-            <h3>Package Items</h3>
-
-            <div id="packageItems">
-
-                <div class="package-item-row">
-
-                    <select class="item-select"
-                            required>
-
-                        <option value="">
-                            Select Item
-                        </option>
-
-                    </select>
+                    <label for="width">
+                        Width (cm)
+                    </label>
 
                     <input type="number"
-                           class="quantity-input"
-                           min="1"
-                           placeholder="Quantity"
+                           id="width"
+                           step="0.01"
+                           min="0.01"
                            required>
 
-                    <button type="button"
-                            class="btn small-btn danger-btn remove-btn">
-                        Remove
-                    </button>
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="height">
+                        Height (cm)
+                    </label>
+
+                    <input type="number"
+                           id="height"
+                           step="0.01"
+                           min="0.01"
+                           required>
 
                 </div>
 
             </div>
 
 
-            <div class="form-actions">
+            <div id="createPackageError"
+                 class="error-message"
+                 style="display:none;">
+            </div>
+
+
+            <div class="modal-footer">
 
                 <button type="button"
-                        id="addItemButton"
-                        class="btn secondary-btn">
-                    + Add Item
+                        class="btn btn-secondary"
+                        onclick="closeCreatePackage()">
+                    Cancel
                 </button>
 
                 <button type="submit"
-                        class="btn primary-btn">
+                        class="btn btn-primary">
                     Create Package
                 </button>
 
@@ -144,74 +209,10 @@
 
     </div>
 
-
-    <!-- PACKAGE LIST -->
-
-    <div class="table-section">
-
-        <div class="section-header">
-
-            <div>
-
-                <h2>Package List</h2>
-
-                <p>
-                    <span id="packageCount">0</span>
-                    packages
-                </p>
-
-            </div>
-
-            <div class="search-box">
-
-                <input type="text"
-                       id="searchInput"
-                       placeholder="Search packages...">
-
-            </div>
-
-        </div>
-
-
-        <div class="table-container">
-
-            <table>
-
-                <thead>
-
-                <tr>
-                    <th>ID</th>
-                    <th>Sales Order</th>
-                    <th>Customer</th>
-                    <th>Date</th>
-                    <th>Weight</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-
-                </thead>
-
-                <tbody id="packagesTableBody">
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </div>
-
 </div>
 
 
-<script>
-
-    const contextPath = "/erpflow";
-
-</script>
-
-<script src="/erpflow/js/packages.js"
-        defer></script>
+<script src="/erpflow/js/packages.js?v=1" defer></script>
 
 </body>
-
 </html>

@@ -5,7 +5,11 @@ import com.erpflow.dao.SalesOrderItemDAO;
 import com.erpflow.model.SalesOrder;
 import com.erpflow.model.SalesOrderItem;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class SalesOrderService {
 
@@ -18,51 +22,291 @@ public class SalesOrderService {
     private final InventoryService inventoryService =
             new InventoryService();
 
+
+    // =========================================================
+    // CREATE SALES ORDER
+    // =========================================================
+
     public void createSalesOrder(
             SalesOrder salesOrder,
-            List<SalesOrderItem> salesOrderItems) {
+            List<SalesOrderItem> salesOrderItems
+    ) {
 
-        if (salesOrderItems == null ||
-                salesOrderItems.isEmpty()) {
+        if (salesOrder == null) {
+
+            throw new RuntimeException(
+                    "Sales order cannot be null"
+            );
+        }
+
+
+        if (
+                salesOrderItems == null ||
+                salesOrderItems.isEmpty()
+        ) {
 
             throw new RuntimeException(
                     "Sales Order must contain at least one item"
             );
         }
 
-        // Reserve stock first
-        for (SalesOrderItem item : salesOrderItems) {
 
-            inventoryService.reserveStock(
-                    item.getItem(),
-                    item.getQuantity()
+        // =====================================================
+        // TAX RATE
+        // =====================================================
+
+        BigDecimal taxRate =
+                salesOrder.getTaxRate();
+
+
+        if (taxRate == null) {
+
+            taxRate =
+                    BigDecimal.ZERO;
+
+        }
+
+
+        if (
+                taxRate.compareTo(BigDecimal.ZERO) < 0 ||
+                taxRate.compareTo(
+                        new BigDecimal("100")
+                ) > 0
+        ) {
+
+            throw new RuntimeException(
+                    "Tax rate must be between 0 and 100"
             );
         }
 
-        // Save sales order
-        salesOrderDAO.save(salesOrder);
 
-        // Save order items
-        for (SalesOrderItem item : salesOrderItems) {
+        taxRate =
+                taxRate.setScale(
+                        2,
+                        RoundingMode.HALF_UP
+                );
 
-            item.setSalesOrder(salesOrder);
 
-            salesOrderItemDAO.save(item);
+        // =====================================================
+        // VALIDATE ITEMS + CALCULATE SUBTOTAL
+        // =====================================================
+
+        BigDecimal subtotal =
+                BigDecimal.ZERO;
+
+
+        Set<Integer> itemIds =
+                new HashSet<>();
+
+
+        for (
+                SalesOrderItem orderItem :
+                salesOrderItems
+        ) {
+
+            if (orderItem.getItem() == null) {
+
+                throw new RuntimeException(
+                        "Item cannot be null"
+                );
+            }
+
+
+            if (
+                    orderItem.getQuantity() <= 0
+            ) {
+
+                throw new RuntimeException(
+                        "Quantity must be greater than 0"
+                );
+            }
+
+
+            if (
+                    orderItem.getSellingPrice() == null
+            ) {
+
+                throw new RuntimeException(
+                        "Selling price is required"
+                );
+            }
+
+
+            if (
+                    orderItem.getSellingPrice()
+                            .compareTo(
+                                    BigDecimal.ZERO
+                            ) < 0
+            ) {
+
+                throw new RuntimeException(
+                        "Selling price cannot be negative"
+                );
+            }
+
+
+            // Prevent duplicate item rows
+
+            if (
+                    !itemIds.add(
+                            orderItem.getItem().getId()
+                    )
+            ) {
+
+                throw new RuntimeException(
+                        "Duplicate item found in sales order: "
+                                + orderItem.getItem().getName()
+                );
+            }
+
+
+            BigDecimal lineTotal =
+                    orderItem
+                            .getSellingPrice()
+                            .multiply(
+                                    BigDecimal.valueOf(
+                                            orderItem.getQuantity()
+                                    )
+                            );
+
+
+            subtotal =
+                    subtotal.add(lineTotal);
+        }
+
+
+        subtotal =
+                subtotal.setScale(
+                        2,
+                        RoundingMode.HALF_UP
+                );
+
+
+        // =====================================================
+        // CALCULATE TAX
+        // =====================================================
+
+        BigDecimal taxAmount =
+                subtotal
+                        .multiply(taxRate)
+                        .divide(
+                                new BigDecimal("100"),
+                                2,
+                                RoundingMode.HALF_UP
+                        );
+
+
+        // =====================================================
+        // CALCULATE GRAND TOTAL
+        // =====================================================
+
+        BigDecimal totalAmount =
+                subtotal.add(taxAmount);
+
+
+        totalAmount =
+                totalAmount.setScale(
+                        2,
+                        RoundingMode.HALF_UP
+                );
+
+
+        // =====================================================
+        // STORE CALCULATED VALUES
+        // =====================================================
+
+        salesOrder.setTaxRate(
+                taxRate
+        );
+
+        salesOrder.setSubtotal(
+                subtotal
+        );
+
+        salesOrder.setTaxAmount(
+                taxAmount
+        );
+
+        salesOrder.setTotalAmount(
+                totalAmount
+        );
+
+
+        // =====================================================
+        // RESERVE STOCK
+        // =====================================================
+
+        for (
+                SalesOrderItem orderItem :
+                salesOrderItems
+        ) {
+
+            inventoryService.reserveStock(
+                    orderItem.getItem(),
+                    orderItem.getQuantity()
+            );
+        }
+
+
+        // =====================================================
+        // SAVE SALES ORDER
+        // =====================================================
+
+        salesOrderDAO.save(
+                salesOrder
+        );
+
+
+        // =====================================================
+        // SAVE ORDER ITEMS
+        // =====================================================
+
+        for (
+                SalesOrderItem orderItem :
+                salesOrderItems
+        ) {
+
+            orderItem.setSalesOrder(
+                    salesOrder
+            );
+
+
+            salesOrderItemDAO.save(
+                    orderItem
+            );
         }
     }
+
+
+    // =========================================================
+    // GET ALL
+    // =========================================================
 
     public List<SalesOrder> getAllSalesOrders() {
 
         return salesOrderDAO.findAll();
     }
 
-    public SalesOrder getSalesOrderById(int id) {
+
+    // =========================================================
+    // GET BY ID
+    // =========================================================
+
+    public SalesOrder getSalesOrderById(
+            int id
+    ) {
 
         return salesOrderDAO.findById(id);
     }
 
+
+    // =========================================================
+    // GET ITEMS
+    // =========================================================
+
     public List<SalesOrderItem> getSalesOrderItems(
-            SalesOrder salesOrder) {
+            SalesOrder salesOrder
+    ) {
 
         return salesOrderItemDAO.findBySalesOrder(
                 salesOrder

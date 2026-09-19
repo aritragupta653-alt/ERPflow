@@ -6,19 +6,16 @@ import jakarta.persistence.*;
 @Table(name = "inventory")
 public class Inventory {
 
-    
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "inventory_id")
+   
     private int id;
 
-    @OneToOne
-    @JoinColumn(name = "item_id", nullable = false, unique = true)
+   
     private Item item;
 
-    @Column(nullable = false)
+    
     private int quantity;
 
-    @Column(nullable = false)
+    
     private int committedQuantity;
 
     public int getId() {

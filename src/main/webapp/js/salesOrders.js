@@ -1,9 +1,9 @@
-let allSalesOrders = [];
-let allCustomers = [];
-let allItems = [];
+const apiBaseUrl = "/erpflow/api/sales-orders";
+const customersApiUrl = "/erpflow/api/customers";
+const itemsApiUrl = "/erpflow/api/items";
 
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function () {
 
     loadCustomers();
 
@@ -11,753 +11,1136 @@ document.addEventListener("DOMContentLoaded", () => {
 
     loadSalesOrders();
 
-    setupSalesOrderForm();
+    setupEventListeners();
 
-    setupAddItemButton();
-
-    setupSearch();
+    calculateOrderTotals();
 
 });
 
 
-// ========================================
-// LOAD CUSTOMERS
-// ========================================
+
+/* =========================================================
+   EVENT LISTENERS
+   ========================================================= */
+
+function setupEventListeners() {
+
+    const addItemButton =
+        document.getElementById("addItemButton");
+
+    const createSalesOrderButton =
+        document.getElementById("createSalesOrderButton");
+
+    const taxRate =
+        document.getElementById("taxRate");
+
+    const searchInput =
+        document.getElementById("searchInput");
+
+
+    if (addItemButton) {
+
+        addItemButton.addEventListener(
+            "click",
+            addItemRow
+        );
+
+    }
+
+
+    if (createSalesOrderButton) {
+
+        createSalesOrderButton.addEventListener(
+            "click",
+            createSalesOrder
+        );
+
+    }
+
+
+    if (taxRate) {
+
+        taxRate.addEventListener(
+            "change",
+            calculateOrderTotals
+        );
+
+    }
+
+
+    if (searchInput) {
+
+        searchInput.addEventListener(
+            "input",
+            filterSalesOrders
+        );
+
+    }
+
+
+    /*
+     * Recalculate totals whenever quantity
+     * or selling price changes.
+     */
+
+    document.addEventListener(
+        "input",
+        function (event) {
+
+            if (
+                event.target.name === "quantity" ||
+                event.target.name === "sellingPrice"
+            ) {
+
+                calculateOrderTotals();
+
+                updateRowTotal(event.target.closest("tr"));
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   LOAD CUSTOMERS
+   ========================================================= */
 
 async function loadCustomers() {
 
     try {
 
         const response =
-            await fetch(
-                contextPath + "/api/customers"
-            );
-
+            await fetch(customersApiUrl);
 
         if (!response.ok) {
+
             throw new Error(
                 "Failed to load customers"
             );
+
         }
 
-
-        allCustomers =
+        const customers =
             await response.json();
 
-
-        populateCustomers();
-
-
-    } catch (error) {
-
-        console.error(error);
-
-        showMessage(
-            "Failed to load customers.",
-            "error"
-        );
-    }
-}
+        const select =
+            document.getElementById("customerSelect");
 
 
-// ========================================
-// POPULATE CUSTOMERS
-// ========================================
-
-function populateCustomers() {
-
-    const select =
-        document.getElementById(
-            "customerSelect"
-        );
-
-
-    select.innerHTML = "";
-
-
-    const defaultOption =
-        document.createElement("option");
-
-    defaultOption.value = "";
-
-    defaultOption.textContent =
-        "Select Customer";
-
-    defaultOption.disabled = true;
-
-    defaultOption.selected = true;
-
-    select.appendChild(
-        defaultOption
-    );
-
-
-    allCustomers.forEach(customer => {
-
-        if (customer.status &&
-            customer.status !== "ACTIVE") {
+        if (!select) {
             return;
         }
 
 
-        const option =
-            document.createElement("option");
+        select.innerHTML =
+            '<option value="">Select Customer</option>';
 
 
-        option.value =
-            customer.id;
+        customers.forEach(function (customer) {
 
+            const option =
+                document.createElement("option");
 
-        option.textContent =
-            customer.name;
+            option.value = customer.id;
 
+            option.textContent =
+                `${customer.name} (${customer.email || "No email"})`;
 
-        select.appendChild(option);
+            select.appendChild(option);
 
-    });
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Error loading customers:",
+            error
+        );
+
+        showMessage(
+            "Unable to load customers.",
+            "error"
+        );
+
+    }
 
 }
 
 
-// ========================================
-// LOAD ITEMS
-// ========================================
+/* =========================================================
+   LOAD ITEMS
+   ========================================================= */
 
 async function loadItems() {
 
     try {
 
         const response =
-            await fetch(
-                contextPath + "/api/items"
-            );
-
+            await fetch(itemsApiUrl);
 
         if (!response.ok) {
+
             throw new Error(
                 "Failed to load items"
             );
+
         }
 
-
-        allItems =
+        const items =
             await response.json();
 
-
-        populateAllItemSelects();
-
+        window.erpflowItems = items || [];
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            "Error loading items:",
+            error
+        );
+
+        window.erpflowItems = [];
 
         showMessage(
-            "Failed to load items.",
+            "Unable to load items.",
             "error"
         );
+
     }
-}
-
-
-// ========================================
-// CREATE ITEM SELECT
-// ========================================
-
-function createItemSelect() {
-
-    const select =
-        document.createElement("select");
-
-
-    select.className =
-        "item-select";
-
-
-    select.required = true;
-
-
-    const defaultOption =
-        document.createElement("option");
-
-
-    defaultOption.value = "";
-
-    defaultOption.textContent =
-        "Select Item";
-
-    defaultOption.disabled = true;
-
-    defaultOption.selected = true;
-
-
-    select.appendChild(
-        defaultOption
-    );
-
-
-    allItems.forEach(item => {
-
-        if (item.status &&
-            item.status !== "ACTIVE") {
-            return;
-        }
-
-
-        const option =
-            document.createElement("option");
-
-
-        option.value =
-            item.id;
-
-
-        option.textContent =
-            `${item.name} - ${item.sku}`;
-
-
-        option.dataset.price =
-            item.sellingPrice || 0;
-
-
-        select.appendChild(option);
-
-    });
-
-
-    // Automatically fill selling price
-
-    select.addEventListener(
-        "change",
-        () => {
-
-            const selectedOption =
-                select.options[
-                    select.selectedIndex
-                ];
-
-
-            const price =
-                selectedOption.dataset.price;
-
-
-            const row =
-                select.closest(
-                    ".sales-item-row"
-                );
-
-
-            const priceInput =
-                row.querySelector(
-                    ".price-input"
-                );
-
-
-            if (price &&
-                Number(price) > 0) {
-
-                priceInput.value =
-                    price;
-            }
-
-        }
-    );
-
-
-    return select;
-}
-
-
-// ========================================
-// POPULATE ITEM SELECTS
-// ========================================
-
-function populateAllItemSelects() {
-
-    document
-        .querySelectorAll(
-            ".item-select"
-        )
-        .forEach(select => {
-
-            const currentValue =
-                select.value;
-
-
-            const newSelect =
-                createItemSelect();
-
-
-            newSelect.value =
-                currentValue;
-
-
-            select.replaceWith(
-                newSelect
-            );
-
-        });
 
 }
 
 
-// ========================================
-// ADD ITEM ROW
-// ========================================
+/* =========================================================
+   ADD ITEM ROW
+   ========================================================= */
 
-function setupAddItemButton() {
+function addItemRow() {
 
-    const button =
+    const tbody =
         document.getElementById(
-            "addItemButton"
+            "salesOrderItemsTableBody"
         );
 
-
-    button.addEventListener(
-        "click",
-        () => {
-
-            const container =
-                document.getElementById(
-                    "itemContainer"
-                );
-
-
-            const row =
-                document.createElement(
-                    "div"
-                );
-
-
-            row.className =
-                "sales-item-row";
-
-
-            const itemSelect =
-                createItemSelect();
-
-
-            const quantity =
-                document.createElement(
-                    "input"
-                );
-
-
-            quantity.type =
-                "number";
-
-            quantity.className =
-                "quantity-input";
-
-            quantity.placeholder =
-                "Quantity";
-
-            quantity.min = "1";
-
-            quantity.required = true;
-
-
-            const price =
-                document.createElement(
-                    "input"
-                );
-
-
-            price.type =
-                "number";
-
-            price.className =
-                "price-input";
-
-            price.placeholder =
-                "Selling Price";
-
-            price.min = "0";
-
-            price.step = "0.01";
-
-            price.required = true;
-
-
-            const removeButton =
-                document.createElement(
-                    "button"
-                );
-
-
-            removeButton.type =
-                "button";
-
-            removeButton.className =
-                "btn small-btn danger-btn";
-
-            removeButton.textContent =
-                "Remove";
-
-
-            removeButton.addEventListener(
-                "click",
-                () => {
-
-                    row.remove();
-
-                }
-            );
-
-
-            row.appendChild(
-                itemSelect
-            );
-
-            row.appendChild(
-                quantity
-            );
-
-            row.appendChild(
-                price
-            );
-
-            row.appendChild(
-                removeButton
-            );
-
-
-            container.appendChild(
-                row
-            );
-
-        }
-    );
-}
-
-
-// ========================================
-// CREATE SALES ORDER
-// ========================================
-
-function setupSalesOrderForm() {
-
-    const form =
-        document.getElementById(
-            "salesOrderForm"
-        );
-
-
-    form.addEventListener(
-        "submit",
-        async event => {
-
-            event.preventDefault();
-
-
-            const customerId =
-                document.getElementById(
-                    "customerSelect"
-                ).value;
-
-
-            if (!customerId) {
-
-                showMessage(
-                    "Please select a customer.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            const rows =
-                document.querySelectorAll(
-                    ".sales-item-row"
-                );
-
-
-            const items = [];
-
-
-            for (const row of rows) {
-
-                const itemId =
-                    row.querySelector(
-                        ".item-select"
-                    ).value;
-
-
-                const quantity =
-                    Number(
-                        row.querySelector(
-                            ".quantity-input"
-                        ).value
-                    );
-
-
-                const sellingPrice =
-                    Number(
-                        row.querySelector(
-                            ".price-input"
-                        ).value
-                    );
-
-
-                if (!itemId) {
-
-                    showMessage(
-                        "Please select an item for every row.",
-                        "error"
-                    );
-
-                    return;
-                }
-
-
-                if (quantity <= 0) {
-
-                    showMessage(
-                        "Quantity must be greater than zero.",
-                        "error"
-                    );
-
-                    return;
-                }
-
-
-                if (sellingPrice < 0) {
-
-                    showMessage(
-                        "Selling price cannot be negative.",
-                        "error"
-                    );
-
-                    return;
-                }
-
-
-                items.push({
-
-                    itemId:
-                        Number(itemId),
-
-                    quantity:
-                        quantity,
-
-                    sellingPrice:
-                        sellingPrice
-
-                });
-
-            }
-
-
-            if (items.length === 0) {
-
-                showMessage(
-                    "Add at least one item.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            const requestBody = {
-
-                customerId:
-                    Number(customerId),
-
-                items:
-                    items
-
-            };
-
-
-            try {
-
-                const response =
-                    await fetch(
-                        contextPath +
-                        "/api/sales-orders",
-                        {
-
-                            method: "POST",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json"
-                            },
-
-                            body:
-                                JSON.stringify(
-                                    requestBody
-                                )
-
-                        }
-                    );
-
-
-                let data = {};
-
-                try {
-
-                    data =
-                        await response.json();
-
-                } catch (_) {
-                    // Empty response
-                }
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        data.error ||
-                        "Failed to create sales order"
-                    );
-
-                }
-
-
-                showMessage(
-                    "Sales Order created successfully.",
-                    "success"
-                );
-
-
-                form.reset();
-
-
-                // Restore one item row
-
-                const container =
-                    document.getElementById(
-                        "itemContainer"
-                    );
-
-
-                container.innerHTML = "";
-
-
-                addInitialItemRow();
-
-
-                await loadSalesOrders();
-
-
-            } catch (error) {
-
-                console.error(error);
-
-                showMessage(
-                    error.message,
-                    "error"
-                );
-            }
-
-        }
-    );
-}
-
-
-// ========================================
-// INITIAL ITEM ROW
-// ========================================
-
-function addInitialItemRow() {
-
-    const container =
-        document.getElementById(
-            "itemContainer"
-        );
+    if (!tbody) {
+        return;
+    }
 
 
     const row =
-        document.createElement(
-            "div"
-        );
-
+        document.createElement("tr");
 
     row.className =
         "sales-item-row";
 
 
+    row.innerHTML = `
+
+        <td>
+
+            <select
+                name="itemId"
+                class="item-select"
+                required
+            >
+
+                <option value="">
+                    Select Item
+                </option>
+
+            </select>
+
+        </td>
+
+
+        <td>
+
+            <input
+                type="text"
+                name="sku"
+                class="sku-display"
+                readonly
+            >
+
+        </td>
+
+
+        <td>
+
+            <input
+                type="text"
+                name="availableStock"
+                class="stock-display"
+                readonly
+            >
+
+        </td>
+
+
+        <td>
+
+            <input
+                type="number"
+                name="quantity"
+                min="1"
+                step="1"
+                value="1"
+                required
+            >
+
+        </td>
+
+
+        <td>
+
+            <input
+                type="number"
+                name="sellingPrice"
+                min="0"
+                step="0.01"
+                value="0"
+                required
+            >
+
+        </td>
+
+
+        <td>
+
+            <span class="line-total">
+                ₹0.00
+            </span>
+
+        </td>
+
+
+        <td>
+
+            <button
+                type="button"
+                class="danger-button remove-item-button"
+            >
+                Remove
+            </button>
+
+        </td>
+
+    `;
+
+
+    tbody.appendChild(row);
+
+
+    populateItemSelect(
+        row.querySelector(".item-select")
+    );
+
+
     const itemSelect =
-        createItemSelect();
+        row.querySelector(".item-select");
 
 
-    const quantity =
-        document.createElement(
-            "input"
+    itemSelect.addEventListener(
+        "change",
+        function () {
+
+            populateItemDetails(
+                row,
+                itemSelect.value
+            );
+
+        }
+    );
+
+
+    const removeButton =
+        row.querySelector(
+            ".remove-item-button"
         );
 
 
-    quantity.type =
-        "number";
+    removeButton.addEventListener(
+        "click",
+        function () {
 
-    quantity.className =
-        "quantity-input";
+            row.remove();
 
-    quantity.placeholder =
-        "Quantity";
+            calculateOrderTotals();
 
-    quantity.min = "1";
-
-    quantity.required = true;
-
-
-    const price =
-        document.createElement(
-            "input"
-        );
-
-
-    price.type =
-        "number";
-
-    price.className =
-        "price-input";
-
-    price.placeholder =
-        "Selling Price";
-
-    price.min = "0";
-
-    price.step = "0.01";
-
-    price.required = true;
-
-
-    row.appendChild(
-        itemSelect
-    );
-
-    row.appendChild(
-        quantity
-    );
-
-    row.appendChild(
-        price
+        }
     );
 
 
-    container.appendChild(
-        row
-    );
+    calculateOrderTotals();
 
 }
 
 
-// ========================================
-// LOAD SALES ORDERS
-// ========================================
+/* =========================================================
+   POPULATE ITEM SELECT
+   ========================================================= */
+
+function populateItemSelect(select) {
+
+    if (!select) {
+        return;
+    }
+
+
+    const items =
+        window.erpflowItems || [];
+
+
+    items.forEach(function (item) {
+
+        const option =
+            document.createElement("option");
+
+        option.value = item.id;
+
+        option.textContent =
+            `${item.name} - ${item.sku}`;
+
+        select.appendChild(option);
+
+    });
+
+}
+
+
+/* =========================================================
+   POPULATE ITEM DETAILS
+   ========================================================= */
+
+function populateItemDetails(row, itemId) {
+
+    if (!row || !itemId) {
+        return;
+    }
+
+
+    const items =
+        window.erpflowItems || [];
+
+
+    const item =
+        items.find(function (currentItem) {
+
+            return String(currentItem.id) ===
+                String(itemId);
+
+        });
+
+
+    if (!item) {
+        return;
+    }
+
+
+    const skuInput =
+        row.querySelector(
+            'input[name="sku"]'
+        );
+
+
+    const stockInput =
+        row.querySelector(
+            'input[name="availableStock"]'
+        );
+
+
+    const priceInput =
+        row.querySelector(
+            'input[name="sellingPrice"]'
+        );
+
+
+    if (skuInput) {
+
+        skuInput.value =
+            item.sku || "";
+
+    }
+
+
+    /*
+     * Different backend versions may use
+     * different stock field names.
+     */
+
+    if (stockInput) {
+
+        const stock =
+            item.stockQuantity ??
+            item.quantity ??
+            item.availableStock ??
+            0;
+
+        stockInput.value = stock;
+
+    }
+
+
+    if (priceInput) {
+
+        priceInput.value =
+            item.sellingPrice ??
+            0;
+
+    }
+
+
+    updateRowTotal(row);
+
+    calculateOrderTotals();
+
+}
+
+
+/* =========================================================
+   UPDATE LINE TOTAL
+   ========================================================= */
+
+function updateRowTotal(row) {
+
+    if (!row) {
+        return;
+    }
+
+
+    const quantityInput =
+        row.querySelector(
+            'input[name="quantity"]'
+        );
+
+
+    const priceInput =
+        row.querySelector(
+            'input[name="sellingPrice"]'
+        );
+
+
+    const lineTotalElement =
+        row.querySelector(
+            ".line-total"
+        );
+
+
+    if (
+        !quantityInput ||
+        !priceInput ||
+        !lineTotalElement
+    ) {
+
+        return;
+
+    }
+
+
+    const quantity =
+        parseFloat(quantityInput.value) || 0;
+
+
+    const price =
+        parseFloat(priceInput.value) || 0;
+
+
+    const lineTotal =
+        quantity * price;
+
+
+    lineTotalElement.textContent =
+        formatCurrency(lineTotal);
+
+}
+
+
+/* =========================================================
+   CALCULATE ORDER TOTALS
+   ========================================================= */
+
+function calculateOrderTotals() {
+
+    let subtotal = 0;
+
+
+    const rows =
+        document.querySelectorAll(
+            ".sales-item-row"
+        );
+
+
+    rows.forEach(function (row) {
+
+        const quantityInput =
+            row.querySelector(
+                'input[name="quantity"]'
+            );
+
+
+        const priceInput =
+            row.querySelector(
+                'input[name="sellingPrice"]'
+            );
+
+
+        if (
+            !quantityInput ||
+            !priceInput
+        ) {
+
+            return;
+
+        }
+
+
+        const quantity =
+            parseFloat(quantityInput.value) || 0;
+
+
+        const price =
+            parseFloat(priceInput.value) || 0;
+
+
+        subtotal +=
+            quantity * price;
+
+
+        updateRowTotal(row);
+
+    });
+
+
+    const taxRateInput =
+        document.getElementById(
+            "taxRate"
+        );
+
+
+    const taxRate =
+        parseFloat(
+            taxRateInput?.value || 0
+        );
+
+
+    const taxAmount =
+        subtotal * taxRate / 100;
+
+
+    const totalAmount =
+        subtotal + taxAmount;
+
+
+    const subtotalDisplay =
+        document.getElementById(
+            "subtotalDisplay"
+        );
+
+
+    const taxRateDisplay =
+        document.getElementById(
+            "taxRateDisplay"
+        );
+
+
+    const taxAmountDisplay =
+        document.getElementById(
+            "taxAmountDisplay"
+        );
+
+
+    const totalAmountDisplay =
+        document.getElementById(
+            "totalAmountDisplay"
+        );
+
+
+    if (subtotalDisplay) {
+
+        subtotalDisplay.textContent =
+            formatCurrency(subtotal);
+
+    }
+
+
+    if (taxRateDisplay) {
+
+        taxRateDisplay.textContent =
+            taxRate.toFixed(2);
+
+    }
+
+
+    if (taxAmountDisplay) {
+
+        taxAmountDisplay.textContent =
+            formatCurrency(taxAmount);
+
+    }
+
+
+    if (totalAmountDisplay) {
+
+        totalAmountDisplay.textContent =
+            formatCurrency(totalAmount);
+
+    }
+
+}
+
+
+/* =========================================================
+   CREATE SALES ORDER
+   ========================================================= */
+
+async function createSalesOrder() {
+
+    const customerSelect =
+        document.getElementById(
+            "customerSelect"
+        );
+
+
+    const taxRateInput =
+        document.getElementById(
+            "taxRate"
+        );
+
+
+    const rows =
+        document.querySelectorAll(
+            ".sales-item-row"
+        );
+
+
+    /*
+     * Customer validation
+     */
+
+    if (
+        !customerSelect ||
+        !customerSelect.value
+    ) {
+
+        showMessage(
+            "Please select a customer.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    /*
+     * Item validation
+     */
+
+    if (rows.length === 0) {
+
+        showMessage(
+            "Please add at least one item.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    const items = [];
+
+    const usedItemIds =
+        new Set();
+
+
+    let hasValidationError =
+        false;
+
+
+    rows.forEach(function (row) {
+
+        const itemSelect =
+            row.querySelector(
+                'select[name="itemId"]'
+            );
+
+
+        const quantityInput =
+            row.querySelector(
+                'input[name="quantity"]'
+            );
+
+
+        const priceInput =
+            row.querySelector(
+                'input[name="sellingPrice"]'
+            );
+
+
+        if (
+            !itemSelect ||
+            !quantityInput ||
+            !priceInput
+        ) {
+
+            hasValidationError = true;
+
+            return;
+
+        }
+
+
+        const itemId =
+            parseInt(
+                itemSelect.value,
+                10
+            );
+
+
+        const quantity =
+            parseInt(
+                quantityInput.value,
+                10
+            );
+
+
+        const sellingPrice =
+            parseFloat(
+                priceInput.value
+            );
+
+
+        /*
+         * Item validation
+         */
+
+        if (!itemId) {
+
+            showMessage(
+                "Please select an item in every row.",
+                "error"
+            );
+
+            hasValidationError = true;
+
+            return;
+
+        }
+
+
+        if (
+            !Number.isInteger(quantity) ||
+            quantity <= 0
+        ) {
+
+            showMessage(
+                "Quantity must be greater than 0.",
+                "error"
+            );
+
+            hasValidationError = true;
+
+            return;
+
+        }
+
+
+        if (
+            Number.isNaN(sellingPrice) ||
+            sellingPrice < 0
+        ) {
+
+            showMessage(
+                "Selling price cannot be negative.",
+                "error"
+            );
+
+            hasValidationError = true;
+
+            return;
+
+        }
+
+
+        /*
+         * Duplicate item validation
+         */
+
+        if (usedItemIds.has(itemId)) {
+
+            showMessage(
+                "The same item cannot be added twice. Please combine the quantities.",
+                "error"
+            );
+
+            hasValidationError = true;
+
+            return;
+
+        }
+
+
+        usedItemIds.add(itemId);
+
+
+        items.push({
+
+            itemId: itemId,
+
+            quantity: quantity,
+
+            sellingPrice: sellingPrice
+
+        });
+
+    });
+
+
+    if (hasValidationError) {
+        return;
+    }
+
+
+    /*
+     * Tax validation
+     */
+
+    const taxRate =
+        parseFloat(
+            taxRateInput?.value || 0
+        );
+
+
+    if (
+        Number.isNaN(taxRate) ||
+        taxRate < 0 ||
+        taxRate > 100
+    ) {
+
+        showMessage(
+            "Tax rate must be between 0% and 100%.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    /*
+     * Build request
+     */
+
+    const orderData = {
+
+        customerId:
+            parseInt(
+                customerSelect.value,
+                10
+            ),
+
+        taxRate:
+            taxRate,
+
+        items:
+            items
+
+    };
+
+
+    try {
+
+        const createButton =
+            document.getElementById(
+                "createSalesOrderButton"
+            );
+
+
+        if (createButton) {
+
+            createButton.disabled =
+                true;
+
+            createButton.textContent =
+                "Creating...";
+
+        }
+
+
+        const response =
+            await fetch(
+                apiBaseUrl,
+                {
+
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body:
+                        JSON.stringify(
+                            orderData
+                        )
+
+                }
+            );
+
+
+        const result =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                result.message ||
+                "Failed to create sales order"
+            );
+
+        }
+
+
+        /*
+         * Success message
+         */
+
+        let successMessage =
+            "Sales order created successfully.";
+
+
+        if (
+            result.totalAmount !== undefined
+        ) {
+
+            successMessage +=
+                ` Total: ${formatCurrency(result.totalAmount)}`;
+
+        }
+
+
+        showMessage(
+            successMessage,
+            "success"
+        );
+
+
+        /*
+         * Reset form
+         */
+
+        resetSalesOrderForm();
+
+
+        /*
+         * Reload orders
+         */
+
+        await loadSalesOrders();
+
+
+    } catch (error) {
+
+        console.error(
+            "Error creating sales order:",
+            error
+        );
+
+
+        showMessage(
+            error.message ||
+            "Failed to create sales order.",
+            "error"
+        );
+
+
+    } finally {
+
+        const createButton =
+            document.getElementById(
+                "createSalesOrderButton"
+            );
+
+
+        if (createButton) {
+
+            createButton.disabled =
+                false;
+
+            createButton.textContent =
+                "Create Sales Order";
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   RESET FORM
+   ========================================================= */
+
+function resetSalesOrderForm() {
+
+    const customerSelect =
+        document.getElementById(
+            "customerSelect"
+        );
+
+
+    const taxRate =
+        document.getElementById(
+            "taxRate"
+        );
+
+
+    const tbody =
+        document.getElementById(
+            "salesOrderItemsTableBody"
+        );
+
+
+    if (customerSelect) {
+
+        customerSelect.value = "";
+
+    }
+
+
+    if (taxRate) {
+
+        taxRate.value = "0";
+
+    }
+
+
+    if (tbody) {
+
+        tbody.innerHTML = "";
+
+    }
+
+
+    calculateOrderTotals();
+
+}
+
+
+/* =========================================================
+   LOAD SALES ORDERS
+   ========================================================= */
 
 async function loadSalesOrders() {
 
     try {
 
         const response =
-            await fetch(
-                contextPath +
-                "/api/sales-orders"
-            );
+            await fetch(apiBaseUrl);
 
 
         if (!response.ok) {
@@ -769,338 +1152,198 @@ async function loadSalesOrders() {
         }
 
 
-        allSalesOrders =
+        const orders =
             await response.json();
 
 
-        renderSalesOrders(
-            allSalesOrders
+        window.erpflowSalesOrders =
+            orders || [];
+
+
+        displaySalesOrders(
+            window.erpflowSalesOrders
         );
 
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            "Error loading sales orders:",
+            error
+        );
+
 
         showMessage(
-            "Failed to load sales orders.",
+            "Unable to load sales orders.",
             "error"
         );
+
     }
+
 }
 
 
-// ========================================
-// RENDER SALES ORDERS
-// ========================================
+/* =========================================================
+   DISPLAY SALES ORDERS
+   ========================================================= */
 
-function renderSalesOrders(
-    orders
-) {
+function displaySalesOrders(orders) {
 
-    const tableBody =
+    const tbody =
         document.getElementById(
             "salesOrdersTableBody"
         );
 
 
-    const count =
-        document.getElementById(
-            "salesOrderCount"
-        );
-
-
-    tableBody.innerHTML = "";
-
-    count.textContent =
-        orders.length;
-
-
-    if (orders.length === 0) {
-
-        const row =
-            document.createElement("tr");
-
-
-        const cell =
-            document.createElement("td");
-
-
-        cell.colSpan = 5;
-
-        cell.textContent =
-            "No sales orders found.";
-
-        cell.style.textAlign =
-            "center";
-
-
-        row.appendChild(cell);
-
-        tableBody.appendChild(row);
-
+    if (!tbody) {
         return;
     }
 
 
-    orders.forEach(order => {
+    tbody.innerHTML = "";
+
+
+    if (
+        !orders ||
+        orders.length === 0
+    ) {
+
+        tbody.innerHTML = `
+
+            <tr>
+
+                <td
+                    colspan="8"
+                    style="text-align:center;"
+                >
+                    No sales orders found.
+                </td>
+
+            </tr>
+
+        `;
+
+        return;
+
+    }
+
+
+    orders.forEach(function (order) {
 
         const row =
             document.createElement("tr");
 
 
-        // ID
-
-        const idCell =
-            document.createElement("td");
-
-        idCell.textContent =
-            order.id;
-
-        row.appendChild(idCell);
+        const customer =
+            order.customer ||
+            {};
 
 
-        // Customer
-
-        const customerCell =
-            document.createElement("td");
-
-
-        customerCell.textContent =
-            order.customer
-                ? order.customer.name
-                : "-";
-
-
-        row.appendChild(
-            customerCell
-        );
-
-
-        // Date
-
-        const dateCell =
-            document.createElement("td");
-
-
-        dateCell.textContent =
-            formatDate(
-                order.orderDate
+        const subtotal =
+            Number(
+                order.subtotal || 0
             );
 
 
-        row.appendChild(
-            dateCell
-        );
-
-
-        // Status
-
-        const statusCell =
-            document.createElement("td");
-
-
-        const badge =
-            document.createElement("span");
-
-
-        badge.className =
-            "status-badge " +
-            getStatusClass(
-                order.status
+        const taxRate =
+            Number(
+                order.taxRate || 0
             );
 
 
-        badge.textContent =
-            order.status || "UNKNOWN";
-
-
-        statusCell.appendChild(
-            badge
-        );
-
-
-        row.appendChild(
-            statusCell
-        );
-
-
-        // Action
-
-        const actionCell =
-            document.createElement("td");
-
-
-        const viewButton =
-            document.createElement(
-                "button"
+        const taxAmount =
+            Number(
+                order.taxAmount || 0
             );
 
 
-        viewButton.type =
-            "button";
+        const totalAmount =
+            Number(
+                order.totalAmount || 0
+            );
 
 
-        viewButton.className =
-            "btn small-btn";
+        row.innerHTML = `
+
+            <td>
+                ${escapeHtml(order.id)}
+            </td>
 
 
-        viewButton.textContent =
-            "View";
+            <td>
+                ${escapeHtml(
+                    customer.name || "-"
+                )}
+            </td>
 
 
-        viewButton.addEventListener(
-            "click",
-            () => viewSalesOrder(
-                order.id
-            )
-        );
+            <td>
+                ${formatDate(
+                    order.orderDate
+                )}
+            </td>
 
 
-        actionCell.appendChild(
-            viewButton
-        );
+            <td>
+                ${formatCurrency(
+                    subtotal
+                )}
+            </td>
 
 
-        row.appendChild(
-            actionCell
-        );
+            <td>
+                ${taxRate.toFixed(2)}%
+                <br>
+                <small>
+                    ${formatCurrency(
+                        taxAmount
+                    )}
+                </small>
+            </td>
 
 
-        tableBody.appendChild(
-            row
-        );
+            <td>
+                <strong>
+                    ${formatCurrency(
+                        totalAmount
+                    )}
+                </strong>
+            </td>
+
+
+            <td>
+                ${escapeHtml(
+                    order.status || "-"
+                )}
+            </td>
+
+
+            <td>
+
+                <a
+                    class="action-button"
+                    href="/erpflow/salesOrderDetails.jsp?id=${encodeURIComponent(order.id)}"
+                >
+                    View
+                </a>
+
+            </td>
+
+        `;
+
+
+        tbody.appendChild(row);
 
     });
 
 }
 
 
-// ========================================
-// VIEW SALES ORDER
-// ========================================
+/* =========================================================
+   SEARCH / FILTER
+   ========================================================= */
 
-async function viewSalesOrder(
-    id
-) {
-
-    try {
-
-        const response =
-            await fetch(
-                contextPath +
-                "/api/sales-orders/" +
-                id
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Failed to load sales order"
-            );
-
-        }
-
-
-        const order =
-            await response.json();
-
-
-        showSalesOrderDetails(
-            order
-        );
-
-
-    } catch (error) {
-
-        console.error(error);
-
-        showMessage(
-            "Unable to load sales order details.",
-            "error"
-        );
-    }
-}
-
-
-// ========================================
-// SALES ORDER DETAILS
-// ========================================
-
-function showSalesOrderDetails(
-    order
-) {
-
-    let message =
-        `Sales Order #${order.id}\n\n`;
-
-
-    message +=
-        `Customer: ${
-            order.customer
-                ? order.customer.name
-                : "-"
-        }\n`;
-
-
-    message +=
-        `Order Date: ${
-            formatDate(
-                order.orderDate
-            )
-        }\n`;
-
-
-    message +=
-        `Status: ${
-            order.status || "-"
-        }\n`;
-
-
-    // If API returns items
-
-    if (
-        Array.isArray(order.items)
-    ) {
-
-        message +=
-            "\nItems:\n";
-
-
-        order.items.forEach(
-            item => {
-
-                const itemName =
-                    item.item
-                        ? item.item.name
-                        : item.itemName ||
-                          "Item";
-
-
-                message +=
-                    `${itemName} - Qty: ${
-                        item.quantity
-                    } - Price: ${
-                        item.sellingPrice
-                    }\n`;
-
-            }
-        );
-
-    }
-
-
-    alert(message);
-
-}
-
-
-// ========================================
-// SEARCH
-// ========================================
-
-function setupSearch() {
+function filterSalesOrders() {
 
     const searchInput =
         document.getElementById(
@@ -1108,169 +1351,193 @@ function setupSearch() {
         );
 
 
-    searchInput.addEventListener(
-        "input",
-        () => {
-
-            const term =
-                searchInput.value
-                    .toLowerCase()
-                    .trim();
+    if (!searchInput) {
+        return;
+    }
 
 
-            if (!term) {
-
-                renderSalesOrders(
-                    allSalesOrders
-                );
-
-                return;
-            }
+    const searchText =
+        searchInput.value
+            .trim()
+            .toLowerCase();
 
 
-            const filtered =
-                allSalesOrders.filter(
-                    order => {
-
-                        const id =
-                            String(
-                                order.id ||
-                                ""
-                            );
+    const orders =
+        window.erpflowSalesOrders ||
+        [];
 
 
-                        const customer =
-                            order.customer
-                                ? order.customer.name
-                                : "";
+    if (!searchText) {
 
-
-                        const status =
-                            order.status ||
-                            "";
-
-
-                        return (
-
-                            id.includes(term)
-
-                            ||
-
-                            customer
-                                .toLowerCase()
-                                .includes(term)
-
-                            ||
-
-                            status
-                                .toLowerCase()
-                                .includes(term)
-
-                        );
-
-                    }
-                );
-
-
-            renderSalesOrders(
-                filtered
-            );
-
-        }
-    );
-}
-
-
-// ========================================
-// FORMAT DATE
-// ========================================
-
-function formatDate(dateValue) {
-    if (!dateValue) return "-";
-
-    // LocalDateTime returned by Jackson
-    if (Array.isArray(dateValue)) {
-        const [
-            year,
-            month,
-            day,
-            hour = 0,
-            minute = 0,
-            second = 0
-        ] = dateValue;
-
-        const date = new Date(
-            year,
-            month - 1,
-            day,
-            hour,
-            minute,
-            second
+        displaySalesOrders(
+            orders
         );
 
-        if (isNaN(date.getTime())) return "-";
+        return;
 
-        return date.toLocaleString();
     }
 
-    // ISO string fallback
-    const date = new Date(dateValue);
 
-    if (isNaN(date.getTime())) return "-";
+    const filteredOrders =
+        orders.filter(
+            function (order) {
 
-    return date.toLocaleString();
+                const customer =
+                    order.customer ||
+                    {};
+
+
+                const searchableText = [
+
+                    order.id,
+
+                    order.status,
+
+                    customer.name,
+
+                    customer.email,
+
+                    customer.phone
+
+                ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+
+
+                return searchableText
+                    .includes(searchText);
+
+            }
+        );
+
+
+    displaySalesOrders(
+        filteredOrders
+    );
+
 }
 
 
+/* =========================================================
+   DATE FORMATTER
+   ========================================================= */
 
-// ========================================
-// STATUS CLASS
-// ========================================
+function formatDate(dateValue) {
 
-function getStatusClass(
-    status
-) {
+    if (!dateValue) {
 
-    if (!status) {
-        return "";
+        return "-";
+
     }
 
 
-    const value =
-        status.toLowerCase();
+    let date;
+
+
+    /*
+     * Jackson LocalDateTime format:
+     *
+     * [2026,9,18,12,46,59,954292000]
+     */
+
+    if (Array.isArray(dateValue)) {
+
+        const year =
+            dateValue[0];
+
+
+        const month =
+            (dateValue[1] || 1) - 1;
+
+
+        const day =
+            dateValue[2] || 1;
+
+
+        const hour =
+            dateValue[3] || 0;
+
+
+        const minute =
+            dateValue[4] || 0;
+
+
+        const second =
+            dateValue[5] || 0;
+
+
+        date =
+            new Date(
+                year,
+                month,
+                day,
+                hour,
+                minute,
+                second
+            );
+
+    } else {
+
+        date =
+            new Date(dateValue);
+
+    }
 
 
     if (
-        value === "created" ||
-        value === "completed"
+        Number.isNaN(
+            date.getTime()
+        )
     ) {
 
-        return "active";
+        return "-";
 
     }
 
 
-    if (
-        value === "cancelled" ||
-        value === "cancel"
-    ) {
+    return date.toLocaleString(
+        "en-IN",
+        {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    );
 
-        return "inactive";
-
-    }
-
-
-    return "";
 }
 
 
-// ========================================
-// MESSAGE
-// ========================================
+/* =========================================================
+   CURRENCY FORMATTER
+   ========================================================= */
+
+function formatCurrency(amount) {
+
+    return new Intl.NumberFormat(
+        "en-IN",
+        {
+            style: "currency",
+            currency: "INR",
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }
+    ).format(
+        Number(amount) || 0
+    );
+
+}
+
+
+/* =========================================================
+   MESSAGE
+   ========================================================= */
 
 function showMessage(
     message,
-    type
+    type = "info"
 ) {
 
     const messageBox =
@@ -1279,25 +1546,75 @@ function showMessage(
         );
 
 
-    messageBox.textContent =
-        message;
+    if (!messageBox) {
+        return;
+    }
 
 
-    messageBox.className =
-        "message-box " + type;
+    messageBox.innerHTML = `
 
+        <div class="message ${type}">
 
-    messageBox.style.display =
-        "block";
+            ${escapeHtml(message)}
+
+        </div>
+
+    `;
 
 
     setTimeout(
-        () => {
+        function () {
 
-            messageBox.style.display =
-                "none";
+            messageBox.innerHTML = "";
 
         },
-        3000
+        5000
     );
+
+}
+
+
+/* =========================================================
+   HTML ESCAPE
+   ========================================================= */
+
+function escapeHtml(value) {
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+
+        return "";
+
+    }
+
+
+    return String(value)
+
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+
+        .replace(
+            /</g,
+            "&lt;"
+        )
+
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
 }

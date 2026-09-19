@@ -931,3 +931,26 @@ hr {
     }
 
 }
+
+
+.order-summary {
+    max-width: 500px;
+    margin: 25px 0 10px auto;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.order-summary > div {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+}
+
+.order-summary .grand-total {
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 2px solid #ddd;
+    font-size: 18px;
+}

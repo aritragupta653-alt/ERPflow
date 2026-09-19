@@ -1,21 +1,36 @@
 package com.erpflow.controller;
 
+import com.erpflow.model.Shipment;
+import com.erpflow.service.ShippingRateService;
 import com.erpflow.service.ShippingService;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 
 import java.io.IOException;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 @WebServlet("/api/shipping/*")
 public class ShippingServlet extends HttpServlet {
 
-    private final ShippingService shippingService = new ShippingService();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ShippingService shippingService =
+            new ShippingService();
+
+    private final ShippingRateService shippingRateService =
+            new ShippingRateService();
+private final ObjectMapper objectMapper =
+            new ObjectMapper()
+                    .registerModule(
+                            new JavaTimeModule()
+                    );
+
 
     @Override
     protected void doPost(
@@ -30,55 +45,244 @@ public class ShippingServlet extends HttpServlet {
 
             String path = request.getPathInfo();
 
-            if (path == null || path.equals("/")) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            JsonNode root =
+                    objectMapper.readTree(request.getReader());
+
+            // =====================================================
+            // CALCULATE SHIPPING RATE
+            // POST /api/shipping/rate
+            // =====================================================
+
+            if ("/rate".equals(path)) {
+
+                JsonNode packageIdsNode =
+                        root.get("packageIds");
+
+                if (packageIdsNode == null ||
+                        !packageIdsNode.isArray() ||
+                        packageIdsNode.isEmpty()) {
+
+                    throw new RuntimeException(
+                            "packageIds must be a non-empty array");
+                }
+
+                List<Integer> packageIds =
+                        new ArrayList<>();
+
+                for (JsonNode node : packageIdsNode) {
+                    packageIds.add(node.asInt());
+                }
+
+                JsonNode carrierServiceNode =
+                        root.get("carrierServiceId");
+
+                if (carrierServiceNode == null ||
+                        carrierServiceNode.asInt() <= 0) {
+
+                    throw new RuntimeException(
+                            "Valid carrierServiceId is required");
+                }
+
+                int carrierServiceId =
+                        carrierServiceNode.asInt();
+
+                ShippingRateService.ShippingRate rate =
+                        shippingRateService.calculateRate(
+                                packageIds,
+                                carrierServiceId
+                        );
+
                 objectMapper.writeValue(
                         response.getWriter(),
-                        Map.of("error", "Package ID is required")
+                        rate
                 );
+
                 return;
             }
 
-            int packageId =
-                    Integer.parseInt(path.substring(1));
+            // =====================================================
+            // CREATE SHIPMENT
+            // POST /api/shipping
+            // =====================================================
 
-            shippingService.shipPackage(packageId);
+            if (!"/".equals(path) && path != null) {
+                throw new RuntimeException(
+                        "Invalid shipping endpoint");
+            }
 
-            response.setStatus(HttpServletResponse.SC_OK);
+            // -----------------------------
+            // Sales Order
+            // -----------------------------
+
+            JsonNode salesOrderNode =
+                    root.get("salesOrderId");
+
+            if (salesOrderNode == null ||
+                    salesOrderNode.asInt() <= 0) {
+
+                throw new RuntimeException(
+                        "Valid salesOrderId is required");
+            }
+
+            int salesOrderId =
+                    salesOrderNode.asInt();
+
+            // -----------------------------
+            // Packages
+            // -----------------------------
+
+            JsonNode packageIdsNode =
+                    root.get("packageIds");
+
+            if (packageIdsNode == null ||
+                    !packageIdsNode.isArray() ||
+                    packageIdsNode.isEmpty()) {
+
+                throw new RuntimeException(
+                        "packageIds must be a non-empty array");
+            }
+
+            List<Integer> packageIds =
+                    new ArrayList<>();
+
+            for (JsonNode node : packageIdsNode) {
+                int packageId = node.asInt();
+
+                if (packageId <= 0) {
+                    throw new RuntimeException(
+                            "Invalid packageId: " + packageId);
+                }
+
+                packageIds.add(packageId);
+            }
+
+            // -----------------------------
+            // Carrier Service
+            // -----------------------------
+
+            JsonNode carrierServiceNode =
+                    root.get("carrierServiceId");
+
+            if (carrierServiceNode == null ||
+                    carrierServiceNode.asInt() <= 0) {
+
+                throw new RuntimeException(
+                        "Valid carrierServiceId is required");
+            }
+
+            int carrierServiceId =
+                    carrierServiceNode.asInt();
+
+            // -----------------------------
+            // Create Shipment object
+            // -----------------------------
+
+            Shipment shipment =
+                    new Shipment();
+
+            if (root.has("shippingMethod")) {
+
+                shipment.setShippingMethod(
+                        root.get("shippingMethod").asText()
+                );
+            }
+
+            if (root.has("trackingNumber")) {
+
+                shipment.setTrackingNumber(
+                        root.get("trackingNumber").asText()
+                );
+            }
+
+            if (root.has("trackingUrl")) {
+
+                shipment.setTrackingUrl(
+                        root.get("trackingUrl").asText()
+                );
+            }
+
+            if (root.has("shippingCharge")) {
+
+                shipment.setShippingCharge(
+                        root.get("shippingCharge").asDouble()
+                );
+            }
+
+            if (root.has("dispatchAddress")) {
+
+                shipment.setDispatchAddress(
+                        root.get("dispatchAddress").asText()
+                );
+            }
+
+            if (root.has("destinationAddress")) {
+
+                shipment.setDestinationAddress(
+                        root.get("destinationAddress").asText()
+                );
+            }
+
+            if (root.has("notes")) {
+
+                shipment.setNotes(
+                        root.get("notes").asText()
+                );
+            }
+
+            // =====================================================
+            // CREATE SHIPMENT THROUGH SERVICE
+            // =====================================================
+
+            Shipment createdShipment =
+                    shippingService.shipPackages(
+                            salesOrderId,
+                            packageIds,
+                            carrierServiceId,
+                            shipment
+                    );
+
+            response.setStatus(
+                    HttpServletResponse.SC_CREATED
+            );
 
             objectMapper.writeValue(
                     response.getWriter(),
-                    Map.of(
-                            "message",
-                            "Package shipped successfully",
-                            "packageId",
-                            packageId
+                    createdShipment
+            );
+
+        } catch (Exception e) {
+
+            response.setStatus(
+                    HttpServletResponse.SC_BAD_REQUEST
+            );
+
+            objectMapper.writeValue(
+                    response.getWriter(),
+                    new ErrorResponse(
+                            e.getMessage()
                     )
             );
+        }
+    }
 
-        } catch (NumberFormatException e) {
+    // =====================================================
+    // ERROR RESPONSE
+    // =====================================================
 
-            response.setStatus(
-                    HttpServletResponse.SC_BAD_REQUEST
-            );
+    public static class ErrorResponse {
 
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    Map.of("error", "Invalid package ID")
-            );
+        private String message;
 
-        } catch (RuntimeException e) {
+        public ErrorResponse(String message) {
+            this.message = message;
+        }
 
-            e.printStackTrace();
+        public String getMessage() {
+            return message;
+        }
 
-            response.setStatus(
-                    HttpServletResponse.SC_BAD_REQUEST
-            );
-
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    Map.of("error", e.getMessage())
-            );
+        public void setMessage(String message) {
+            this.message = message;
         }
     }
 }

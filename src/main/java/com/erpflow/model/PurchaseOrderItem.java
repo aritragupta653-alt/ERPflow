@@ -10,6 +10,8 @@ public class PurchaseOrderItem {
     private int quantity;
     private BigDecimal purchasePrice;
 
+    private int recievedQuantity ;
+
     public int getId() {
         return id;
     }
@@ -48,5 +50,12 @@ public class PurchaseOrderItem {
 
     public void setPurchasePrice(BigDecimal purchasePrice) {
         this.purchasePrice = purchasePrice;
+    }
+
+    public void setReceivedQuantity(int q){
+        this.recievedQuantity = q;
+    }
+    public int getRecievedQuantity(){
+        return recievedQuantity;
     }
 }

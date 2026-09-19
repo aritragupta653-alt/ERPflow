@@ -5,42 +5,42 @@ import com.erpflow.model.Package;
 import com.erpflow.model.PackageItem;
 import com.erpflow.util.DBConnection;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class PackageItemDAO {
 
-    // SAVE PACKAGE ITEM
+    // =========================
+    // SAVE
+    // =========================
+
     public void save(PackageItem packageItem) {
 
         String sql = """
                 INSERT INTO package_items
-                (quantity, item_id, package_id)
+                (
+                    quantity,
+                    item_id,
+                    package_id
+                )
                 VALUES (?, ?, ?)
                 """;
 
-        try (
-                Connection connection =
-                        DBConnection.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(
-                                sql,
-                                Statement.RETURN_GENERATED_KEYS
-                        )
-        ) {
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(
+                             sql,
+                             Statement.RETURN_GENERATED_KEYS
+                     )) {
 
             statement.setInt(
                     1,
                     packageItem.getQuantity()
             );
 
-            statement.setLong(
+            statement.setInt(
                     2,
                     packageItem.getItem().getId()
             );
@@ -52,13 +52,13 @@ public class PackageItemDAO {
 
             statement.executeUpdate();
 
-            try (ResultSet rs =
+            try (ResultSet keys =
                          statement.getGeneratedKeys()) {
 
-                if (rs.next()) {
+                if (keys.next()) {
 
                     packageItem.setId(
-                            rs.getInt(1)
+                            keys.getInt(1)
                     );
                 }
             }
@@ -66,14 +66,17 @@ public class PackageItemDAO {
         } catch (SQLException e) {
 
             throw new RuntimeException(
-                    "Error saving package item",
+                    "Failed to save package item",
                     e
             );
         }
     }
 
 
-    // GET ITEMS INSIDE PACKAGE
+    // =========================
+    // FIND ITEMS BY PACKAGE
+    // =========================
+
     public List<PackageItem> findByPackage(
             Package packageEntity) {
 
@@ -81,35 +84,28 @@ public class PackageItemDAO {
                 SELECT
                     pi.id,
                     pi.quantity,
-                    pi.item_id,
-                    pi.package_id,
-
+                    i.item_id,
                     i.name,
                     i.description,
-                    i.purchase_price,
-                    i.reorder_level,
-                    i.selling_price,
                     i.sku,
+                    i.purchase_price,
+                    i.selling_price,
+                    i.reorder_level,
                     i.status
-
                 FROM package_items pi
-
                 JOIN items i
                     ON pi.item_id = i.item_id
-
                 WHERE pi.package_id = ?
+                ORDER BY pi.id
                 """;
 
         List<PackageItem> packageItems =
                 new ArrayList<>();
 
-        try (
-                Connection connection =
-                        DBConnection.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
-        ) {
+        try (Connection connection =
+                     DBConnection.getConnection();
+             PreparedStatement statement =
+                     connection.prepareStatement(sql)) {
 
             statement.setInt(
                     1,
@@ -133,9 +129,7 @@ public class PackageItemDAO {
                     );
 
 
-                    // Create Item
-                    Item item =
-                            new Item();
+                    Item item = new Item();
 
                     item.setId(
                             rs.getInt("item_id")
@@ -149,14 +143,14 @@ public class PackageItemDAO {
                             rs.getString("description")
                     );
 
+                    item.setSku(
+                            rs.getString("sku")
+                    );
+
                     item.setPurchasePrice(
                             rs.getBigDecimal(
                                     "purchase_price"
                             )
-                    );
-
-                    item.setReorderLevel(
-                            rs.getInt("reorder_level")
                     );
 
                     item.setSellingPrice(
@@ -165,8 +159,8 @@ public class PackageItemDAO {
                             )
                     );
 
-                    item.setSku(
-                            rs.getString("sku")
+                    item.setReorderLevel(
+                            rs.getInt("reorder_level")
                     );
 
                     item.setStatus(
@@ -189,7 +183,7 @@ public class PackageItemDAO {
         } catch (SQLException e) {
 
             throw new RuntimeException(
-                    "Error fetching package items",
+                    "Failed to fetch package items",
                     e
             );
         }

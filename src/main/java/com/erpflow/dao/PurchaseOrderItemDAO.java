@@ -17,8 +17,8 @@ public class PurchaseOrderItemDAO {
 
         String sql =
                 "INSERT INTO purchase_order_items " +
-                "(purchase_order_id, item_id, quantity, purchasePrice) " +
-                "VALUES (?, ?, ?, ?)";
+                "(purchase_order_id, item_id, quantity, purchasePrice,recievedQuantity) " +
+                "VALUES (?, ?, ?, ?,?)";
 
         try (
                 Connection connection =
@@ -55,6 +55,8 @@ public class PurchaseOrderItemDAO {
                     purchaseOrderItem
                             .getPurchasePrice()
             );
+
+            statement.setInt(5,0);
 
             statement.executeUpdate();
 
