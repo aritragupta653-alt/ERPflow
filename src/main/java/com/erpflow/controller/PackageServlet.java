@@ -1,3 +1,4 @@
+
 package com.erpflow.controller;
 
 import com.erpflow.model.Item;
@@ -11,6 +12,8 @@ import com.erpflow.service.SalesOrderService;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import jakarta.servlet.annotation.WebServlet;
@@ -37,9 +40,7 @@ public class PackageServlet extends HttpServlet {
 
     private final ObjectMapper objectMapper =
             new ObjectMapper()
-                    .registerModule(
-                            new JavaTimeModule()
-                    );
+                    .registerModule(new JavaTimeModule());
 
 
     // =====================================================
@@ -56,103 +57,79 @@ public class PackageServlet extends HttpServlet {
 
         try {
 
-            String path =
-                    request.getPathInfo();
+            String path = request.getPathInfo();
 
             String salesOrderIdParam =
-                    request.getParameter(
-                            "salesOrderId"
-                    );
+                    request.getParameter("salesOrderId");
 
 
-            // =============================================
             // GET /api/packages?salesOrderId=1
-            // =============================================
-
             if (salesOrderIdParam != null &&
                     !salesOrderIdParam.isBlank()) {
 
                 int salesOrderId =
-                        Integer.parseInt(
-                                salesOrderIdParam
-                        );
+                        Integer.parseInt(salesOrderIdParam);
 
                 SalesOrder salesOrder =
-                        salesOrderService
-                                .getSalesOrderById(
-                                        salesOrderId
-                                );
+                        salesOrderService.getSalesOrderById(
+                                salesOrderId
+                        );
 
                 if (salesOrder == null) {
-
                     sendError(
                             response,
                             404,
                             "Sales Order not found"
                     );
-
                     return;
                 }
 
                 List<Package> packages =
-                        packageService
-                                .getPackagesBySalesOrder(
-                                        salesOrderId
-                                );
+                        packageService.getPackagesBySalesOrder(
+                                salesOrderId
+                        );
+
+                // NEW: Include each package's items.
+                List<ObjectNode> result =
+                        packagesWithItems(packages);
 
                 objectMapper.writeValue(
                         response.getWriter(),
-                        packages
+                        result
                 );
 
                 return;
             }
 
 
-            // =============================================
             // GET /api/packages/{id}
-            // =============================================
-
             if (path != null &&
-                    !path.equals("/")) {
+                    !path.equals("/") &&
+                    !path.isBlank()) {
 
                 int packageId =
-                        Integer.parseInt(
-                                path.substring(1)
-                        );
+                        Integer.parseInt(path.substring(1));
 
                 Package pkg =
-                        packageService
-                                .getPackageById(
-                                        packageId
-                                );
+                        packageService.getPackageById(packageId);
 
                 if (pkg == null) {
-
                     sendError(
                             response,
                             404,
                             "Package not found"
                     );
-
                     return;
                 }
 
-
                 List<PackageItem> items =
-                        packageService
-                                .getPackageItems(
-                                        pkg
-                                );
-
+                        packageService.getPackageItems(pkg);
 
                 objectMapper.writeValue(
                         response.getWriter(),
                         Map.of(
-                                "package",
-                                pkg,
-                                "items",
-                                items
+                                "package", pkg,
+                                "items", items
                         )
                 );
 
@@ -160,17 +137,17 @@ public class PackageServlet extends HttpServlet {
             }
 
 
-            // =============================================
             // GET /api/packages
-            // =============================================
-
             List<Package> packages =
-                    packageService
-                            .getAllPackages();
+                    packageService.getAllPackages();
+
+            // NEW: Include items in the general package list too.
+            List<ObjectNode> result =
+                    packagesWithItems(packages);
 
             objectMapper.writeValue(
                     response.getWriter(),
-                    packages
+                    result
             );
 
         } catch (NumberFormatException e) {
@@ -195,6 +172,45 @@ public class PackageServlet extends HttpServlet {
 
 
     // =====================================================
+    // HELPER: PACKAGES WITH ITEMS
+    // =====================================================
+
+    private List<ObjectNode> packagesWithItems(
+            List<Package> packages) {
+
+        List<ObjectNode> result =
+                new ArrayList<>();
+
+        if (packages == null) {
+            return result;
+        }
+
+        for (Package pkg : packages) {
+
+            // Serialize the package's existing properties.
+            ObjectNode packageNode =
+                    objectMapper.valueToTree(pkg);
+
+            // Fetch all items belonging to this package.
+            List<PackageItem> packageItems =
+                    packageService.getPackageItems(pkg);
+
+            // Serialize the items, including salesOrderItemId.
+            ArrayNode itemsNode =
+                    objectMapper.valueToTree(packageItems);
+
+            // Attach items without changing the package's
+            // existing JSON properties.
+            packageNode.set("items", itemsNode);
+
+            result.add(packageNode);
+        }
+
+        return result;
+    }
+
+
+    // =====================================================
     // POST
     // =====================================================
 
@@ -214,98 +230,79 @@ public class PackageServlet extends HttpServlet {
                     );
 
 
-            // =============================================
             // SALES ORDER
-            // =============================================
-
-            if (!root.has("salesOrderId")) {
+            if (!root.has("salesOrderId") ||
+                    !root.get("salesOrderId").canConvertToInt()) {
 
                 sendError(
                         response,
                         400,
-                        "salesOrderId is required"
+                        "A valid salesOrderId is required"
                 );
-
                 return;
             }
 
             int salesOrderId =
-                    root.get(
-                            "salesOrderId"
-                    ).asInt();
+                    root.get("salesOrderId").asInt();
 
             SalesOrder salesOrder =
-                    salesOrderService
-                            .getSalesOrderById(
-                                    salesOrderId
-                            );
+                    salesOrderService.getSalesOrderById(
+                            salesOrderId
+                    );
 
             if (salesOrder == null) {
-
                 sendError(
                         response,
                         404,
                         "Sales Order not found"
                 );
-
                 return;
             }
 
 
-            // =============================================
             // WEIGHT
-            // =============================================
-
-            if (!root.has("weight")) {
+            if (!root.has("weight") ||
+                    !root.get("weight").isNumber()) {
 
                 sendError(
                         response,
                         400,
-                        "weight is required"
+                        "A valid weight is required"
                 );
-
                 return;
             }
 
             double weight =
-                    root.get("weight")
-                            .asDouble();
+                    root.get("weight").asDouble();
 
 
-            // =============================================
             // DIMENSIONS
-            // =============================================
-
             if (!root.has("length") ||
                     !root.has("width") ||
-                    !root.has("height")) {
+                    !root.has("height") ||
+                    !root.get("length").isNumber() ||
+                    !root.get("width").isNumber() ||
+                    !root.get("height").isNumber()) {
 
                 sendError(
                         response,
                         400,
-                        "length, width and height are required"
+                        "Valid length, width and height are required"
                 );
-
                 return;
             }
 
             double length =
-                    root.get("length")
-                            .asDouble();
+                    root.get("length").asDouble();
 
             double width =
-                    root.get("width")
-                            .asDouble();
+                    root.get("width").asDouble();
 
             double height =
-                    root.get("height")
-                            .asDouble();
+                    root.get("height").asDouble();
 
 
-            // =============================================
             // ITEMS
-            // =============================================
-
             if (!root.has("items") ||
                     !root.get("items").isArray() ||
                     root.get("items").isEmpty()) {
@@ -315,68 +312,58 @@ public class PackageServlet extends HttpServlet {
                         400,
                         "Package must contain at least one item"
                 );
-
                 return;
             }
-
 
             List<PackageItem> packageItems =
                     new ArrayList<>();
 
-
-            for (JsonNode itemNode :
-                    root.get("items")) {
+            for (JsonNode itemNode : root.get("items")) {
 
                 if (!itemNode.has("itemId") ||
-                        !itemNode.has("quantity")) {
+                        !itemNode.get("itemId").canConvertToInt() ||
+                        !itemNode.has("salesOrderItemId") ||
+                        !itemNode.get("salesOrderItemId").canConvertToInt() ||
+                        !itemNode.has("quantity") ||
+                        !itemNode.get("quantity").canConvertToInt()) {
 
                     sendError(
                             response,
                             400,
-                            "Each package item requires itemId and quantity"
+                            "Each package item requires valid itemId, salesOrderItemId and quantity"
                     );
-
                     return;
                 }
 
-
                 int itemId =
-                        itemNode.get(
-                                "itemId"
-                        ).asInt();
+                        itemNode.get("itemId").asInt();
+
+                int salesOrderItemIdForLine =
+                        itemNode.get("salesOrderItemId").asInt();
 
                 int quantity =
-                        itemNode.get(
-                                "quantity"
-                        ).asInt();
+                        itemNode.get("quantity").asInt();
 
 
                 if (quantity <= 0) {
-
                     sendError(
                             response,
                             400,
                             "Package quantity must be greater than zero"
                     );
-
                     return;
                 }
 
 
                 Item item =
-                        itemService.getItemById(
-                                itemId
-                        );
+                        itemService.getItemById(itemId);
 
                 if (item == null) {
-
                     sendError(
                             response,
                             404,
-                            "Item not found: "
-                                    + itemId
+                            "Item not found: " + itemId
                     );
-
                     return;
                 }
 
@@ -385,21 +372,17 @@ public class PackageServlet extends HttpServlet {
                         new PackageItem();
 
                 packageItem.setItem(item);
+                packageItem.setQuantity(quantity);
 
-                packageItem.setQuantity(
-                        quantity
+                packageItem.setSalesOrderItemId(
+                        salesOrderItemIdForLine
                 );
 
-                packageItems.add(
-                        packageItem
-                );
+                packageItems.add(packageItem);
             }
 
 
-            // =============================================
-            // CREATE
-            // =============================================
-
+            // CREATE PACKAGE
             Package pkg =
                     packageService.createPackage(
                             salesOrder,
@@ -411,10 +394,7 @@ public class PackageServlet extends HttpServlet {
                     );
 
 
-            // =============================================
             // RESPONSE
-            // =============================================
-
             response.setStatus(
                     HttpServletResponse.SC_CREATED
             );
@@ -471,13 +451,8 @@ public class PackageServlet extends HttpServlet {
     private void setJsonResponse(
             HttpServletResponse response) {
 
-        response.setContentType(
-                "application/json"
-        );
-
-        response.setCharacterEncoding(
-                "UTF-8"
-        );
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
     }
 
 

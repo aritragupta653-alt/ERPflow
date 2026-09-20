@@ -147,18 +147,7 @@ public class SalesOrderService {
 
             // Prevent duplicate item rows
 
-            if (
-                    !itemIds.add(
-                            orderItem.getItem().getId()
-                    )
-            ) {
-
-                throw new RuntimeException(
-                        "Duplicate item found in sales order: "
-                                + orderItem.getItem().getName()
-                );
-            }
-
+           
 
             BigDecimal lineTotal =
                     orderItem
@@ -211,9 +200,7 @@ public class SalesOrderService {
                 );
 
 
-        // =====================================================
-        // STORE CALCULATED VALUES
-        // =====================================================
+     
 
         salesOrder.setTaxRate(
                 taxRate

@@ -695,391 +695,200 @@ function calculateOrderTotals() {
    CREATE SALES ORDER
    ========================================================= */
 
+/* =========================================================
+   CREATE SALES ORDER
+   ========================================================= */
+
 async function createSalesOrder() {
 
     const customerSelect =
-        document.getElementById(
-            "customerSelect"
-        );
-
+        document.getElementById("customerSelect");
 
     const taxRateInput =
-        document.getElementById(
-            "taxRate"
-        );
-
+        document.getElementById("taxRate");
 
     const rows =
-        document.querySelectorAll(
-            ".sales-item-row"
-        );
+        document.querySelectorAll(".sales-item-row");
 
-
-    /*
-     * Customer validation
-     */
-
-    if (
-        !customerSelect ||
-        !customerSelect.value
-    ) {
-
-        showMessage(
-            "Please select a customer.",
-            "error"
-        );
-
+    // Customer validation
+    if (!customerSelect || !customerSelect.value) {
+        showMessage("Please select a customer.", "error");
         return;
-
     }
 
-
-    /*
-     * Item validation
-     */
-
+    // Item validation
     if (rows.length === 0) {
-
-        showMessage(
-            "Please add at least one item.",
-            "error"
-        );
-
+        showMessage("Please add at least one item.", "error");
         return;
-
     }
-
 
     const items = [];
-
-    const usedItemIds =
-        new Set();
-
-
-    let hasValidationError =
-        false;
-
+    let hasValidationError = false;
 
     rows.forEach(function (row) {
 
         const itemSelect =
-            row.querySelector(
-                'select[name="itemId"]'
-            );
-
+            row.querySelector('select[name="itemId"]');
 
         const quantityInput =
-            row.querySelector(
-                'input[name="quantity"]'
-            );
-
+            row.querySelector('input[name="quantity"]');
 
         const priceInput =
-            row.querySelector(
-                'input[name="sellingPrice"]'
-            );
+            row.querySelector('input[name="sellingPrice"]');
 
-
-        if (
-            !itemSelect ||
-            !quantityInput ||
-            !priceInput
-        ) {
-
+        if (!itemSelect || !quantityInput || !priceInput) {
             hasValidationError = true;
-
             return;
-
         }
 
+        const itemId = parseInt(itemSelect.value, 10);
+        const quantity = parseInt(quantityInput.value, 10);
+        const sellingPrice = parseFloat(priceInput.value);
 
-        const itemId =
-            parseInt(
-                itemSelect.value,
-                10
-            );
-
-
-        const quantity =
-            parseInt(
-                quantityInput.value,
-                10
-            );
-
-
-        const sellingPrice =
-            parseFloat(
-                priceInput.value
-            );
-
-
-        /*
-         * Item validation
-         */
-
+        // Item selection validation
         if (!itemId) {
-
             showMessage(
                 "Please select an item in every row.",
                 "error"
             );
 
             hasValidationError = true;
-
             return;
-
         }
 
-
-        if (
-            !Number.isInteger(quantity) ||
-            quantity <= 0
-        ) {
-
+        // Quantity validation
+        if (!Number.isInteger(quantity) || quantity <= 0) {
             showMessage(
                 "Quantity must be greater than 0.",
                 "error"
             );
 
             hasValidationError = true;
-
             return;
-
         }
 
-
+        // Selling price validation
         if (
             Number.isNaN(sellingPrice) ||
             sellingPrice < 0
         ) {
-
             showMessage(
                 "Selling price cannot be negative.",
                 "error"
             );
 
             hasValidationError = true;
-
             return;
-
         }
-
 
         /*
-         * Duplicate item validation
+         * Duplicate item validation removed.
+         *
+         * The same item can now be included in multiple
+         * rows with separate quantities and selling prices.
          */
 
-        if (usedItemIds.has(itemId)) {
-
-            showMessage(
-                "The same item cannot be added twice. Please combine the quantities.",
-                "error"
-            );
-
-            hasValidationError = true;
-
-            return;
-
-        }
-
-
-        usedItemIds.add(itemId);
-
-
         items.push({
-
             itemId: itemId,
-
             quantity: quantity,
-
             sellingPrice: sellingPrice
-
         });
 
     });
-
 
     if (hasValidationError) {
         return;
     }
 
-
-    /*
-     * Tax validation
-     */
-
+    // Tax validation
     const taxRate =
-        parseFloat(
-            taxRateInput?.value || 0
-        );
-
+        parseFloat(taxRateInput?.value || 0);
 
     if (
         Number.isNaN(taxRate) ||
         taxRate < 0 ||
         taxRate > 100
     ) {
-
         showMessage(
             "Tax rate must be between 0% and 100%.",
             "error"
         );
 
         return;
-
     }
 
-
-    /*
-     * Build request
-     */
-
+    // Build request
     const orderData = {
-
-        customerId:
-            parseInt(
-                customerSelect.value,
-                10
-            ),
-
-        taxRate:
-            taxRate,
-
-        items:
-            items
-
+        customerId: parseInt(customerSelect.value, 10),
+        taxRate: taxRate,
+        items: items
     };
-
 
     try {
 
         const createButton =
-            document.getElementById(
-                "createSalesOrderButton"
-            );
-
+            document.getElementById("createSalesOrderButton");
 
         if (createButton) {
-
-            createButton.disabled =
-                true;
-
-            createButton.textContent =
-                "Creating...";
-
+            createButton.disabled = true;
+            createButton.textContent = "Creating...";
         }
 
+        const response = await fetch(apiBaseUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(orderData)
+        });
 
-        const response =
-            await fetch(
-                apiBaseUrl,
-                {
-
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify(
-                            orderData
-                        )
-
-                }
-            );
-
-
-        const result =
-            await response.json();
-
+        const result = await response.json();
 
         if (!response.ok) {
-
             throw new Error(
                 result.message ||
                 "Failed to create sales order"
             );
-
         }
 
-
-        /*
-         * Success message
-         */
-
+        // Success message
         let successMessage =
             "Sales order created successfully.";
 
-
-        if (
-            result.totalAmount !== undefined
-        ) {
-
+        if (result.totalAmount !== undefined) {
             successMessage +=
                 ` Total: ${formatCurrency(result.totalAmount)}`;
-
         }
 
+        showMessage(successMessage, "success");
 
-        showMessage(
-            successMessage,
-            "success"
-        );
-
-
-        /*
-         * Reset form
-         */
-
+        // Reset form
         resetSalesOrderForm();
 
-
-        /*
-         * Reload orders
-         */
-
+        // Reload orders
         await loadSalesOrders();
-
 
     } catch (error) {
 
-        console.error(
-            "Error creating sales order:",
-            error
-        );
-
+        console.error("Error creating sales order:", error);
 
         showMessage(
-            error.message ||
-            "Failed to create sales order.",
+            error.message || "Failed to create sales order.",
             "error"
         );
-
 
     } finally {
 
         const createButton =
-            document.getElementById(
-                "createSalesOrderButton"
-            );
-
+            document.getElementById("createSalesOrderButton");
 
         if (createButton) {
-
-            createButton.disabled =
-                false;
-
-            createButton.textContent =
-                "Create Sales Order";
-
+            createButton.disabled = false;
+            createButton.textContent = "Create Sales Order";
         }
 
     }
-
 }
-
 
 /* =========================================================
    RESET FORM

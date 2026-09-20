@@ -1,11 +1,21 @@
+
 package com.erpflow.model;
 
 public class PackageItem {
 
     private int id;
+
     private Package packageEntity;
+
     private Item item;
+
     private int quantity;
+
+    // ID of the specific sales order line this
+    // package item belongs to.
+    // Nullable because older package records may
+    // not have a sales order line assigned.
+    private Integer salesOrderItemId;
 
     public int getId() {
         return id;
@@ -37,5 +47,13 @@ public class PackageItem {
 
     public void setQuantity(int quantity) {
         this.quantity = quantity;
+    }
+
+    public Integer getSalesOrderItemId() {
+        return salesOrderItemId;
+    }
+
+    public void setSalesOrderItemId(Integer salesOrderItemId) {
+        this.salesOrderItemId = salesOrderItemId;
     }
 }

@@ -9,7 +9,6 @@ public class DatabaseInitializer {
 
     private static final String SERVER_URL =
             "jdbc:mysql://localhost:3307/";
-
     private static final String USER = "root";
     private static final String PASSWORD = "";
 

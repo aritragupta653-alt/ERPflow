@@ -1,8 +1,8 @@
+
 package com.erpflow.service;
 
 import com.erpflow.dao.PackageDAO;
 import com.erpflow.dao.PackageItemDAO;
-import com.erpflow.dao.SalesOrderDAO;
 import com.erpflow.dao.SalesOrderItemDAO;
 
 import com.erpflow.model.Item;
@@ -26,9 +26,6 @@ public class PackageService {
     private final PackageItemDAO packageItemDAO =
             new PackageItemDAO();
 
-    private final SalesOrderDAO salesOrderDAO =
-            new SalesOrderDAO();
-
     private final SalesOrderItemDAO salesOrderItemDAO =
             new SalesOrderItemDAO();
 
@@ -50,31 +47,24 @@ public class PackageService {
         // -------------------------
 
         if (salesOrder == null) {
-
             throw new RuntimeException(
                     "Sales Order not found"
             );
         }
 
-        if (packageItems == null ||
-                packageItems.isEmpty()) {
-
+        if (packageItems == null || packageItems.isEmpty()) {
             throw new RuntimeException(
                     "Package must contain at least one item"
             );
         }
 
         if (weight <= 0) {
-
             throw new RuntimeException(
                     "Package weight must be greater than zero"
             );
         }
 
-        if (length <= 0 ||
-                width <= 0 ||
-                height <= 0) {
-
+        if (length <= 0 || width <= 0 || height <= 0) {
             throw new RuntimeException(
                     "Package dimensions must be greater than zero"
             );
@@ -85,8 +75,7 @@ public class PackageService {
         // ORDER STATUS
         // -------------------------
 
-        String status =
-                salesOrder.getStatus();
+        String status = salesOrder.getStatus();
 
         if ("SHIPPED".equals(status) ||
                 "DELIVERED".equals(status)) {
@@ -98,196 +87,203 @@ public class PackageService {
 
 
         // -------------------------
-        // GET ORDER ITEMS
+        // GET ORDER LINES
         // -------------------------
 
         List<SalesOrderItem> orderItems =
-                salesOrderItemDAO.findBySalesOrder(
-                        salesOrder
-                );
+                salesOrderItemDAO.findBySalesOrder(salesOrder);
 
-        if (orderItems == null ||
-                orderItems.isEmpty()) {
-
+        if (orderItems == null || orderItems.isEmpty()) {
             throw new RuntimeException(
                     "Sales Order contains no items"
             );
         }
 
 
-        // Map item ID → ordered quantity
+        // Map sales order line ID -> order line.
+        // This supports the same product appearing on
+        // multiple distinct lines.
 
-        Map<Integer, Integer> orderedQuantities =
+        Map<Integer, SalesOrderItem> orderLinesById =
                 new HashMap<>();
 
-        Map<Integer, Item> orderItemObjects =
-                new HashMap<>();
+        for (SalesOrderItem orderItem : orderItems) {
 
-        for (SalesOrderItem orderItem :
-                orderItems) {
-
-            int itemId =
-                    orderItem.getItem().getId();
-
-            orderedQuantities.put(
-                    itemId,
-                    orderItem.getQuantity()
-            );
-
-            orderItemObjects.put(
-                    itemId,
-                    orderItem.getItem()
+            orderLinesById.put(
+                    orderItem.getId(),
+                    orderItem
             );
         }
 
 
         // -------------------------
-        // CHECK DUPLICATE ITEMS
+        // GET ALREADY PACKED QTY
         // -------------------------
 
-        Set<Integer> packageItemIds =
-                new HashSet<>();
-
-        for (PackageItem packageItem :
-                packageItems) {
-
-            if (packageItem.getItem() == null) {
-
-                throw new RuntimeException(
-                        "Package item is missing"
-                );
-            }
-
-            int itemId =
-                    packageItem.getItem().getId();
-
-            if (!packageItemIds.add(itemId)) {
-
-                throw new RuntimeException(
-                        "The same item cannot be added twice to one package"
-                );
-            }
-        }
-
-
-        // -------------------------
-        // EXISTING PACKAGED QTY
-        // -------------------------
-
-        Map<Integer, Integer> alreadyPackaged =
+        Map<Integer, Integer> alreadyPacked =
                 getAlreadyPackagedQuantities(
                         salesOrder.getId()
                 );
 
 
         // -------------------------
-        // VALIDATE EACH ITEM
+        // VALIDATE PACKAGE LINES
         // -------------------------
 
-        for (PackageItem packageItem :
-                packageItems) {
+        // Aggregate quantities by sales order line ID
+        // so duplicate entries for the same line in this
+        // package are validated together.
 
-            int itemId =
-                    packageItem.getItem().getId();
+        Map<Integer, Integer> requestedQuantities =
+                new HashMap<>();
 
-            int quantity =
-                    packageItem.getQuantity();
+        Map<Integer, Item> actualItemsByLineId =
+                new HashMap<>();
 
+        for (PackageItem packageItem : packageItems) {
+
+            if (packageItem == null || packageItem.getItem() == null) {
+                throw new RuntimeException(
+                        "Package item is missing"
+                );
+            }
+
+            Integer salesOrderItemId =
+                    packageItem.getSalesOrderItemId();
+
+            if (salesOrderItemId == null) {
+                throw new RuntimeException(
+                        "Sales order line ID is required for every package item"
+                );
+            }
+
+            int quantity = packageItem.getQuantity();
 
             if (quantity <= 0) {
-
                 throw new RuntimeException(
                         "Package quantity must be greater than zero"
                 );
             }
 
 
-            if (!orderedQuantities.containsKey(
-                    itemId)) {
+            // Find the exact order line.
+            SalesOrderItem orderLine =
+                    orderLinesById.get(salesOrderItemId);
 
+            if (orderLine == null) {
                 throw new RuntimeException(
-                        "Item does not belong to Sales Order"
+                        "Sales order line does not belong to this Sales Order: "
+                                + salesOrderItemId
                 );
             }
 
 
-            int orderedQuantity =
-                    orderedQuantities.get(itemId);
+            // Ensure the product ID matches the selected line.
+            int requestedItemId =
+                    packageItem.getItem().getId();
 
-            int previousPackageQuantity =
-                    alreadyPackaged.getOrDefault(
-                            itemId,
+            int orderItemId =
+                    orderLine.getItem().getId();
+
+            if (requestedItemId != orderItemId) {
+                throw new RuntimeException(
+                        "Item does not match the selected Sales Order line"
+                );
+            }
+
+
+            // Add this quantity to the requested total
+            // for this particular order line.
+            requestedQuantities.merge(
+                    salesOrderItemId,
+                    quantity,
+                    Integer::sum
+            );
+
+            // Use the canonical item object from the order.
+            actualItemsByLineId.put(
+                    salesOrderItemId,
+                    orderLine.getItem()
+            );
+        }
+
+
+        // -------------------------
+        // CHECK REMAINING QUANTITIES
+        // -------------------------
+
+        for (Map.Entry<Integer, Integer> entry :
+                requestedQuantities.entrySet()) {
+
+            int salesOrderItemId = entry.getKey();
+            int requestedQuantity = entry.getValue();
+
+            SalesOrderItem orderLine =
+                    orderLinesById.get(salesOrderItemId);
+
+            int orderedQuantity =
+                    orderLine.getQuantity();
+
+            int previouslyPacked =
+                    alreadyPacked.getOrDefault(
+                            salesOrderItemId,
                             0
                     );
 
-            int newTotal =
-                    previousPackageQuantity
-                            + quantity;
+            int newPackedTotal =
+                    previouslyPacked + requestedQuantity;
 
-
-            if (newTotal > orderedQuantity) {
-
+            if (newPackedTotal > orderedQuantity) {
                 throw new RuntimeException(
-                        "Package quantity exceeds remaining Sales Order quantity for item "
-                                + itemId
+                        "Package quantity exceeds the remaining quantity for Sales Order line "
+                                + salesOrderItemId
+                                + ". Ordered: "
+                                + orderedQuantity
+                                + ", already packed: "
+                                + previouslyPacked
+                                + ", requested: "
+                                + requestedQuantity
                 );
             }
+        }
 
 
-            // Replace item with the actual
-            // item object from the order.
+        // -------------------------
+        // SET CANONICAL ITEM OBJECTS
+        // -------------------------
+
+        for (PackageItem packageItem : packageItems) {
+
+            int lineId =
+                    packageItem.getSalesOrderItemId();
 
             packageItem.setItem(
-                    orderItemObjects.get(itemId)
+                    actualItemsByLineId.get(lineId)
             );
         }
 
 
         // =====================================================
-        // CREATE PACKAGE
+        // CREATE PACKAGE RECORD
         // =====================================================
 
-        Package packageEntity =
-                new Package();
+        Package packageEntity = new Package();
 
-        packageEntity.setSalesOrder(
-                salesOrder
-        );
+        packageEntity.setSalesOrder(salesOrder);
+        packageEntity.setStatus("PACKING");
+        packageEntity.setPackageDate(LocalDateTime.now());
 
-        packageEntity.setStatus(
-                "PACKING"
-        );
-
-        packageEntity.setPackageDate(
-                LocalDateTime.now()
-        );
-
-        packageEntity.setWeight(
-                weight
-        );
-
-        packageEntity.setLength(
-                length
-        );
-
-        packageEntity.setWidth(
-                width
-        );
-
-        packageEntity.setHeight(
-                height
-        );
+        packageEntity.setWeight(weight);
+        packageEntity.setLength(length);
+        packageEntity.setWidth(width);
+        packageEntity.setHeight(height);
 
 
-        // Save package
-
-        packageDAO.save(
-                packageEntity
-        );
+        // Save package first to generate its database ID.
+        packageDAO.save(packageEntity);
 
 
-        // Generate package number
-
+        // Generate and save package number.
         packageEntity.setPackageNumber(
                 String.format(
                         "PKG-%06d",
@@ -295,49 +291,36 @@ public class PackageService {
                 )
         );
 
-        packageDAO.update(
-                packageEntity
-        );
+        packageDAO.update(packageEntity);
 
 
         // =====================================================
         // SAVE PACKAGE ITEMS
         // =====================================================
 
-        for (PackageItem packageItem :
-                packageItems) {
+        for (PackageItem packageItem : packageItems) {
 
-            packageItem.setPackageEntity(
-                    packageEntity
-            );
+            packageItem.setPackageEntity(packageEntity);
 
-            packageItemDAO.save(
-                    packageItem
-            );
+            packageItemDAO.save(packageItem);
         }
 
 
         // =====================================================
-        // PACKING COMPLETE
+        // MARK PACKAGE AS PACKED
         // =====================================================
 
-        packageEntity.setStatus(
-                "PACKED"
-        );
+        packageEntity.setStatus("PACKED");
 
-        packageDAO.update(
-                packageEntity
-        );
+        packageDAO.update(packageEntity);
 
-
-        // Return completed package
 
         return packageEntity;
     }
 
 
     // =====================================================
-    // GET ALL
+    // GET ALL PACKAGES
     // =====================================================
 
     public List<Package> getAllPackages() {
@@ -347,7 +330,7 @@ public class PackageService {
 
 
     // =====================================================
-    // GET BY ID
+    // GET PACKAGE BY ID
     // =====================================================
 
     public Package getPackageById(int id) {
@@ -357,15 +340,13 @@ public class PackageService {
 
 
     // =====================================================
-    // GET BY SALES ORDER
+    // GET PACKAGES BY SALES ORDER
     // =====================================================
 
     public List<Package> getPackagesBySalesOrder(
             int salesOrderId) {
 
-        return packageDAO.findBySalesOrder(
-                salesOrderId
-        );
+        return packageDAO.findBySalesOrder(salesOrderId);
     }
 
 
@@ -376,9 +357,7 @@ public class PackageService {
     public List<PackageItem> getPackageItems(
             Package packageEntity) {
 
-        return packageItemDAO.findByPackage(
-                packageEntity
-        );
+        return packageItemDAO.findByPackage(packageEntity);
     }
 
 
@@ -386,50 +365,44 @@ public class PackageService {
     // CALCULATE ALREADY PACKAGED QUANTITIES
     // =====================================================
 
-    private Map<Integer, Integer>
-    getAlreadyPackagedQuantities(
+    private Map<Integer, Integer> getAlreadyPackagedQuantities(
             int salesOrderId) {
+
+        // Key: sales order line ID
+        // Value: total quantity packed for that line.
 
         Map<Integer, Integer> result =
                 new HashMap<>();
 
         List<Package> packages =
-                packageDAO.findBySalesOrder(
-                        salesOrderId
-                );
+                packageDAO.findBySalesOrder(salesOrderId);
 
         for (Package pkg : packages) {
 
-            // Do not count cancelled packages
-            if ("CANCELLED".equals(
-                    pkg.getStatus())) {
-
+            // Do not count cancelled packages.
+            if ("CANCELLED".equals(pkg.getStatus())) {
                 continue;
             }
 
             List<PackageItem> items =
-                    packageItemDAO.findByPackage(
-                            pkg
-                    );
+                    packageItemDAO.findByPackage(pkg);
 
-            for (PackageItem packageItem :
-                    items) {
+            for (PackageItem packageItem : items) {
 
-                int itemId =
-                        packageItem
-                                .getItem()
-                                .getId();
+                Integer lineId =
+                        packageItem.getSalesOrderItemId();
 
-                int current =
-                        result.getOrDefault(
-                                itemId,
-                                0
-                        );
+                // Older package records may not have a line ID.
+                // They cannot safely be attributed to a specific
+                // line when duplicate products exist.
+                if (lineId == null) {
+                    continue;
+                }
 
-                result.put(
-                        itemId,
-                        current
-                                + packageItem.getQuantity()
+                result.merge(
+                        lineId,
+                        packageItem.getQuantity(),
+                        Integer::sum
                 );
             }
         }

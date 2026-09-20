@@ -29,7 +29,7 @@
 
                     <img src="${pageContext.request.contextPath}/images/erpflow-logo.png" alt="ERPFlow Logo">
 
-                    <span>ERPFlow</span>
+                    <span>ERPFlow nig</span>
 
                 </a>
 

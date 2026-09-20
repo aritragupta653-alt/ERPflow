@@ -1,3 +1,4 @@
+
 const packagesApiUrl = "/erpflow/api/packages";
 const salesOrdersApiUrl = "/erpflow/api/sales-orders";
 
@@ -11,15 +12,18 @@ let selectedOrderItems = [];
 document.addEventListener("DOMContentLoaded", () => {
     loadPackages();
     loadSalesOrders();
+
     const form = document.getElementById("createPackageForm");
 
     if (form) {
         form.addEventListener("submit", createPackage);
     }
 
-    document
-        .getElementById("createPackageForm")
-        .addEventListener("submit", createPackage);
+    const salesOrderSelect = document.getElementById("salesOrderId");
+
+    if (salesOrderSelect) {
+        salesOrderSelect.addEventListener("change", loadSalesOrderItems);
+    }
 });
 
 
@@ -28,21 +32,20 @@ document.addEventListener("DOMContentLoaded", () => {
 // ===============================
 
 async function loadPackages() {
-
     const tableBody = document.getElementById("packagesTableBody");
 
-    try {
+    if (!tableBody) return;
 
+    try {
         const response = await fetch(packagesApiUrl);
 
         if (!response.ok) {
-            throw new Error("Failed to load packages");
+            throw new Error("Failed to load packages.");
         }
 
         const packages = await response.json();
 
         if (!packages || packages.length === 0) {
-
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="7" style="text-align:center;">
@@ -50,25 +53,24 @@ async function loadPackages() {
                     </td>
                 </tr>
             `;
-
             return;
         }
 
         tableBody.innerHTML = packages.map(pkg => {
-
             const salesOrder = pkg.salesOrder || {};
             const customer = salesOrder.customer || {};
 
             return `
                 <tr>
-
                     <td>
-                        <strong>${escapeHtml(pkg.packageNumber || "PKG-" + pkg.id)}</strong>
+                        <strong>
+                            ${escapeHtml(pkg.packageNumber || "PKG-" + pkg.id)}
+                        </strong>
                     </td>
 
                     <td>
-                        <a href="/erpflow/salesOrderDetails.jsp?id=${pkg.salesOrder?.id || ""}">
-                            SO #${pkg.salesOrder?.id || "-"}
+                        <a href="/erpflow/salesOrderDetails.jsp?id=${encodeURIComponent(salesOrder.id || "")}">
+                            SO #${escapeHtml(salesOrder.id || "-")}
                         </a>
                     </td>
 
@@ -95,22 +97,18 @@ async function loadPackages() {
                     </td>
 
                     <td>
-
                         <button
+                            type="button"
                             class="btn btn-secondary"
-                            onclick="viewPackage(${pkg.id})">
+                            onclick="viewPackage(${Number(pkg.id)})">
                             View
                         </button>
-
                     </td>
-
                 </tr>
             `;
-
         }).join("");
 
     } catch (error) {
-
         console.error(error);
 
         tableBody.innerHTML = `
@@ -129,56 +127,48 @@ async function loadPackages() {
 // ===============================
 
 async function loadSalesOrders() {
-
     const select = document.getElementById("salesOrderId");
 
-    try {
+    if (!select) return;
 
+    try {
         const response = await fetch(salesOrdersApiUrl);
 
         if (!response.ok) {
-            throw new Error("Failed to load sales orders");
+            throw new Error("Failed to load sales orders.");
         }
 
         salesOrders = await response.json();
 
         select.innerHTML = `
-            <option value="">
-                Select Sales Order
-            </option>
+            <option value="">Select Sales Order</option>
         `;
 
         salesOrders
             .filter(order => {
-
                 const status = (order.status || "").toUpperCase();
 
                 return status !== "SHIPPED" &&
                        status !== "DELIVERED" &&
                        status !== "CANCELLED";
-
             })
             .forEach(order => {
-
                 const customerName =
                     order.customer?.name || "Unknown Customer";
 
-                select.innerHTML += `
-                    <option value="${order.id}">
-                        SO #${order.id} - ${escapeHtml(customerName)}
-                    </option>
-                `;
+                const option = document.createElement("option");
+                option.value = order.id;
+                option.textContent =
+                    `SO #${order.id} - ${customerName}`;
 
+                select.appendChild(option);
             });
 
     } catch (error) {
-
         console.error(error);
 
         select.innerHTML = `
-            <option value="">
-                Failed to load sales orders
-            </option>
+            <option value="">Failed to load sales orders</option>
         `;
     }
 }
@@ -186,120 +176,204 @@ async function loadSalesOrders() {
 
 // ===============================
 // LOAD SALES ORDER ITEMS
+// Each sales order line is unique.
+// Match package quantities by line ID.
 // ===============================
 
 async function loadSalesOrderItems() {
-
     const salesOrderId =
-        document.getElementById("salesOrderId").value;
+        document.getElementById("salesOrderId")?.value;
 
     const container =
         document.getElementById("orderItemsContainer");
 
+    if (!container) return;
+
     selectedOrderItems = [];
 
     if (!salesOrderId) {
-
         container.innerHTML = `
-            <p class="muted">
-                Select a sales order first.
-            </p>
+            <p class="muted">Select a sales order first.</p>
         `;
-
         return;
     }
 
+    container.innerHTML = `
+        <p class="muted">Loading sales order items...</p>
+    `;
+
     try {
+        const [orderResponse, packagesResponse] = await Promise.all([
+            fetch(`${salesOrdersApiUrl}/${encodeURIComponent(salesOrderId)}`),
+            fetch(packagesApiUrl)
+        ]);
 
-        const response =
-            await fetch(`${salesOrdersApiUrl}/${salesOrderId}`);
-
-        if (!response.ok) {
-            throw new Error("Failed to load sales order");
+        if (!orderResponse.ok) {
+            throw new Error("Failed to load sales order.");
         }
 
-        const order = await response.json();
+        if (!packagesResponse.ok) {
+            throw new Error("Failed to load existing packages.");
+        }
 
-        selectedOrderItems = order.items || [];
+        const order = await orderResponse.json();
+        const packages = await packagesResponse.json();
 
-        if (selectedOrderItems.length === 0) {
+        const orderItems = order.items || [];
 
+        if (orderItems.length === 0) {
             container.innerHTML = `
-                <p class="muted">
-                    This sales order has no items.
-                </p>
+                <p class="muted">This sales order has no items.</p>
             `;
-
             return;
         }
 
-        container.innerHTML = selectedOrderItems.map((orderItem, index) => {
-
+        // Preserve each order line separately.
+        selectedOrderItems = orderItems.map((orderItem, index) => {
             const item = orderItem.item || {};
 
+            return {
+                lineId: orderItem.id ?? null,
+                lineIndex: index,
+                itemId: Number(item.id ?? orderItem.itemId),
+                name: item.name || "Unknown Item",
+                sku: item.sku || "-",
+                ordered: Number(orderItem.quantity || 0),
+                packed: 0,
+                remaining: Number(orderItem.quantity || 0)
+            };
+        });
+
+        // Select only packages belonging to this sales order.
+        // Exclude cancelled packages from packed totals.
+        const orderPackages = packages.filter(pkg => {
+            const packageOrderId =
+                Number(pkg.salesOrder?.id ?? pkg.salesOrderId);
+
+            const status = (pkg.status || "").toUpperCase();
+
+            return packageOrderId === Number(salesOrderId) &&
+                   status !== "CANCELLED";
+        });
+
+        // Match quantities using Sales Order LINE ID.
+        // Do not aggregate by product/item ID.
+        orderPackages.forEach(pkg => {
+            (pkg.items || []).forEach(packageItem => {
+                const rawLineId =
+                    packageItem.salesOrderItemId ??
+                    packageItem.salesOrderItem?.id;
+
+                if (rawLineId === null || rawLineId === undefined) {
+                    return;
+                }
+
+                const packageLineId = Number(rawLineId);
+
+                if (!Number.isFinite(packageLineId)) {
+                    return;
+                }
+
+                const matchingLine = selectedOrderItems.find(line =>
+                    line.lineId !== null &&
+                    Number(line.lineId) === packageLineId
+                );
+
+                if (matchingLine) {
+                    matchingLine.packed +=
+                        Number(packageItem.quantity || 0);
+                }
+            });
+        });
+
+        // Calculate remaining quantity for every order line.
+        selectedOrderItems.forEach(line => {
+            line.remaining = Math.max(
+                0,
+                line.ordered - line.packed
+            );
+        });
+
+        // Render each sales order line independently.
+        container.innerHTML = selectedOrderItems.map(line => {
+            const displayLineId =
+                line.lineId ?? `Line ${line.lineIndex + 1}`;
+
             return `
-                <div class="package-item-row"
-                     style="
+                <div
+                    class="package-item-row"
+                    style="
                         display:grid;
-                        grid-template-columns:2fr 1fr 1fr;
+                        grid-template-columns:2fr 1.5fr 1fr;
                         gap:12px;
                         align-items:center;
-                        margin-bottom:10px;
-                     ">
+                        margin-bottom:12px;
+                        padding:12px;
+                        border:1px solid #ddd;
+                        border-radius:8px;
+                    ">
 
                     <div>
-
                         <strong>
-                            ${escapeHtml(item.name || "Unknown Item")}
+                            ${escapeHtml(line.name)}
                         </strong>
 
                         <div class="muted">
-                            SKU: ${escapeHtml(item.sku || "-")}
+                            SKU: ${escapeHtml(line.sku)}
                         </div>
 
+                        <div class="muted">
+                            Sales Order Line ID: ${escapeHtml(displayLineId)}
+                        </div>
                     </div>
 
                     <div>
-                        Ordered:
-                        <strong>
-                            ${orderItem.quantity}
-                        </strong>
+                        <div>
+                            Ordered:
+                            <strong>${line.ordered}</strong>
+                        </div>
+
+                        <div>
+                            Packed:
+                            <strong>${line.packed}</strong>
+                        </div>
+
+                        <div>
+                            To Be Packed:
+                            <strong>${line.remaining}</strong>
+                        </div>
                     </div>
 
                     <div>
-
-                        <label
-                            for="quantity_${index}">
+                        <label for="quantity_${line.lineIndex}">
                             Package Qty
                         </label>
 
                         <input
                             type="number"
-                            id="quantity_${index}"
+                            id="quantity_${line.lineIndex}"
                             class="package-quantity"
-                            data-item-id="${item.id}"
-                            data-max-quantity="${orderItem.quantity}"
+                            data-line-id="${line.lineId ?? ""}"
+                            data-item-id="${line.itemId}"
+                            data-max-quantity="${line.remaining}"
                             min="0"
-                            max="${orderItem.quantity}"
-                            value="0"
+                            max="${line.remaining}"
                             step="1"
+                            value="0"
                             style="width:100%;"
+                            ${line.remaining === 0 ? "disabled" : ""}
                         >
-
                     </div>
-
                 </div>
             `;
-
         }).join("");
 
     } catch (error) {
-
         console.error(error);
 
         container.innerHTML = `
             <p class="error-message">
-                Failed to load sales order items.
+                ${escapeHtml(error.message || "Failed to load sales order items.")}
             </p>
         `;
     }
@@ -311,25 +385,24 @@ async function loadSalesOrderItems() {
 // ===============================
 
 async function createPackage(event) {
-
     event.preventDefault();
 
     hideError();
 
     const salesOrderId =
-        Number(document.getElementById("salesOrderId").value);
+        Number(document.getElementById("salesOrderId")?.value);
 
     const weight =
-        Number(document.getElementById("weight").value);
+        Number(document.getElementById("weight")?.value);
 
     const length =
-        Number(document.getElementById("length").value);
+        Number(document.getElementById("length")?.value);
 
     const width =
-        Number(document.getElementById("width").value);
+        Number(document.getElementById("width")?.value);
 
     const height =
-        Number(document.getElementById("height").value);
+        Number(document.getElementById("height")?.value);
 
 
     // -------------------------------
@@ -341,22 +414,24 @@ async function createPackage(event) {
         return;
     }
 
-    if (!weight || weight <= 0) {
+    if (!Number.isFinite(weight) || weight <= 0) {
         showError("Weight must be greater than 0.");
         return;
     }
 
-    if (!length || length <= 0 ||
-        !width || width <= 0 ||
-        !height || height <= 0) {
-
+    if (
+        !Number.isFinite(length) || length <= 0 ||
+        !Number.isFinite(width) || width <= 0 ||
+        !Number.isFinite(height) || height <= 0
+    ) {
         showError("All dimensions must be greater than 0.");
         return;
     }
 
 
     // -------------------------------
-    // Collect item quantities
+    // Collect package item quantities
+    // Keep every order line distinct.
     // -------------------------------
 
     const quantityInputs =
@@ -364,44 +439,47 @@ async function createPackage(event) {
 
     const items = [];
 
-    quantityInputs.forEach(input => {
-
+    for (const input of quantityInputs) {
         const quantity = Number(input.value);
+        const itemId = Number(input.dataset.itemId);
+        const lineId = input.dataset.lineId;
+        const maxQuantity = Number(input.dataset.maxQuantity);
 
-        const itemId =
-            Number(input.dataset.itemId);
-
-        const maxQuantity =
-            Number(input.dataset.maxQuantity);
-
-        if (quantity < 0) {
-            throw new Error("Quantity cannot be negative.");
+        if (!Number.isInteger(quantity) || quantity < 0) {
+            showError("Quantity must be a non-negative whole number.");
+            return;
         }
 
         if (quantity > maxQuantity) {
-            throw new Error(
-                `Package quantity cannot exceed ordered quantity (${maxQuantity}).`
+            showError(
+                `Quantity cannot exceed the remaining quantity (${maxQuantity}).`
             );
+            return;
         }
 
         if (quantity > 0) {
+            if (!lineId) {
+                showError(
+                    "Sales order line ID is missing. The package cannot be created safely."
+                );
+                return;
+            }
+
+            if (!Number.isFinite(itemId)) {
+                showError("Invalid item ID.");
+                return;
+            }
 
             items.push({
                 itemId: itemId,
+                salesOrderItemId: Number(lineId),
                 quantity: quantity
             });
-
         }
-
-    });
-
+    }
 
     if (items.length === 0) {
-
-        showError(
-            "Please enter a quantity for at least one item."
-        );
-
+        showError("Please enter a quantity for at least one item.");
         return;
     }
 
@@ -411,69 +489,50 @@ async function createPackage(event) {
     // -------------------------------
 
     const requestBody = {
-
         salesOrderId: salesOrderId,
-
         weight: weight,
-
         length: length,
-
         width: width,
-
         height: height,
-
         items: items
-
     };
 
 
+    // -------------------------------
+    // Send request
+    // -------------------------------
+
     try {
-
         const response = await fetch(packagesApiUrl, {
-
             method: "POST",
-
             headers: {
                 "Content-Type": "application/json"
             },
-
             body: JSON.stringify(requestBody)
-
         });
 
-
-        const result = await response.json();
-
+        const result = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-
             throw new Error(
                 result.message ||
                 result.error ||
                 "Failed to create package."
             );
-
         }
-
 
         alert(
             `Package ${result.packageNumber || ""} created successfully!`
         );
 
-
         closeCreatePackage();
 
         await loadPackages();
 
-
     } catch (error) {
-
         console.error(error);
-
-        showError(error.message);
-
+        showError(error.message || "Failed to create package.");
     }
-
 }
 
 
@@ -482,22 +541,27 @@ async function createPackage(event) {
 // ===============================
 
 function openCreatePackage() {
+    const modal = document.getElementById("createPackageModal");
+    const form = document.getElementById("createPackageForm");
+    const container = document.getElementById("orderItemsContainer");
 
-    document.getElementById("createPackageModal")
-        .style.display = "flex";
+    if (modal) {
+        modal.style.display = "flex";
+    }
 
-    document.getElementById("createPackageForm")
-        .reset();
+    if (form) {
+        form.reset();
+    }
 
-    document.getElementById("orderItemsContainer")
-        .innerHTML = `
-            <p class="muted">
-                Select a sales order first.
-            </p>
+    selectedOrderItems = [];
+
+    if (container) {
+        container.innerHTML = `
+            <p class="muted">Select a sales order first.</p>
         `;
+    }
 
     hideError();
-
 }
 
 
@@ -506,10 +570,11 @@ function openCreatePackage() {
 // ===============================
 
 function closeCreatePackage() {
+    const modal = document.getElementById("createPackageModal");
 
-    document.getElementById("createPackageModal")
-        .style.display = "none";
-
+    if (modal) {
+        modal.style.display = "none";
+    }
 }
 
 
@@ -518,10 +583,8 @@ function closeCreatePackage() {
 // ===============================
 
 function viewPackage(id) {
-
     window.location.href =
-        `/erpflow/packageDetails.jsp?id=${id}`;
-
+        `/erpflow/packageDetails.jsp?id=${encodeURIComponent(id)}`;
 }
 
 
@@ -530,13 +593,9 @@ function viewPackage(id) {
 // ===============================
 
 function getStatusClass(status) {
-
-    if (!status) {
-        return "";
-    }
+    if (!status) return "";
 
     switch (status.toUpperCase()) {
-
         case "PACKED":
             return "status-success";
 
@@ -551,9 +610,7 @@ function getStatusClass(status) {
 
         default:
             return "";
-
     }
-
 }
 
 
@@ -562,15 +619,13 @@ function getStatusClass(status) {
 // ===============================
 
 function formatNumber(value) {
-
     const number = Number(value);
 
-    if (Number.isNaN(number)) {
+    if (!Number.isFinite(number)) {
         return "-";
     }
 
     return number.toFixed(2);
-
 }
 
 
@@ -579,26 +634,26 @@ function formatNumber(value) {
 // ===============================
 
 function showError(message) {
-
     const errorElement =
         document.getElementById("createPackageError");
+
+    if (!errorElement) {
+        alert(message);
+        return;
+    }
 
     errorElement.textContent = message;
-
     errorElement.style.display = "block";
-
 }
 
-
 function hideError() {
-
     const errorElement =
         document.getElementById("createPackageError");
 
+    if (!errorElement) return;
+
     errorElement.textContent = "";
-
     errorElement.style.display = "none";
-
 }
 
 
@@ -607,7 +662,6 @@ function hideError() {
 // ===============================
 
 function escapeHtml(value) {
-
     if (value === null || value === undefined) {
         return "";
     }
@@ -618,5 +672,4 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
-
 }

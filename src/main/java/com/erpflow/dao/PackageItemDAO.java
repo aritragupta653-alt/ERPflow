@@ -1,3 +1,4 @@
+
 package com.erpflow.dao;
 
 import com.erpflow.model.Item;
@@ -5,15 +6,19 @@ import com.erpflow.model.Package;
 import com.erpflow.model.PackageItem;
 import com.erpflow.util.DBConnection;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
 public class PackageItemDAO {
 
-    // =========================
-    // SAVE
-    // =========================
+    // =====================================================
+    // SAVE PACKAGE ITEM
+    // =====================================================
 
     public void save(PackageItem packageItem) {
 
@@ -22,18 +27,22 @@ public class PackageItemDAO {
                 (
                     quantity,
                     item_id,
-                    package_id
+                    package_id,
+                    sales_order_item_id
                 )
-                VALUES (?, ?, ?)
+                VALUES (?, ?, ?, ?)
                 """;
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(
-                             sql,
-                             Statement.RETURN_GENERATED_KEYS
-                     )) {
+        try (
+                Connection connection =
+                        DBConnection.getConnection();
+
+                PreparedStatement statement =
+                        connection.prepareStatement(
+                                sql,
+                                Statement.RETURN_GENERATED_KEYS
+                        )
+        ) {
 
             statement.setInt(
                     1,
@@ -50,16 +59,28 @@ public class PackageItemDAO {
                     packageItem.getPackageEntity().getId()
             );
 
+            // Sales order line ID can be null for legacy records.
+            if (packageItem.getSalesOrderItemId() != null) {
+
+                statement.setInt(
+                        4,
+                        packageItem.getSalesOrderItemId()
+                );
+
+            } else {
+
+                statement.setNull(
+                        4,
+                        java.sql.Types.INTEGER
+                );
+            }
+
             statement.executeUpdate();
 
-            try (ResultSet keys =
-                         statement.getGeneratedKeys()) {
+            try (ResultSet keys = statement.getGeneratedKeys()) {
 
                 if (keys.next()) {
-
-                    packageItem.setId(
-                            keys.getInt(1)
-                    );
+                    packageItem.setId(keys.getInt(1));
                 }
             }
 
@@ -73,9 +94,9 @@ public class PackageItemDAO {
     }
 
 
-    // =========================
+    // =====================================================
     // FIND ITEMS BY PACKAGE
-    // =========================
+    // =====================================================
 
     public List<PackageItem> findByPackage(
             Package packageEntity) {
@@ -84,6 +105,8 @@ public class PackageItemDAO {
                 SELECT
                     pi.id,
                     pi.quantity,
+                    pi.sales_order_item_id,
+
                     i.item_id,
                     i.name,
                     i.description,
@@ -92,28 +115,34 @@ public class PackageItemDAO {
                     i.selling_price,
                     i.reorder_level,
                     i.status
+
                 FROM package_items pi
+
                 JOIN items i
                     ON pi.item_id = i.item_id
+
                 WHERE pi.package_id = ?
+
                 ORDER BY pi.id
                 """;
 
         List<PackageItem> packageItems =
                 new ArrayList<>();
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+        try (
+                Connection connection =
+                        DBConnection.getConnection();
+
+                PreparedStatement statement =
+                        connection.prepareStatement(sql)
+        ) {
 
             statement.setInt(
                     1,
                     packageEntity.getId()
             );
 
-            try (ResultSet rs =
-                         statement.executeQuery()) {
+            try (ResultSet rs = statement.executeQuery()) {
 
                 while (rs.next()) {
 
@@ -128,7 +157,23 @@ public class PackageItemDAO {
                             rs.getInt("quantity")
                     );
 
+                    // Preserve null for older package records.
+                    int salesOrderItemId =
+                            rs.getInt("sales_order_item_id");
 
+                    if (rs.wasNull()) {
+
+                        packageItem.setSalesOrderItemId(null);
+
+                    } else {
+
+                        packageItem.setSalesOrderItemId(
+                                salesOrderItemId
+                        );
+                    }
+
+
+                    // Build the associated item.
                     Item item = new Item();
 
                     item.setId(
@@ -148,15 +193,11 @@ public class PackageItemDAO {
                     );
 
                     item.setPurchasePrice(
-                            rs.getBigDecimal(
-                                    "purchase_price"
-                            )
+                            rs.getBigDecimal("purchase_price")
                     );
 
                     item.setSellingPrice(
-                            rs.getBigDecimal(
-                                    "selling_price"
-                            )
+                            rs.getBigDecimal("selling_price")
                     );
 
                     item.setReorderLevel(
@@ -174,9 +215,7 @@ public class PackageItemDAO {
                             packageEntity
                     );
 
-                    packageItems.add(
-                            packageItem
-                    );
+                    packageItems.add(packageItem);
                 }
             }
 
