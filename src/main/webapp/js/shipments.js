@@ -155,6 +155,7 @@ async function loadShipments() {
                     >
                         View
                     </a>
+                    
 
                 </td>
 

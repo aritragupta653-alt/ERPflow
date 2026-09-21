@@ -45,7 +45,7 @@ public class PackageService {
         // -------------------------
         // BASIC VALIDATION
         // -------------------------
-
+        
         if (salesOrder == null) {
             throw new RuntimeException(
                     "Sales Order not found"
@@ -179,17 +179,37 @@ public class PackageService {
 
 
             // Ensure the product ID matches the selected line.
-            int requestedItemId =
-                    packageItem.getItem().getId();
+            // Ensure the Sales Order line has a valid item.
+Item actualItem = orderLine.getItem();
 
-            int orderItemId =
-                    orderLine.getItem().getId();
+if (actualItem == null) {
+    throw new RuntimeException(
+            "Item not found in the Sales Order line"
+    );
+}
 
-            if (requestedItemId != orderItemId) {
-                throw new RuntimeException(
-                        "Item does not match the selected Sales Order line"
-                );
-            }
+// Ensure the product ID matches the selected line.
+int requestedItemId =
+        packageItem.getItem().getId();
+
+int orderItemId =
+        actualItem.getId();
+
+if (requestedItemId != orderItemId) {
+    throw new RuntimeException(
+            "Item does not match the selected Sales Order line"
+    );
+}
+
+// Packages can contain only inventory-tracked GOODS.
+// Services and non-tracked goods must be rejected.
+if (!"GOODS".equalsIgnoreCase(actualItem.getItemType())
+        || !actualItem.isTrackInventory()) {
+
+    throw new RuntimeException(
+            "Only inventory-tracked goods can be added to packages"
+    );
+}
 
 
             // Add this quantity to the requested total

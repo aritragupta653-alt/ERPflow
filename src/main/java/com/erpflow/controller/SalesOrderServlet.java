@@ -480,83 +480,70 @@ public class SalesOrderServlet extends HttpServlet {
                     new ArrayList<>();
 
 
-            for (
-                    JsonNode itemNode :
-                    itemsNode
-            ) {
+            
+for (JsonNode itemNode : itemsNode) {
 
-                JsonNode itemIdNode =
-                        itemNode.get("itemId");
+    JsonNode itemIdNode = itemNode.get("itemId");
+    JsonNode quantityNode = itemNode.get("quantity");
+    JsonNode priceNode = itemNode.get("sellingPrice");
 
+    // Item ID and selling price are always required.
+    if (itemIdNode == null || itemIdNode.isNull()
+            || priceNode == null || priceNode.isNull()) {
+        throw new RuntimeException(
+                "Each order item must contain itemId and sellingPrice"
+        );
+    }
 
-                JsonNode quantityNode =
-                        itemNode.get("quantity");
+    int itemId = itemIdNode.asInt();
 
+    // Fetch the actual item from the database.
+    Item item = itemService.getItemById(itemId);
 
-                JsonNode priceNode =
-                        itemNode.get("sellingPrice");
+    if (item == null) {
+        throw new RuntimeException("Item not found: " + itemId);
+    }
 
+    int quantity;
 
-                if (
-                        itemIdNode == null ||
-                        quantityNode == null ||
-                        priceNode == null
-                ) {
+    // Services always have quantity 1.
+    if ("SERVICE".equalsIgnoreCase(item.getItemType())) {
+        quantity = 1;
 
-                    throw new RuntimeException(
-                            "Each order item must contain itemId, quantity and sellingPrice"
-                    );
-                }
+    } else {
+        // GOODS must have a valid quantity.
+        if (quantityNode == null || quantityNode.isNull()
+                || !quantityNode.canConvertToInt()) {
+            throw new RuntimeException(
+                    "Quantity is required for goods"
+            );
+        }
 
+        quantity = quantityNode.asInt();
 
-                int itemId =
-                        itemIdNode.asInt();
+        if (quantity <= 0) {
+            throw new RuntimeException(
+                    "Goods quantity must be greater than zero"
+            );
+        }
+    }
 
+    BigDecimal sellingPrice = priceNode.decimalValue();
 
-                int quantity =
-                        quantityNode.asInt();
+    if (sellingPrice.signum() < 0) {
+        throw new RuntimeException(
+                "Selling price cannot be negative"
+        );
+    }
 
+    SalesOrderItem orderItem = new SalesOrderItem();
 
-                BigDecimal sellingPrice =
-                        priceNode.decimalValue();
+    orderItem.setItem(item);
+    orderItem.setQuantity(quantity);
+    orderItem.setSellingPrice(sellingPrice);
 
-
-                Item item =
-                        itemService
-                                .getItemById(
-                                        itemId
-                                );
-
-
-                if (item == null) {
-
-                    throw new RuntimeException(
-                            "Item not found: "
-                                    + itemId
-                    );
-                }
-
-
-                SalesOrderItem orderItem =
-                        new SalesOrderItem();
-
-
-                orderItem.setItem(item);
-
-                orderItem.setQuantity(
-                        quantity
-                );
-
-                orderItem.setSellingPrice(
-                        sellingPrice
-                );
-
-
-                salesOrderItems.add(
-                        orderItem
-                );
-            }
-
+    salesOrderItems.add(orderItem);
+}
 
             // =================================================
             // CREATE

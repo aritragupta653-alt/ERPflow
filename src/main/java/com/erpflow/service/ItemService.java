@@ -7,11 +7,47 @@ import java.util.List;
 
 public class ItemService {
 
-    private final ItemDAO itemDAO =
-            new ItemDAO();
+    private final ItemDAO itemDAO = new ItemDAO();
+
+    // =========================================================
+    // VALIDATE ITEM TYPE AND INVENTORY TRACKING
+    // =========================================================
+
+    private void validateItemType(Item item) {
+
+        if (item.getItemType() == null ||
+                item.getItemType().isBlank()) {
+
+            throw new RuntimeException(
+                    "Item type is required"
+            );
+        }
+
+        String itemType = item.getItemType().trim();
+
+        if (!itemType.equalsIgnoreCase("GOODS") &&
+                !itemType.equalsIgnoreCase("SERVICE")) {
+
+            throw new RuntimeException(
+                    "Item type must be GOODS or SERVICE"
+            );
+        }
+
+        // Store a consistent value in the database.
+        item.setItemType(itemType.toUpperCase());
+
+        // Services do not have physical stock.
+        if ("SERVICE".equalsIgnoreCase(item.getItemType())) {
+            item.setTrackInventory(false);
+        }
+    }
 
 
-    public void createItem(Item item) {
+    // =========================================================
+    // VALIDATE COMMON ITEM FIELDS
+    // =========================================================
+
+    private void validateItem(Item item) {
 
         if (item == null) {
             throw new RuntimeException(
@@ -43,6 +79,14 @@ public class ItemService {
             );
         }
 
+        if (item.getPurchasePrice().signum() < 0 ||
+                item.getSellingPrice().signum() < 0) {
+
+            throw new RuntimeException(
+                    "Prices cannot be negative"
+            );
+        }
+
         if (item.getReorderLevel() < 0) {
 
             throw new RuntimeException(
@@ -50,7 +94,21 @@ public class ItemService {
             );
         }
 
-        if (item.getStatus() == null) {
+        validateItemType(item);
+    }
+
+
+    // =========================================================
+    // CREATE ITEM
+    // =========================================================
+
+    public void createItem(Item item) {
+
+        validateItem(item);
+
+        if (item.getStatus() == null ||
+                item.getStatus().isBlank()) {
+
             item.setStatus("ACTIVE");
         }
 
@@ -58,17 +116,29 @@ public class ItemService {
     }
 
 
+    // =========================================================
+    // GET ALL ITEMS
+    // =========================================================
+
     public List<Item> getAllItems() {
 
         return itemDAO.findAll();
     }
 
 
+    // =========================================================
+    // GET ITEM BY ID
+    // =========================================================
+
     public Item getItemById(int id) {
 
         return itemDAO.findById(id);
     }
 
+
+    // =========================================================
+    // UPDATE ITEM
+    // =========================================================
 
     public void updateItem(Item item) {
 
@@ -78,8 +148,7 @@ public class ItemService {
             );
         }
 
-        Item existing =
-                itemDAO.findById(item.getId());
+        Item existing = itemDAO.findById(item.getId());
 
         if (existing == null) {
             throw new RuntimeException(
@@ -87,14 +156,20 @@ public class ItemService {
             );
         }
 
+        validateItem(item);
+
         itemDAO.update(item);
     }
 
 
+    // =========================================================
+    // DELETE ITEM
+    // Soft delete: mark item as INACTIVE
+    // =========================================================
+
     public void deleteItem(int id) {
 
-        Item existing =
-                itemDAO.findById(id);
+        Item existing = itemDAO.findById(id);
 
         if (existing == null) {
             throw new RuntimeException(

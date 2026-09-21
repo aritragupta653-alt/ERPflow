@@ -17,120 +17,72 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+
 async function loadData() {
-
     try {
-
         const [itemsResponse, inventoryResponse] =
             await Promise.all([
-
                 fetch("/erpflow/api/items"),
-
                 fetch("/erpflow/api/inventory")
-
             ]);
 
-
-        if (!itemsResponse.ok ||
-            !inventoryResponse.ok) {
-
+        if (!itemsResponse.ok || !inventoryResponse.ok) {
             throw new Error("Failed to load inventory data");
-
         }
-
 
         items = await itemsResponse.json();
 
-        const inventoryData =
-            await inventoryResponse.json();
+        const inventoryData = await inventoryResponse.json();
 
-
-        /*
-         * Merge items with inventory.
-         * This ensures EVERY item is displayed,
-         * even if it has no inventory record.
-         */
-
-        inventory = items.map(item => {
-
-            const record =
-                inventoryData.find(inv =>
-                    inv.item &&
-                    Number(inv.item.id) === Number(item.id)
-                );
-
-
-            if (record) {
-                return record;
-            }
-
-
-            return {
-                item: item,
-                quantity: 0,
-                committedQuantity: 0
-            };
-
-        });
-
+        // IMPORTANT:
+        // Use only the inventory API response for the inventory table.
+        // Do not merge all items into the inventory list.
+        inventory = inventoryData;
 
         populateItems();
-
         renderInventory(inventory);
 
-
     } catch (error) {
-
         console.error(error);
 
         showMessage(
             "Failed to load inventory.",
             "error"
         );
-
     }
-
 }
-
 
 // Populate item dropdown
 
+
 function populateItems() {
-
-    const select =
-        document.getElementById("itemSelect");
-
+    const select = document.getElementById("itemSelect");
 
     select.innerHTML =
         '<option value="">Select Item</option>';
 
-
     items.forEach(item => {
-
-        if (item.status &&
-            item.status !== "ACTIVE") {
+        // Only allow active, inventory-tracked goods.
+        if (
+            item.status !== "ACTIVE" ||
+            String(item.itemType).toUpperCase() !== "GOODS" ||
+            item.trackInventory !== true
+        ) {
             return;
         }
 
-
-        const option =
-            document.createElement("option");
-
+        const option = document.createElement("option");
 
         option.value = item.id;
-
-        option.textContent =
-            `${item.name} (${item.sku})`;
-
+        option.textContent = `${item.name} (${item.sku})`;
 
         select.appendChild(option);
-
     });
-
 }
 
 
-// Adjust inventory
+//adjust inventory
+
 
 async function adjustInventory(event) {
 

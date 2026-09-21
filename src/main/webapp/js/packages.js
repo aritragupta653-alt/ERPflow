@@ -1,4 +1,3 @@
-
 const packagesApiUrl = "/erpflow/api/packages";
 const salesOrdersApiUrl = "/erpflow/api/sales-orders";
 
@@ -176,8 +175,8 @@ async function loadSalesOrders() {
 
 // ===============================
 // LOAD SALES ORDER ITEMS
-// Each sales order line is unique.
-// Match package quantities by line ID.
+// Only inventory-tracked GOODS can be packaged.
+// Each sales order line is handled separately.
 // ===============================
 
 async function loadSalesOrderItems() {
@@ -228,8 +227,28 @@ async function loadSalesOrderItems() {
             return;
         }
 
-        // Preserve each order line separately.
-        selectedOrderItems = orderItems.map((orderItem, index) => {
+        // Keep only inventory-tracked GOODS.
+        // Services and non-tracked goods cannot be packaged.
+        const packageableOrderItems = orderItems.filter(orderItem => {
+            const item = orderItem.item || {};
+            const itemType = String(item.itemType || "").toUpperCase();
+
+            return itemType === "GOODS" && item.trackInventory === true;
+        });
+
+        if (packageableOrderItems.length === 0) {
+            selectedOrderItems = [];
+
+            container.innerHTML = `
+                <p class="muted">
+                    This sales order has no inventory-tracked goods to package.
+                </p>
+            `;
+            return;
+        }
+
+        // Preserve each sales order line separately.
+        selectedOrderItems = packageableOrderItems.map((orderItem, index) => {
             const item = orderItem.item || {};
 
             return {
@@ -294,7 +313,7 @@ async function loadSalesOrderItems() {
             );
         });
 
-        // Render each sales order line independently.
+        // Render each packageable sales order line independently.
         container.innerHTML = selectedOrderItems.map(line => {
             const displayLineId =
                 line.lineId ?? `Line ${line.lineIndex + 1}`;

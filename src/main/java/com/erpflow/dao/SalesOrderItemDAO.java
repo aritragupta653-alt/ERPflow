@@ -83,29 +83,31 @@ public class SalesOrderItemDAO {
             SalesOrder salesOrder
     ) {
 
-        String sql = """
-                SELECT
-                    soi.id,
-                    soi.quantity,
-                    soi.sellingPrice,
-                    soi.item_id,
-                    soi.sales_order_id,
+       String sql = """
+        SELECT
+            soi.id,
+            soi.quantity,
+            soi.sellingPrice,
+            soi.item_id,
+            soi.sales_order_id,
 
-                    i.name,
-                    i.description,
-                    i.purchase_price,
-                    i.reorder_level,
-                    i.selling_price,
-                    i.sku,
-                    i.status
+            i.name,
+            i.description,
+            i.purchase_price,
+            i.reorder_level,
+            i.selling_price,
+            i.sku,
+            i.status,
+            i.item_type,
+            i.track_inventory
 
-                FROM sales_order_items soi
+        FROM sales_order_items soi
 
-                JOIN items i
-                    ON soi.item_id = i.item_id
+        JOIN items i
+            ON soi.item_id = i.item_id
 
-                WHERE soi.sales_order_id = ?
-                """;
+        WHERE soi.sales_order_id = ?
+        """;
 
         List<SalesOrderItem> items =
                 new ArrayList<>();
@@ -183,6 +185,13 @@ public class SalesOrderItemDAO {
                     item.setStatus(
                             rs.getString("status")
                     );
+                    item.setItemType(
+        rs.getString("item_type")
+);
+
+item.setTrackInventory(
+        rs.getBoolean("track_inventory")
+);
 
 
                     orderItem.setItem(item);

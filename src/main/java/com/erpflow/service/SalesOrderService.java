@@ -4,6 +4,7 @@ import com.erpflow.dao.SalesOrderDAO;
 import com.erpflow.dao.SalesOrderItemDAO;
 import com.erpflow.model.SalesOrder;
 import com.erpflow.model.SalesOrderItem;
+import com.erpflow.model.Item;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -90,6 +91,7 @@ public class SalesOrderService {
         // =====================================================
         // VALIDATE ITEMS + CALCULATE SUBTOTAL
         // =====================================================
+        
 
         BigDecimal subtotal =
                 BigDecimal.ZERO;
@@ -223,16 +225,31 @@ public class SalesOrderService {
         // RESERVE STOCK
         // =====================================================
 
-        for (
-                SalesOrderItem orderItem :
-                salesOrderItems
-        ) {
+        // =====================================================
+// RESERVE STOCK - GOODS ONLY
+// =====================================================
 
-            inventoryService.reserveStock(
-                    orderItem.getItem(),
-                    orderItem.getQuantity()
-            );
-        }
+
+ // RESERVE STOCK ONLY FOR TRACKED ITEMS
+
+for (SalesOrderItem orderItem : salesOrderItems) {
+
+    Item item = orderItem.getItem();
+
+    if (item == null) {
+        throw new RuntimeException(
+                "Item is required for Sales Order"
+        );
+    }
+
+    if (item.isTrackInventory()) {
+
+        inventoryService.reserveStock(
+                item,
+                orderItem.getQuantity()
+        );
+    }
+}
 
 
         // =====================================================

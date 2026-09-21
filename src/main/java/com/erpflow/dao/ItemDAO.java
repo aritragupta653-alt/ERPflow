@@ -14,8 +14,8 @@ public class ItemDAO {
         String sql = """
                 INSERT INTO items
                 (name, sku, description, purchase_price,
-                 selling_price, reorder_level, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                 selling_price, reorder_level, status, item_type , track_inventory)
+                VALUES (?, ?, ?, ?, ?, ?, ? ,? , ?)
                 """;
 
         try (Connection connection =
@@ -33,6 +33,8 @@ public class ItemDAO {
             statement.setBigDecimal(5, item.getSellingPrice());
             statement.setInt(6, item.getReorderLevel());
             statement.setString(7, item.getStatus());
+            statement.setString(8, item.getItemType());
+            statement.setBoolean(9, item.isTrackInventory());
 
             statement.executeUpdate();
 
@@ -56,117 +58,115 @@ public class ItemDAO {
 
     public List<Item> findAll() {
 
-        String sql = """
-                SELECT item_id, name, sku, description,
-                       purchase_price, selling_price,
-                       reorder_level, status
-                FROM items
-                WHERE status = 'ACTIVE'
-                ORDER BY item_id
-                """;
+    String sql = """
+            SELECT item_id, name, sku, description,
+                   purchase_price, selling_price,
+                   reorder_level, status,
+                   item_type, track_inventory
+            FROM items
+            WHERE status = 'ACTIVE'
+            ORDER BY item_id
+            """;
 
-        List<Item> items = new ArrayList<>();
+    List<Item> items = new ArrayList<>();
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql);
-             ResultSet resultSet =
-                     statement.executeQuery()) {
+    try (Connection connection =
+                 DBConnection.getConnection();
+         PreparedStatement statement =
+                 connection.prepareStatement(sql);
+         ResultSet resultSet =
+                 statement.executeQuery()) {
 
-            while (resultSet.next()) {
-
-                items.add(
-                        mapRowToItem(resultSet)
-                );
-            }
-
-        } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Error fetching items",
-                    e
-            );
+        while (resultSet.next()) {
+            items.add(mapRowToItem(resultSet));
         }
 
-        return items;
+    } catch (SQLException e) {
+        throw new RuntimeException(
+                "Error fetching items",
+                e
+        );
     }
 
+    return items;
+}
 
     public Item findById(int id) {
 
-        String sql = """
-                SELECT item_id, name, sku, description,
-                       purchase_price, selling_price,
-                       reorder_level, status
-                FROM items
-                WHERE item_id = ?
-                """;
+    String sql = """
+            SELECT item_id, name, sku, description,
+                   purchase_price, selling_price,
+                   reorder_level, status,
+                   item_type, track_inventory
+            FROM items
+            WHERE item_id = ?
+            """;
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+    try (Connection connection =
+                 DBConnection.getConnection();
+         PreparedStatement statement =
+                 connection.prepareStatement(sql)) {
 
-            statement.setInt(1, id);
+        statement.setInt(1, id);
 
-            try (ResultSet resultSet =
-                         statement.executeQuery()) {
+        try (ResultSet resultSet =
+                     statement.executeQuery()) {
 
-                if (resultSet.next()) {
-
-                    return mapRowToItem(resultSet);
-                }
+            if (resultSet.next()) {
+                return mapRowToItem(resultSet);
             }
-
-        } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Error fetching item",
-                    e
-            );
         }
 
-        return null;
+    } catch (SQLException e) {
+        throw new RuntimeException(
+                "Error fetching item",
+                e
+        );
     }
+
+    return null;
+}
 
 
     public void update(Item item) {
 
-        String sql = """
-                UPDATE items
-                SET name = ?,
-                    sku = ?,
-                    description = ?,
-                    purchase_price = ?,
-                    selling_price = ?,
-                    reorder_level = ?
-                WHERE item_id = ?
-                """;
+    String sql = """
+            UPDATE items
+            SET name = ?,
+                sku = ?,
+                description = ?,
+                purchase_price = ?,
+                selling_price = ?,
+                reorder_level = ?,
+                item_type = ?,
+                track_inventory = ?
+            WHERE item_id = ?
+            """;
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+    try (Connection connection =
+                 DBConnection.getConnection();
+         PreparedStatement statement =
+                 connection.prepareStatement(sql)) {
 
-            statement.setString(1, item.getName());
-            statement.setString(2, item.getSku());
-            statement.setString(3, item.getDescription());
-            statement.setBigDecimal(4, item.getPurchasePrice());
-            statement.setBigDecimal(5, item.getSellingPrice());
-            statement.setInt(6, item.getReorderLevel());
-            statement.setInt(7, item.getId());
+        statement.setString(1, item.getName());
+        statement.setString(2, item.getSku());
+        statement.setString(3, item.getDescription());
+        statement.setBigDecimal(4, item.getPurchasePrice());
+        statement.setBigDecimal(5, item.getSellingPrice());
+        statement.setInt(6, item.getReorderLevel());
+        statement.setString(7, item.getItemType());
+        statement.setBoolean(8, item.isTrackInventory());
+        statement.setInt(9, item.getId());
 
-            statement.executeUpdate();
+        statement.executeUpdate();
 
-        } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Error updating item",
-                    e
-            );
-        }
+    } catch (SQLException e) {
+        throw new RuntimeException(
+                "Error updating item",
+                e
+        );
     }
+}
 
 
     public void delete(int id) {
@@ -232,6 +232,13 @@ public class ItemDAO {
         item.setStatus(
                 resultSet.getString("status")
         );
+        item.setItemType(
+        resultSet.getString("item_type")
+);
+
+item.setTrackInventory(
+        resultSet.getBoolean("track_inventory")
+);
 
         return item;
     }

@@ -7,31 +7,24 @@ import java.math.BigDecimal;
 @Table(name = "items")
 public class Item {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "item_id")
     private int id;
 
-    @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 50)
     private String sku;
 
-    @Column(length = 500)
     private String description;
 
-    @Column(name = "purchase_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal purchasePrice;
 
-    @Column(name = "selling_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal sellingPrice;
 
-    @Column(name = "reorder_level")
     private Integer reorderLevel;
 
-    @Column(name = "status",nullable = false)
     private String status;
+
+    private String itemType = "GOODS";
+    private boolean trackInventory = true;
 
     // Required by Hibernate
     public Item() {
@@ -100,5 +93,21 @@ public class Item {
 
 public void setStatus(String status) {
     this.status = status;
+}
+
+public String getItemType() {
+    return itemType;
+}
+
+public void setItemType(String itemType) {
+    this.itemType = itemType;
+}
+
+public boolean isTrackInventory() {
+    return trackInventory;
+}
+
+public void setTrackInventory(boolean trackInventory) {
+    this.trackInventory = trackInventory;
 }
 }

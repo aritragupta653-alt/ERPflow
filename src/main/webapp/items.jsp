@@ -1,511 +1,446 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
-<%@ page isELIgnored="false" %>
+    <%@ page isELIgnored="false" %>
 
-<!DOCTYPE html>
-<html>
+        <!DOCTYPE html>
+        <html>
 
-<head>
+        <head>
 
-    <title>ERPFlow - Item Management</title>
+            <title>ERPFlow - Item Management</title>
 
-    <link
-        rel="stylesheet"
-        href="${pageContext.request.contextPath}/css/app.css"
-    >
+            <link rel="stylesheet" href="${pageContext.request.contextPath}/css/app.css">
 
-    <script>
-        const contextPath = "/erpflow";
-    </script>
+            <script>
+                const contextPath = "/erpflow";
+            </script>
 
-    <script
-        src="${pageContext.request.contextPath}/js/items.js"
-        defer>
-    </script>
+            <script src="${pageContext.request.contextPath}/js/items.js" defer>
+            </script>
 
-</head>
+        </head>
 
 
-<body>
+        <body>
 
-<!-- ================= NAVBAR ================= -->
+            <!-- ================= NAVBAR ================= -->
 
-<header class="navbar">
+            <header class="navbar">
 
-    <a
-        href="${pageContext.request.contextPath}/home.jsp"
-        class="logo"
-    >
+                <a href="${pageContext.request.contextPath}/home.jsp" class="logo">
 
-        <img
-            src="${pageContext.request.contextPath}/images/erpflow-logo.png"
-            alt="ERPFlow Logo"
-        >
+                    <img src="${pageContext.request.contextPath}/images/erpflow-logo.png" alt="ERPFlow Logo">
 
-        <span>ERPFlow</span>
+                    <span>ERPFlow</span>
 
-    </a>
+                </a>
 
 
-    <div class="nav-links">
+                <div class="nav-links">
 
-        <a href="${pageContext.request.contextPath}/home">
-            Dashboard
-        </a>
+                    <a href="${pageContext.request.contextPath}/home">
+                        Dashboard
+                    </a>
 
-        <a href="${pageContext.request.contextPath}/inventory">
-            Inventory
-        </a>
+                    <a href="${pageContext.request.contextPath}/inventory">
+                        Inventory
+                    </a>
 
-    </div>
+                </div>
 
-</header>
+            </header>
 
 
 
-<!-- ================= MAIN ================= -->
+            <!-- ================= MAIN ================= -->
 
-<main class="container">
-
-
-    <!-- PAGE HEADER -->
-
-    <div class="page-header">
-
-        <div>
-
-            <p class="page-eyebrow">
-                PRODUCT MANAGEMENT
-            </p>
-
-            <h1>
-                Item Management
-            </h1>
-
-            <p class="page-description">
-                Create, manage and maintain the products available in ERPFlow.
-            </p>
-
-        </div>
+            <main class="container">
 
 
-        <a
-            href="${pageContext.request.contextPath}/inventory.jsp"
-            class="button secondary-button"
-        >
-            Check Inventory
-        </a>
+                <!-- PAGE HEADER -->
 
-    </div>
+                <div class="page-header">
 
+                    <div>
 
+                        <p class="page-eyebrow">
+                            PRODUCT MANAGEMENT
+                        </p>
 
-    <!-- ================= ADD ITEM ================= -->
+                        <h1>
+                            Item Management
+                        </h1>
 
-    <section class="form-card">
+                        <p class="page-description">
+                            Create, manage and maintain the products available in ERPFlow.
+                        </p>
 
-        <div class="section-header">
-
-            <div>
-
-                <h2>
-                    Add New Item
-                </h2>
-
-                <p>
-                    Enter the item details to create a new product.
-                </p>
-
-            </div>
-
-        </div>
+                    </div>
 
 
-        <form
-            id="addItemForm"
-            class="item-form"
-        >
-
-            <div class="form-grid">
-
-
-                <!-- NAME -->
-
-                <div class="form-group">
-
-                    <label for="name">
-                        Item Name
-                    </label>
-
-                    <input
-                        type="text"
-                        id="name"
-                        placeholder="Enter item name"
-                        required
-                    >
+                    <a href="${pageContext.request.contextPath}/inventory.jsp" class="button secondary-button">
+                        Check Inventory
+                    </a>
 
                 </div>
 
 
 
-                <!-- SKU -->
+                <!-- ================= ADD ITEM ================= -->
 
-                <div class="form-group">
+                <section class="form-card">
 
-                    <label for="sku">
-                        SKU
-                    </label>
+                    <div class="section-header">
 
-                    <input
-                        type="text"
-                        id="sku"
-                        placeholder="Enter SKU"
-                        required
-                    >
+                        <div>
 
-                </div>
+                            <h2>
+                                Add New Item
+                            </h2>
 
+                            <p>
+                                Enter the item details to create a new product.
+                            </p>
 
+                        </div>
 
-                <!-- PURCHASE PRICE -->
+                    </div>
 
-                <div class="form-group">
 
-                    <label for="purchasePrice">
-                        Purchase Price
-                    </label>
+                    <form id="addItemForm" class="item-form">
 
-                    <input
-                        type="number"
-                        id="purchasePrice"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        required
-                    >
+                        <div class="form-grid">
 
-                </div>
 
+                            <!-- NAME -->
 
+                            <div class="form-group">
 
-                <!-- SELLING PRICE -->
+                                <label for="name">
+                                    Item Name
+                                </label>
 
-                <div class="form-group">
+                                <input type="text" id="name" placeholder="Enter item name" required>
 
-                    <label for="sellingPrice">
-                        Selling Price
-                    </label>
+                            </div>
 
-                    <input
-                        type="number"
-                        id="sellingPrice"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        required
-                    >
 
-                </div>
 
+                            <!-- SKU -->
 
+                            <div class="form-group">
 
-                <!-- REORDER LEVEL -->
+                                <label for="sku">
+                                    SKU
+                                </label>
 
-                <div class="form-group">
+                                <input type="text" id="sku" placeholder="Enter SKU" required>
 
-                    <label for="reorderLevel">
-                        Reorder Level
-                    </label>
+                            </div>
 
-                    <input
-                        type="number"
-                        id="reorderLevel"
-                        min="0"
-                        placeholder="Enter reorder level"
-                        required
-                    >
 
-                </div>
 
+                            <!-- PURCHASE PRICE -->
 
+                            <div class="form-group">
 
-                <!-- DESCRIPTION -->
+                                <label for="purchasePrice">
+                                    Purchase Price
+                                </label>
 
-                <div class="form-group full-width">
+                                <input type="number" id="purchasePrice" min="0" step="0.01" placeholder="0.00" required>
 
-                    <label for="description">
-                        Description
-                    </label>
+                            </div>
 
-                    <textarea
-                        id="description"
-                        rows="4"
-                        placeholder="Enter item description"
-                    ></textarea>
 
-                </div>
 
-            </div>
+                            <!-- SELLING PRICE -->
 
+                            <div class="form-group">
 
-            <div class="form-actions">
+                                <label for="sellingPrice">
+                                    Selling Price
+                                </label>
 
-                <button
-                    type="submit"
-                    class="button"
-                >
-                    + Add Item
-                </button>
+                                <input type="number" id="sellingPrice" min="0" step="0.01" placeholder="0.00" required>
 
-            </div>
+                            </div>
 
-        </form>
 
-    </section>
 
+                            <!-- REORDER LEVEL -->
 
+                            <div class="form-group">
 
-    <!-- ================= ITEM LIST ================= -->
+                                <label for="reorderLevel">
+                                    Reorder Level
+                                </label>
 
-    <section class="table-card">
+                                <input type="number" id="reorderLevel" min="0" placeholder="Enter reorder level"
+                                    required>
 
+                            </div>
 
-        <div class="section-header">
 
-            <div>
 
-                <h2>
-                    All Items
-                </h2>
+                            <!-- DESCRIPTION -->
 
-                <p>
-                    View and manage products registered in the system.
-                </p>
+                            <div class="form-group full-width">
 
-            </div>
+                                <label for="description">
+                                    Description
+                                </label>
 
+                                <textarea id="description" rows="4" placeholder="Enter item description"></textarea>
 
-            <div class="item-count">
+                            </div>
+                            <label for="itemType">Item Type</label>
+                            <select id="itemType" name="itemType">
+                                <option value="GOODS">Goods</option>
+                                <option value="SERVICE">Service</option>
+                            </select>
 
-                <span id="itemCount">
-                    0
-                </span>
+                            <label>
+                                <input type="checkbox" id="trackInventory" name="trackInventory" checked>
+                                Track Inventory
+                            </label>
 
-                Items
+                        </div>
 
-            </div>
 
-        </div>
+                        <div class="form-actions">
 
+                            <button type="submit" class="button">
+                                + Add Item
+                            </button>
 
+                        </div>
 
-        <!-- SEARCH -->
+                    </form>
 
-        <div class="search-container">
+                </section>
 
-            <input
-                type="text"
-                id="searchInput"
-                placeholder="Search by item name or SKU..."
-            >
 
-        </div>
 
+                <!-- ================= ITEM LIST ================= -->
 
+                <section class="table-card">
 
-        <!-- TABLE -->
 
-        <div class="table-wrapper">
+                    <div class="section-header">
 
-            <table class="data-table">
+                        <div>
 
-                <thead>
+                            <h2>
+                                All Items
+                            </h2>
 
-                    <tr>
+                            <p>
+                                View and manage products registered in the system.
+                            </p>
 
-                        <th>ID</th>
+                        </div>
 
-                        <th>Item</th>
 
-                        <th>SKU</th>
+                        <div class="item-count">
 
-                        <th>Description</th>
+                            <span id="itemCount">
+                                0
+                            </span>
 
-                        <th>Purchase Price</th>
+                            Items
 
-                        <th>Selling Price</th>
+                        </div>
 
-                        <th>Reorder Level</th>
+                    </div>
 
-                        <th>Status</th>
 
-                        <th>Actions</th>
 
-                    </tr>
+                    <!-- SEARCH -->
 
-                </thead>
+                    <div class="search-container">
 
+                        <input type="text" id="searchInput" placeholder="Search by item name or SKU...">
 
-                <tbody id="itemsTableBody">
+                    </div>
 
-                    <!-- JavaScript will populate this -->
 
-                </tbody>
 
-            </table>
+                    <!-- TABLE -->
 
-        </div>
+                    <div class="table-wrapper">
 
+                        <table class="data-table">
 
-    </section>
+                            <thead>
 
-</main>
+                                <tr>
 
+                                    <th>ID</th>
 
+                                    <th>Item</th>
 
-<!-- ================= EDIT MODAL ================= -->
+                                    <th>SKU</th>
 
-<div
-    id="editModal"
-    class="modal"
-    hidden
->
+                                    <th>Description</th>
 
-    <div class="modal">
+                                    <th>Purchase Price</th>
 
+                                    <th>Selling Price</th>
 
-        <div class="modal-header">
+                                    <th>Reorder Level</th>
 
-            <div>
+                                    <th>Status</th>
 
-                <h2>
-                    Edit Item
-                </h2>
+                                    <th>Actions</th>
 
-                <p>
-                    Update the item information.
-                </p>
+                                </tr>
 
-            </div>
+                            </thead>
 
 
-            <button
-                type="button"
-                class="modal-close"
-                id="closeModalButton"
-            >
-                ×
-            </button>
+                            <tbody id="itemsTableBody">
 
-        </div>
+                                <!-- JavaScript will populate this -->
 
+                            </tbody>
 
+                        </table>
 
-        <form id="editItemForm">
+                    </div>
 
-            <input
-                type="hidden"
-                id="editId"
-            >
 
+                </section>
 
-            <div class="form-grid">
+            </main>
 
 
-                <div class="form-group">
 
-                    <label for="editName">
-                        Item Name
-                    </label>
+            <!-- ================= EDIT MODAL ================= -->
 
-                    <input
-                        type="text"
-                        id="editName"
-                        required
-                    >
+            <div id="editModal" class="modal" hidden>
 
-                </div>
+                <div class="modal">
 
 
+                    <div class="modal-header">
 
-                <div class="form-group">
+                        <div>
 
-                    <label for="editSku">
-                        SKU
-                    </label>
+                            <h2>
+                                Edit Item
+                            </h2>
 
-                    <input
-                        type="text"
-                        id="editSku"
-                        required
-                    >
+                            <p>
+                                Update the item information.
+                            </p>
 
-                </div>
+                        </div>
 
 
+                        <button type="button" class="modal-close" id="closeModalButton">
+                            ×
+                        </button>
 
-                <div class="form-group">
+                    </div>
 
-                    <label for="editPurchasePrice">
-                        Purchase Price
-                    </label>
 
-                    <input
-                        type="number"
-                        id="editPurchasePrice"
-                        min="0"
-                        step="0.01"
-                        required
-                    >
 
-                </div>
+                    <form id="editItemForm">
 
+                        <input type="hidden" id="editId">
 
 
-                <div class="form-group">
+                        <div class="form-grid">
 
-                    <label for="editSellingPrice">
-                        Selling Price
-                    </label>
 
-                    <input
-                        type="number"
-                        id="editSellingPrice"
-                        min="0"
-                        step="0.01"
-                        required
-                    >
+                            <div class="form-group">
 
-                </div>
+                                <label for="editName">
+                                    Item Name
+                                </label>
 
+                                <input type="text" id="editName" required>
 
+                            </div>
 
-                <div class="form-group">
 
-                    <label for="editReorderLevel">
-                        Reorder Level
-                    </label>
 
-                    <input
-                        type="number"
-                        id="editReorderLevel"
-                        min="0"
-                        required
-                    >
+                            <div class="form-group">
 
-                </div>
+                                <label for="editSku">
+                                    SKU
+                                </label>
 
+                                <input type="text" id="editSku" required>
 
+                            </div>
 
-                <div class="form-group full-width">
 
-                    <label for="editDescription">
-                        Description
-                    </label>
 
-                    <textarea
-                        id="editDescription"
-                        rows="4"
-                    ></textarea>
+                            <div class="form-group">
+
+                                <label for="editPurchasePrice">
+                                    Purchase Price
+                                </label>
+
+                                <input type="number" id="editPurchasePrice" min="0" step="0.01" required>
+
+                            </div>
+
+
+
+                            <div class="form-group">
+
+                                <label for="editSellingPrice">
+                                    Selling Price
+                                </label>
+
+                                <input type="number" id="editSellingPrice" min="0" step="0.01" required>
+
+                            </div>
+
+
+
+                            <div class="form-group">
+
+                                <label for="editReorderLevel">
+                                    Reorder Level
+                                </label>
+
+                                <input type="number" id="editReorderLevel" min="0" required>
+
+                            </div>
+
+
+
+                            <div class="form-group full-width">
+
+                                <label for="editDescription">
+                                    Description
+                                </label>
+
+                                <textarea id="editDescription" rows="4"></textarea>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <div class="modal-actions">
+
+                            <button type="button" class="button secondary-button" id="cancelEditButton">
+                                Cancel
+                            </button>
+
+
+                            <button type="submit" class="button">
+                                Save Changes
+                            </button>
+
+                        </div>
+
+                    </form>
 
                 </div>
 
@@ -513,43 +448,11 @@
 
 
 
-            <div class="modal-actions">
+            <!-- ================= MESSAGE ================= -->
 
-                <button
-                    type="button"
-                    class="button secondary-button"
-                    id="cancelEditButton"
-                >
-                    Cancel
-                </button>
+            <div id="messageBox" class="message-box" hidden></div>
 
 
-                <button
-                    type="submit"
-                    class="button"
-                >
-                    Save Changes
-                </button>
+        </body>
 
-            </div>
-
-        </form>
-
-    </div>
-
-</div>
-
-
-
-<!-- ================= MESSAGE ================= -->
-
-<div
-    id="messageBox"
-    class="message-box"
-    hidden
-></div>
-
-
-</body>
-
-</html>
+        </html>

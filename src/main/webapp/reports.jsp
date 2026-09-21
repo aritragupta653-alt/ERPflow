@@ -1,755 +1,532 @@
 
-<%@ page contentType="text/html;charset=UTF-8" %>
-<%@ page isELIgnored="false" %>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ERPFlow - Reports Center</title>
-
-    <link rel="stylesheet"
-          href="${pageContext.request.contextPath}/css/app.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERPFlow | Reports</title>
 
     <style>
-        .reports-wrap {
-            max-width: 1300px;
-            margin: 32px auto;
-            padding: 0 22px;
+        * {
+            box-sizing: border-box;
         }
 
-        .reports-header {
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+
+        .page {
+            max-width: 1400px;
+            margin: auto;
+            padding: 28px;
+        }
+
+        .header {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            flex-wrap: wrap;
+            align-items: center;
             gap: 16px;
             margin-bottom: 24px;
         }
 
-        .reports-header h1 {
-            margin: 0 0 6px;
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
         }
 
-        .muted {
+        .subtitle {
             color: #6b7280;
+            margin: 0;
         }
 
-        .report-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 22px;
-        }
-
-        .report-tab {
-            border: 1px solid #dbe1ea;
-            border-radius: 9px;
-            background: white;
-            color: #334155;
-            padding: 11px 16px;
-            cursor: pointer;
-            font: inherit;
-            font-weight: 600;
-        }
-
-        .report-tab.active {
-            color: white;
-            background: #2563eb;
-            border-color: #2563eb;
-        }
-
-        .report-panel {
+        .panel {
             background: white;
             border: 1px solid #e5e7eb;
-            border-radius: 14px;
+            border-radius: 12px;
             padding: 22px;
-            box-shadow: 0 2px 8px #00000008;
+            margin-bottom: 22px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
         }
 
-        .report-panel h2 {
-            margin: 0 0 6px;
+        .filters {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(130px, 1fr));
+            gap: 14px;
+            align-items: end;
         }
 
-        .report-controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 12px;
-            margin: 20px 0;
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 7px;
         }
 
-        .report-controls input,
-        .report-controls select {
-            min-width: 175px;
+        input, select, button {
+            width: 100%;
             padding: 11px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 7px;
             background: white;
-            color: #1e293b;
-            font: inherit;
+            font-size: 14px;
         }
 
-        .report-btn {
-            border: 0;
-            border-radius: 8px;
+        button {
+            cursor: pointer;
+            border: none;
             background: #2563eb;
             color: white;
-            padding: 11px 17px;
             font-weight: 600;
-            cursor: pointer;
         }
 
-        .report-btn.secondary {
-            background: #eef2ff;
-            color: #1d4ed8;
+        button:hover {
+            background: #1d4ed8;
         }
 
-        .report-table-wrap {
-            width: 100%;
+        .secondary {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        .secondary:hover {
+            background: #d1d5db;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .table-header h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .table-wrap {
             overflow-x: auto;
         }
 
-        .report-table {
+        table {
             width: 100%;
-            min-width: 760px;
             border-collapse: collapse;
-        }
-
-        .report-table th,
-        .report-table td {
-            padding: 13px 14px;
-            border-bottom: 1px solid #e5e7eb;
-            text-align: left;
             white-space: nowrap;
         }
 
-        .report-table th {
-            background: #f8fafc;
-            color: #475569;
-            font-size: 13px;
+        th, td {
+            padding: 13px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 14px;
         }
 
-        .report-table tbody tr:hover {
-            background: #f8fafc;
+        th {
+            background: #f9fafb;
+            color: #4b5563;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
         }
 
-        .empty-state {
-            padding: 26px;
-            text-align: center !important;
-            color: #64748b;
+        tbody tr:hover {
+            background: #f9fafb;
         }
 
-        .error-state {
-            color: #b91c1c;
+        .message {
+            padding: 14px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
         }
 
-        .status-pill {
+        .error {
+            display: block;
+            color: #991b1b;
+            background: #fee2e2;
+        }
+
+        .empty {
+            padding: 30px;
+            text-align: center;
+            color: #6b7280;
+        }
+
+        .status {
             display: inline-block;
+            padding: 5px 9px;
             border-radius: 20px;
-            padding: 4px 9px;
-            background: #dcfce7;
-            color: #166534;
             font-size: 12px;
             font-weight: 600;
         }
 
-        .status-pill.low {
+        .IN_STOCK {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .LOW_STOCK {
             background: #fef3c7;
             color: #92400e;
         }
 
-        .status-pill.out {
+        .OUT_OF_STOCK {
             background: #fee2e2;
             color: #991b1b;
         }
 
-        .report-note {
-            margin-top: 15px;
-            color: #6b7280;
-            font-size: 13px;
-            line-height: 1.5;
+        @media (max-width: 900px) {
+            .filters {
+                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            }
+
+            .page {
+                padding: 16px;
+            }
         }
 
-        @media (max-width: 650px) {
-            .reports-wrap {
-                padding: 0 12px;
+        @media (max-width: 520px) {
+            .filters {
+                grid-template-columns: 1fr;
             }
 
-            .report-panel {
-                padding: 15px;
-            }
-
-            .report-controls input,
-            .report-controls select {
-                width: 100%;
-                min-width: 0;
+            .header {
+                align-items: flex-start;
+                flex-direction: column;
             }
         }
     </style>
 </head>
 
 <body>
+<div class="page">
 
-<header class="navbar">
-    <a href="${pageContext.request.contextPath}/home.jsp" class="logo">
-        <img src="${pageContext.request.contextPath}/images/erpflow-logo.png"
-             alt="ERPFlow Logo">
-        <span>ERPFlow</span>
-    </a>
-</header>
-
-<main class="reports-wrap">
-
-    <div class="reports-header">
+    <div class="header">
         <div>
-            <h1>Reports Center</h1>
-            <p class="muted">
-                Analyze inventory, shipped sales, and customer activity.
+            <h1>Reports</h1>
+            <p class="subtitle">
+                View inventory, item sales, customer sales and order summaries.
             </p>
         </div>
-
-        <a class="report-btn secondary"
-           href="${pageContext.request.contextPath}/home.jsp"
-           style="text-decoration:none">
-            ← Dashboard
-        </a>
     </div>
 
-    <div class="report-tabs">
-        <button class="report-tab active" data-report="inventory">
-            Inventory Stock Summary
-        </button>
+    <section class="panel">
+        <div class="filters">
 
-        <button class="report-tab" data-report="itemSales">
-            Sales per Item
-        </button>
+            <div>
+                <label for="reportType">Report</label>
+                <select id="reportType">
+                    <option value="inventory">Inventory Stock Summary</option>
+                    <option value="sales-by-item">Sales per Item</option>
+                    <option value="sales-by-customer">Sales per Customer</option>
+                    <option value="sales-order-summary">Sales Order Summary</option>
+                </select>
+            </div>
 
-        <button class="report-tab" data-report="customerSales">
-            Sales per Customer
-        </button>
-    </div>
+            <div>
+                <label for="search">Search</label>
+                <input id="search" type="text"
+                       placeholder="Search report...">
+            </div>
 
-    <!-- INVENTORY REPORT -->
+            <div>
+                <label for="from">From Date</label>
+                <input id="from" type="date">
+            </div>
 
-    <section class="report-panel" id="inventoryPanel">
-        <h2>Inventory Stock Summary</h2>
-        <p class="muted">
-            View current stock and stock movements during a selected date range.
-        </p>
+            <div>
+                <label for="to">To Date</label>
+                <input id="to" type="date">
+            </div>
 
-        <div class="report-controls">
-            <input id="inventorySearch"
-                   type="search"
-                   placeholder="Search item name or SKU">
+            <div id="stockFilterContainer">
+                <label for="stock">Stock Status</label>
+                <select id="stock">
+                    <option value="all">All</option>
+                    <option value="IN_STOCK">In Stock</option>
+                    <option value="LOW_STOCK">Low Stock</option>
+                    <option value="OUT_OF_STOCK">Out of Stock</option>
+                </select>
+            </div>
 
-            <select id="inventoryStock">
-                <option value="all">All stock statuses</option>
-                <option value="low">Low stock</option>
-                <option value="out">Out of stock</option>
-            </select>
+            <div>
+                <button id="applyButton" type="button">Apply Filters</button>
+            </div>
 
-            <label>
-                From
-                <input id="inventoryFrom" type="date">
-            </label>
+            <div>
+                <button id="resetButton" class="secondary" type="button">
+                    Reset
+                </button>
+            </div>
 
-            <label>
-                To
-                <input id="inventoryTo" type="date">
-            </label>
-
-            <button class="report-btn" id="inventoryRun">
-                Run report
-            </button>
-
-            <button class="report-btn secondary" id="inventoryExport">
-                Export CSV
-            </button>
         </div>
-
-        <div class="report-table-wrap">
-            <table class="report-table">
-                <thead>
-                <tr>
-                    <th>SKU</th>
-                    <th>Item</th>
-                    <th>On hand</th>
-                    <th>Reserved</th>
-                    <th>Available</th>
-                    <th>Reorder level</th>
-                    <th>Status</th>
-                    <th>Stock in (period)</th>
-                    <th>Stock out (period)</th>
-                    <th>Stock value</th>
-                </tr>
-                </thead>
-                <tbody id="inventoryRows">
-                <tr><td colspan="10" class="empty-state">Loading report…</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <p class="report-note">
-            On hand, reserved, and available quantities represent current inventory.
-            Stock-in and stock-out columns are movement totals between the selected
-            dates, inclusive. Leaving a date blank means no boundary for that side.
-        </p>
     </section>
 
-    <!-- SALES PER ITEM REPORT -->
-
-    <section class="report-panel" id="itemSalesPanel" hidden>
-        <h2>Sales per Item</h2>
-        <p class="muted">
-            Item sales are counted only when the associated sales order is shipped.
-        </p>
-
-        <div class="report-controls">
-            <input id="itemSearch"
-                   type="search"
-                   placeholder="Search item name or SKU">
-
-            <label>
-                From
-                <input id="itemFrom" type="date">
-            </label>
-
-            <label>
-                To
-                <input id="itemTo" type="date">
-            </label>
-
-            <button class="report-btn" id="itemRun">Run report</button>
-            <button class="report-btn secondary" id="itemExport">Export CSV</button>
+    <section class="panel">
+        <div class="table-header">
+            <h2 id="reportTitle">Inventory Stock Summary</h2>
+            <span id="rowCount">0 rows</span>
         </div>
 
-        <div class="report-table-wrap">
-            <table class="report-table">
-                <thead>
-                <tr>
-                    <th>SKU</th>
-                    <th>Item</th>
-                    <th>Quantity sold</th>
-                    <th>Shipped orders</th>
-                    <th>Sales revenue</th>
-                </tr>
-                </thead>
-                <tbody id="itemRows">
-                <tr><td colspan="5" class="empty-state">Run the report to view results.</td></tr>
-                </tbody>
+        <div id="message" class="message"></div>
+
+        <div class="table-wrap">
+            <table>
+                <thead id="tableHead"></thead>
+                <tbody id="tableBody"></tbody>
             </table>
         </div>
-
-        <p class="report-note">
-            Revenue is calculated from each sales order line's quantity multiplied
-            by its saved selling price. Multiple lines for the same item are summed.
-        </p>
     </section>
 
-    <!-- SALES PER CUSTOMER REPORT -->
-
-    <section class="report-panel" id="customerSalesPanel" hidden>
-        <h2>Sales per Customer</h2>
-        <p class="muted">
-            Customer sales include shipped orders only.
-        </p>
-
-        <div class="report-controls">
-            <input id="customerSearch"
-                   type="search"
-                   placeholder="Search customer name or ID">
-
-            <label>
-                From
-                <input id="customerFrom" type="date">
-            </label>
-
-            <label>
-                To
-                <input id="customerTo" type="date">
-            </label>
-
-            <button class="report-btn" id="customerRun">Run report</button>
-            <button class="report-btn secondary" id="customerExport">Export CSV</button>
-        </div>
-
-        <div class="report-table-wrap">
-            <table class="report-table">
-                <thead>
-                <tr>
-                    <th>Customer ID</th>
-                    <th>Customer</th>
-                    <th>Shipped orders</th>
-                    <th>Quantity sold</th>
-                    <th>Sales revenue</th>
-                </tr>
-                </thead>
-                <tbody id="customerRows">
-                <tr><td colspan="5" class="empty-state">Run the report to view results.</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <p class="report-note">
-            Revenue is the sum of shipped sales order line amounts for each customer.
-        </p>
-    </section>
-
-</main>
+</div>
 
 <script>
-    const contextPath = '${pageContext.request.contextPath}';
+    const contextPath = '<%= request.getContextPath() %>';
 
-    let inventoryData = [];
-    let itemSalesData = [];
-    let customerSalesData = [];
+    const reportType = document.getElementById("reportType");
+    const searchInput = document.getElementById("search");
+    const fromInput = document.getElementById("from");
+    const toInput = document.getElementById("to");
+    const stockInput = document.getElementById("stock");
 
-    function money(value) {
-        if (value == null || value === '') {
-            return '—';
+    const stockContainer =
+        document.getElementById("stockFilterContainer");
+
+    const tableHead = document.getElementById("tableHead");
+    const tableBody = document.getElementById("tableBody");
+    const message = document.getElementById("message");
+    const rowCount = document.getElementById("rowCount");
+    const reportTitle = document.getElementById("reportTitle");
+
+    const reportConfig = {
+        "inventory": {
+            title: "Inventory Stock Summary",
+            endpoint: "/api/reports/inventory",
+            columns: [
+                ["sku", "SKU"],
+                ["name", "Item"],
+                ["quantity", "On Hand"],
+                ["reserved", "Reserved"],
+                ["available", "Available"],
+                ["reorderLevel", "Reorder Level"],
+                ["stockIn", "Stock In"],
+                ["stockOut", "Stock Out"],
+                ["status", "Status"]
+            ]
+        },
+
+        "sales-by-item": {
+            title: "Sales per Item",
+            endpoint: "/api/reports/sales-by-item",
+            columns: [
+                ["sku", "SKU"],
+                ["name", "Item"],
+                ["quantitySold", "Quantity Sold"],
+                ["orderCount", "Orders"],
+                ["revenue", "Revenue"]
+            ]
+        },
+
+        "sales-by-customer": {
+            title: "Sales per Customer",
+            endpoint: "/api/reports/sales-by-customer",
+            columns: [
+                ["customerName", "Customer"],
+                ["orderCount", "Orders"],
+                ["quantitySold", "Quantity Sold"],
+                ["revenue", "Revenue"]
+            ]
+        },
+
+        "sales-order-summary": {
+            title: "Sales Order Summary",
+            endpoint: "/api/reports/sales-order-summary",
+            columns: [
+                ["orderId", "Order ID"],
+                ["orderDate", "Order Date"],
+                ["customerName", "Customer"],
+                ["status", "Status"],
+                ["itemQuantity", "Item Quantity"],
+                ["subtotal", "Subtotal"]
+            ]
+        }
+    };
+
+    function showError(text) {
+        message.textContent = text;
+        message.className = "message error";
+    }
+
+    function clearError() {
+        message.textContent = "";
+        message.className = "message";
+    }
+
+    function escapeHtml(value) {
+        return String(value ?? "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function formatValue(key, value) {
+        if (value === null || value === undefined) {
+            return "—";
         }
 
-        const number = Number(value);
-
-        if (!Number.isFinite(number)) {
-            return '—';
+        if (key === "status") {
+            const safe = escapeHtml(value);
+            return '<span class="status ' + safe + '">' + safe + '</span>';
         }
 
-        return number.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
+        if (typeof value === "number") {
+            return Number(value).toLocaleString(undefined, {
+                maximumFractionDigits: 2
+            });
+        }
+
+        return escapeHtml(value);
+    }
+
+    function renderTable(rows, config) {
+        tableHead.innerHTML = "";
+        tableBody.innerHTML = "";
+
+        const headerRow = document.createElement("tr");
+
+        config.columns.forEach(column => {
+            const th = document.createElement("th");
+            th.textContent = column[1];
+            headerRow.appendChild(th);
         });
-    }
 
-    function cell(row, value) {
-        const td = document.createElement('td');
-        td.textContent = value == null || value === '' ? '—' : String(value);
-        row.appendChild(td);
-        return td;
-    }
+        tableHead.appendChild(headerRow);
 
-    function statusCell(row, status) {
-        const td = document.createElement('td');
-        const pill = document.createElement('span');
-
-        pill.className = 'status-pill';
-
-        if (status === 'Low stock') {
-            pill.classList.add('low');
-        } else if (status === 'Out of stock') {
-            pill.classList.add('out');
-        }
-
-        pill.textContent = status || '—';
-        td.appendChild(pill);
-        row.appendChild(td);
-    }
-
-    function messageRow(tbody, colspan, message, error) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-
-        td.colSpan = colspan;
-        td.className = error ? 'empty-state error-state' : 'empty-state';
-        td.textContent = message;
-
-        tr.appendChild(td);
-        tbody.replaceChildren(tr);
-    }
-
-    async function fetchReport(endpoint, parameters) {
-        const query = new URLSearchParams();
-
-        Object.keys(parameters).forEach(function (key) {
-            query.set(key, parameters[key] || '');
-        });
-
-        const response = await fetch(
-            contextPath + endpoint + '?' + query.toString(),
-            { headers: { 'Accept': 'application/json' } }
-        );
-
-        const responseText = await response.text();
-
-        let data;
-
-        try {
-            data = JSON.parse(responseText);
-        } catch (error) {
-            throw new Error(
-                'The server returned a non-JSON response. Check the API URL and Tomcat logs.'
-            );
-        }
-
-        if (!response.ok) {
-            throw new Error(data.error || 'The report request failed.');
-        }
-
-        if (!Array.isArray(data)) {
-            throw new Error(data.error || 'Unexpected report response.');
-        }
-
-        return data;
-    }
-
-    // INVENTORY
-
-    async function loadInventory() {
-        const tbody = document.getElementById('inventoryRows');
-
-        messageRow(tbody, 10, 'Loading report…', false);
-
-        try {
-            inventoryData = await fetchReport('/api/reports/inventory', {
-                search: document.getElementById('inventorySearch').value,
-                stock: document.getElementById('inventoryStock').value,
-                from: document.getElementById('inventoryFrom').value,
-                to: document.getElementById('inventoryTo').value
-            });
-
-            if (!inventoryData.length) {
-                messageRow(tbody, 10, 'No matching inventory records.', false);
-                return;
-            }
-
-            const fragment = document.createDocumentFragment();
-
-            inventoryData.forEach(function (item) {
-                const tr = document.createElement('tr');
-
-                cell(tr, item.sku);
-                cell(tr, item.name);
-                cell(tr, item.quantity);
-                cell(tr, item.reserved);
-                cell(tr, item.available);
-                cell(tr, item.reorderLevel);
-                statusCell(tr, item.status);
-                cell(tr, item.stockIn);
-                cell(tr, item.stockOut);
-                cell(tr, money(item.stockValue));
-
-                fragment.appendChild(tr);
-            });
-
-            tbody.replaceChildren(fragment);
-
-        } catch (error) {
-            inventoryData = [];
-            messageRow(tbody, 10, error.message, true);
-        }
-    }
-
-    // SALES PER ITEM
-
-    async function loadItemSales() {
-        const tbody = document.getElementById('itemRows');
-
-        messageRow(tbody, 5, 'Loading report…', false);
-
-        try {
-            itemSalesData = await fetchReport('/api/reports/sales-by-item', {
-                search: document.getElementById('itemSearch').value,
-                from: document.getElementById('itemFrom').value,
-                to: document.getElementById('itemTo').value
-            });
-
-            if (!itemSalesData.length) {
-                messageRow(tbody, 5, 'No shipped sales found for these filters.', false);
-                return;
-            }
-
-            const fragment = document.createDocumentFragment();
-
-            itemSalesData.forEach(function (item) {
-                const tr = document.createElement('tr');
-
-                cell(tr, item.sku);
-                cell(tr, item.itemName);
-                cell(tr, item.quantitySold);
-                cell(tr, item.shippedOrderCount);
-                cell(tr, money(item.salesRevenue));
-
-                fragment.appendChild(tr);
-            });
-
-            tbody.replaceChildren(fragment);
-
-        } catch (error) {
-            itemSalesData = [];
-            messageRow(tbody, 5, error.message, true);
-        }
-    }
-
-    // SALES PER CUSTOMER
-
-    async function loadCustomerSales() {
-        const tbody = document.getElementById('customerRows');
-
-        messageRow(tbody, 5, 'Loading report…', false);
-
-        try {
-            customerSalesData = await fetchReport('/api/reports/sales-by-customer', {
-                search: document.getElementById('customerSearch').value,
-                from: document.getElementById('customerFrom').value,
-                to: document.getElementById('customerTo').value
-            });
-
-            if (!customerSalesData.length) {
-                messageRow(tbody, 5, 'No shipped sales found for these filters.', false);
-                return;
-            }
-
-            const fragment = document.createDocumentFragment();
-
-            customerSalesData.forEach(function (customer) {
-                const tr = document.createElement('tr');
-
-                cell(tr, customer.customerId);
-                cell(tr, customer.customerName);
-                cell(tr, customer.shippedOrderCount);
-                cell(tr, customer.quantitySold);
-                cell(tr, money(customer.salesRevenue));
-
-                fragment.appendChild(tr);
-            });
-
-            tbody.replaceChildren(fragment);
-
-        } catch (error) {
-            customerSalesData = [];
-            messageRow(tbody, 5, error.message, true);
-        }
-    }
-
-    // CSV EXPORT
-
-    function exportCsv(columns, rows, filename) {
         if (!rows.length) {
-            alert('There are no report rows to export.');
+            const tr = document.createElement("tr");
+            const td = document.createElement("td");
+
+            td.colSpan = config.columns.length;
+            td.className = "empty";
+            td.textContent = "No records found for the selected filters.";
+
+            tr.appendChild(td);
+            tableBody.appendChild(tr);
+            rowCount.textContent = "0 rows";
             return;
         }
 
-        function csvEscape(value) {
-            const text = value == null ? '' : String(value);
-            return '"' + text.replace(/"/g, '""') + '"';
-        }
+        rows.forEach(row => {
+            const tr = document.createElement("tr");
 
-        const output = [];
+            config.columns.forEach(column => {
+                const td = document.createElement("td");
+                td.innerHTML = formatValue(column[0], row[column[0]]);
+                tr.appendChild(td);
+            });
 
-        output.push(columns.map(function (column) {
-            return csvEscape(column.label);
-        }).join(','));
-
-        rows.forEach(function (record) {
-            output.push(columns.map(function (column) {
-                return csvEscape(record[column.key]);
-            }).join(','));
+            tableBody.appendChild(tr);
         });
 
-        const blob = new Blob(
-            ['\ufeff' + output.join('\r\n')],
-            { type: 'text/csv;charset=utf-8;' }
-        );
-
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-
-        link.href = url;
-        link.download = filename;
-
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-
-        URL.revokeObjectURL(url);
+        rowCount.textContent =
+            rows.length + (rows.length === 1 ? " row" : " rows");
     }
 
-    document.getElementById('inventoryExport').addEventListener('click', function () {
-        exportCsv([
-            { label: 'SKU', key: 'sku' },
-            { label: 'Item', key: 'name' },
-            { label: 'On hand', key: 'quantity' },
-            { label: 'Reserved', key: 'reserved' },
-            { label: 'Available', key: 'available' },
-            { label: 'Reorder level', key: 'reorderLevel' },
-            { label: 'Status', key: 'status' },
-            { label: 'Stock in (period)', key: 'stockIn' },
-            { label: 'Stock out (period)', key: 'stockOut' },
-            { label: 'Stock value', key: 'stockValue' }
-        ], inventoryData, 'erpflow-inventory-report.csv');
-    });
+    async function loadReport() {
+        clearError();
 
-    document.getElementById('itemExport').addEventListener('click', function () {
-        exportCsv([
-            { label: 'SKU', key: 'sku' },
-            { label: 'Item', key: 'itemName' },
-            { label: 'Quantity sold', key: 'quantitySold' },
-            { label: 'Shipped orders', key: 'shippedOrderCount' },
-            { label: 'Sales revenue', key: 'salesRevenue' }
-        ], itemSalesData, 'erpflow-sales-per-item.csv');
-    });
+        const selected = reportType.value;
+        const config = reportConfig[selected];
 
-    document.getElementById('customerExport').addEventListener('click', function () {
-        exportCsv([
-            { label: 'Customer ID', key: 'customerId' },
-            { label: 'Customer', key: 'customerName' },
-            { label: 'Shipped orders', key: 'shippedOrderCount' },
-            { label: 'Quantity sold', key: 'quantitySold' },
-            { label: 'Sales revenue', key: 'salesRevenue' }
-        ], customerSalesData, 'erpflow-sales-per-customer.csv');
-    });
+        reportTitle.textContent = config.title;
+        stockContainer.style.display =
+            selected === "inventory" ? "block" : "none";
 
-    // REPORT NAVIGATION
+        const params = new URLSearchParams();
 
-    const panels = {
-        inventory: document.getElementById('inventoryPanel'),
-        itemSales: document.getElementById('itemSalesPanel'),
-        customerSales: document.getElementById('customerSalesPanel')
-    };
+        if (searchInput.value.trim()) {
+            params.set("search", searchInput.value.trim());
+        }
 
-    function showReport(reportName) {
-        Object.keys(panels).forEach(function (key) {
-            panels[key].hidden = key !== reportName;
-        });
+        if (fromInput.value) {
+            params.set("from", fromInput.value);
+        }
 
-        document.querySelectorAll('.report-tab').forEach(function (button) {
-            button.classList.toggle(
-                'active',
-                button.dataset.report === reportName
+        if (toInput.value) {
+            params.set("to", toInput.value);
+        }
+
+        if (selected === "inventory") {
+            params.set("stock", stockInput.value);
+        }
+
+        tableBody.innerHTML =
+            '<tr><td class="empty" colspan="' +
+            config.columns.length +
+            '">Loading report...</td></tr>';
+
+        try {
+            const response = await fetch(
+                contextPath + config.endpoint + "?" + params.toString(),
+                {
+                    method: "GET",
+                    headers: {
+                        "Accept": "application/json"
+                    }
+                }
             );
-        });
 
-        if (reportName === 'inventory') {
-            loadInventory();
-        } else if (reportName === 'itemSales') {
-            loadItemSales();
-        } else if (reportName === 'customerSales') {
-            loadCustomerSales();
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.message || "Unable to load report."
+                );
+            }
+
+            if (!Array.isArray(result)) {
+                throw new Error("Unexpected response received from server.");
+            }
+
+            renderTable(result, config);
+
+        } catch (error) {
+            tableHead.innerHTML = "";
+            tableBody.innerHTML = "";
+            rowCount.textContent = "—";
+            showError(error.message || "An unexpected error occurred.");
         }
     }
 
-    document.querySelectorAll('.report-tab').forEach(function (button) {
-        button.addEventListener('click', function () {
-            showReport(button.dataset.report);
+    document.getElementById("applyButton")
+        .addEventListener("click", loadReport);
+
+    document.getElementById("resetButton")
+        .addEventListener("click", () => {
+            searchInput.value = "";
+            fromInput.value = "";
+            toInput.value = "";
+            stockInput.value = "all";
+            loadReport();
         });
+
+    reportType.addEventListener("change", loadReport);
+
+    searchInput.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+            loadReport();
+        }
     });
 
-    document.getElementById('inventoryRun')
-        .addEventListener('click', loadInventory);
-
-    document.getElementById('itemRun')
-        .addEventListener('click', loadItemSales);
-
-    document.getElementById('customerRun')
-        .addEventListener('click', loadCustomerSales);
-
-    document.getElementById('inventoryStock')
-        .addEventListener('change', loadInventory);
-
-    // Load inventory when the report page opens.
-    loadInventory();
+    loadReport();
 </script>
-
 </body>
 </html>

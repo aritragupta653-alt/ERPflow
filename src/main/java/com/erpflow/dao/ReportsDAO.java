@@ -1,27 +1,22 @@
 
 package com.erpflow.dao;
 
-import java.math.BigDecimal;
+import com.erpflow.util.DBConnection;
+
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Date;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.erpflow.util.DBConnection;
-
 public class ReportsDAO {
 
-    /*
-     * Convert an optional date string into java.sql.Date.
-     * Blank or null dates mean that no date restriction is applied.
-     */
-    private Date parseOptionalDate(String value) {
-        if (value == null || value.trim().isEmpty()) {
+    private Date parseDate(String value) {
+        if (value == null || value.isBlank()) {
             return null;
         }
 
@@ -29,200 +24,151 @@ public class ReportsDAO {
             return Date.valueOf(value.trim());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
-                "Invalid date. Expected format: yyyy-MM-dd"
+                    "Invalid date format. Use yyyy-MM-dd."
             );
         }
     }
 
-    /*
-     * Add a date condition only when the date exists.
-     * This avoids comparing a DATE column with an empty string.
-     */
-    private void appendDateCondition(
+    private void addDateFilters(
             StringBuilder sql,
-            List<Date> parameters,
+            List<Date> dates,
             String column,
-            Date date,
-            String operator) {
+            Date from,
+            Date to) {
 
-        if (date != null) {
-            sql.append(" AND ").append(column).append(" ")
-               .append(operator).append(" ?");
-            parameters.add(date);
+        if (from != null) {
+            sql.append(" AND ").append(column).append(" >= ?");
+            dates.add(from);
+        }
+
+        if (to != null) {
+            sql.append(" AND ").append(column).append(" <= ?");
+            dates.add(to);
         }
     }
 
     private void bindDates(
             PreparedStatement ps,
-            List<Date> dates,
-            int startIndex) throws SQLException {
+            List<Date> dates) throws SQLException {
 
-        int index = startIndex;
-
-        for (Date date : dates) {
-            ps.setDate(index++, date);
+        for (int i = 0; i < dates.size(); i++) {
+            ps.setDate(i + 1, dates.get(i));
         }
     }
 
-    private String normalize(String value) {
-        return value == null ? "" : value.trim();
-    }
-
-    private boolean matchesSearch(String value, String search) {
-        return search.isEmpty()
-            || (value != null
+    private boolean contains(String value, String search) {
+        return search == null || search.isBlank()
+                || (value != null
                 && value.toLowerCase().contains(search.toLowerCase()));
     }
 
-    private BigDecimal decimal(Object value) {
-        if (value == null) {
-            return BigDecimal.ZERO;
+    private void validateDates(Date from, Date to) {
+        if (from != null && to != null && from.after(to)) {
+            throw new IllegalArgumentException(
+                    "From date cannot be after To date."
+            );
         }
-
-        if (value instanceof BigDecimal) {
-            return (BigDecimal) value;
-        }
-
-        return new BigDecimal(value.toString());
     }
 
-    /*
-     * INVENTORY STOCK SUMMARY
-     *
-     * Returns current stock, reserved stock, available stock,
-     * stock-in and stock-out totals for the optional date range.
-     *
-     * Expected transaction types: STOCK_IN and STOCK_OUT.
-     */
+    // =========================================================
+    // 1. INVENTORY STOCK SUMMARY
+    // =========================================================
+
     public List<Map<String, Object>> getInventoryReport(
             String search,
             String stockFilter,
             String fromDate,
             String toDate) {
 
-        Date from = parseOptionalDate(fromDate);
-        Date to = parseOptionalDate(toDate);
+        Date from = parseDate(fromDate);
+        Date to = parseDate(toDate);
+        validateDates(from, to);
 
-        if (from != null && to != null && from.after(to)) {
-            throw new IllegalArgumentException(
-                "From date cannot be after To date."
-            );
-        }
-
-        StringBuilder sql = new StringBuilder();
-
-        sql.append(
-            "SELECT " +
-            " i.item_id AS itemId, " +
-            " i.sku AS sku, " +
-            " i.name AS itemName, " +
-            " COALESCE(inv.quantity, 0) AS onHand, " +
-            " COALESCE(inv.committedquantity, 0) AS reserved, " +
-            " COALESCE(i.reorder_level, 0) AS reorderLevel, " +
-
-            " COALESCE(( " +
-            "   SELECT SUM(t.quantity) " +
-            "   FROM inventory_transactions t " +
-            "   WHERE t.item_id = i.item_id " +
-            "     AND UPPER(t.type) = 'STOCK_IN' "
-        );
-
-        List<Date> stockInDates = new ArrayList<>();
-
-        appendDateCondition(
-            sql, stockInDates, "t.transactionDate", from, ">="
-        );
-
-        appendDateCondition(
-            sql, stockInDates, "t.transactionDate", to, "<="
-        );
-
-        sql.append(
-            " ), 0) AS stockIn, " +
-
-            " COALESCE(( " +
-            "   SELECT SUM(t.quantity) " +
-            "   FROM inventory_transactions t " +
-            "   WHERE t.item_id = i.item_id " +
-            "     AND UPPER(t.type) = 'STOCK_OUT' "
-        );
-
-        List<Date> stockOutDates = new ArrayList<>();
-
-        appendDateCondition(
-            sql, stockOutDates, "t.transactionDate", from, ">="
-        );
-
-        appendDateCondition(
-            sql, stockOutDates, "t.transactionDate", to, "<="
-        );
-
-        sql.append(
-            " ), 0) AS stockOut " +
-            "FROM items i " +
-            "LEFT JOIN inventory inv ON inv.item_id = i.item_id " +
-            "WHERE 1 = 1 "
-        );
-
-        List<Date> allDates = new ArrayList<>();
-        allDates.addAll(stockInDates);
-        allDates.addAll(stockOutDates);
-
-        sql.append(" ORDER BY i.name ASC");
+        String sql = """
+                SELECT
+                    i.item_id AS itemId,
+                    i.sku AS sku,
+                    i.name AS itemName,
+                    COALESCE(inv.quantity, 0) AS onHand,
+                    COALESCE(inv.committedquantity, 0) AS reserved,
+                    COALESCE(i.reorder_level, 0) AS reorderLevel,
+                    COALESCE((
+                        SELECT SUM(t.quantity)
+                        FROM inventory_transactions t
+                        WHERE t.item_id = i.item_id
+                          AND UPPER(t.type) = 'STOCK_IN'
+                          AND (? IS NULL OR t.transactionDate >= ?)
+                          AND (? IS NULL OR t.transactionDate <= ?)
+                    ), 0) AS stockIn,
+                    COALESCE((
+                        SELECT SUM(t.quantity)
+                        FROM inventory_transactions t
+                        WHERE t.item_id = i.item_id
+                          AND UPPER(t.type) = 'STOCK_OUT'
+                          AND (? IS NULL OR t.transactionDate >= ?)
+                          AND (? IS NULL OR t.transactionDate <= ?)
+                    ), 0) AS stockOut
+                FROM items i
+                LEFT JOIN inventory inv ON inv.item_id = i.item_id
+                ORDER BY i.name
+                """;
 
         List<Map<String, Object>> rows = new ArrayList<>();
 
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql.toString())) {
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
 
-            bindDates(ps, allDates, 1);
+            ps.setDate(1, from);
+            ps.setDate(2, from);
+            ps.setDate(3, to);
+            ps.setDate(4, to);
+            ps.setDate(5, from);
+            ps.setDate(6, from);
+            ps.setDate(7, to);
+            ps.setDate(8, to);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     int onHand = rs.getInt("onHand");
                     int reserved = rs.getInt("reserved");
-                    int available = onHand - reserved;
-                    int reorderLevel = rs.getInt("reorderLevel");
-
-                    String sku = rs.getString("sku");
-                    String itemName = rs.getString("itemName");
+                    int reorder = rs.getInt("reorderLevel");
+                    int available = onHand - reorder;
 
                     String status;
 
-                    if (onHand <= 0) {
+                    if (available<=0) {
                         status = "OUT_OF_STOCK";
-                    } else if (onHand <= reorderLevel) {
+                    } else if (available<= reorder) {
                         status = "LOW_STOCK";
                     } else {
                         status = "IN_STOCK";
                     }
 
-                    Map<String, Object> row = new LinkedHashMap<>();
+                    String sku = rs.getString("sku");
+                    String name = rs.getString("itemName");
 
+                    if (!contains(sku, search) && !contains(name, search)) {
+                        continue;
+                    }
+
+                    if (stockFilter != null
+                            && !stockFilter.isBlank()
+                            && !stockFilter.equalsIgnoreCase("all")
+                            && !stockFilter.equalsIgnoreCase(status)) {
+                        continue;
+                    }
+
+                    Map<String, Object> row = new LinkedHashMap<>();
                     row.put("itemId", rs.getLong("itemId"));
                     row.put("sku", sku);
-                    row.put("name", itemName);
+                    row.put("name", name);
                     row.put("quantity", onHand);
                     row.put("reserved", reserved);
-                    row.put("available", available);
-                    row.put("reorderLevel", reorderLevel);
+                    row.put("available", onHand - reserved);
+                    row.put("reorderLevel", reorder);
                     row.put("status", status);
                     row.put("stockIn", rs.getBigDecimal("stockIn"));
                     row.put("stockOut", rs.getBigDecimal("stockOut"));
-
-                    // Apply search and status filtering in Java.
-                    if (!matchesSearch(sku, normalize(search))
-                            && !matchesSearch(itemName, normalize(search))) {
-                        continue;
-                    }
-
-                    String filter = normalize(stockFilter);
-
-                    if (!filter.isEmpty()
-                            && !filter.equalsIgnoreCase("all")
-                            && !filter.equalsIgnoreCase(status)) {
-                        continue;
-                    }
 
                     rows.add(row);
                 }
@@ -231,83 +177,65 @@ public class ReportsDAO {
             return rows;
 
         } catch (SQLException e) {
-            e.printStackTrace();
             throw new RuntimeException("Failed to load inventory report", e);
         }
     }
 
-    /*
-     * SALES PER ITEM
-     *
-     * A sale is counted only when the sales order status is SHIPPED.
-     */
+    // =========================================================
+    // 2. SALES PER ITEM
+    // =========================================================
+
     public List<Map<String, Object>> getSalesByItemReport(
             String search,
             String fromDate,
             String toDate) {
 
-        Date from = parseOptionalDate(fromDate);
-        Date to = parseOptionalDate(toDate);
+        Date from = parseDate(fromDate);
+        Date to = parseDate(toDate);
+        validateDates(from, to);
 
-        if (from != null && to != null && from.after(to)) {
-            throw new IllegalArgumentException(
-                "From date cannot be after To date."
-            );
-        }
-
-        StringBuilder sql = new StringBuilder();
-
-        sql.append(
-            "SELECT " +
-            " i.item_id AS itemId, " +
-            " i.sku AS sku, " +
-            " i.name AS itemName, " +
-            " SUM(soi.quantity) AS quantitySold, " +
-            " SUM(soi.quantity * soi.sellingPrice) AS revenue, " +
-            " COUNT(DISTINCT so.id) AS orderCount " +
-            "FROM sales_order_items soi " +
-            "JOIN sales_orders so ON so.id = soi.sales_order_id " +
-            "JOIN items i ON i.item_id = soi.item_id " +
-            "WHERE UPPER(so.status) = 'SHIPPED' "
-        );
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                    i.item_id AS itemId,
+                    i.sku AS sku,
+                    i.name AS itemName,
+                    SUM(soi.quantity) AS quantitySold,
+                    SUM(soi.quantity * soi.sellingPrice) AS revenue,
+                    COUNT(DISTINCT so.id) AS orderCount
+                FROM sales_order_items soi
+                JOIN sales_orders so ON so.id = soi.sales_order_id
+                JOIN items i ON i.item_id = soi.item_id
+                WHERE UPPER(so.status) = 'SHIPPED'
+                """);
 
         List<Date> dates = new ArrayList<>();
+        addDateFilters(sql, dates, "so.orderDate", from, to);
 
-        appendDateCondition(
-            sql, dates, "so.orderDate", from, ">="
-        );
-
-        appendDateCondition(
-            sql, dates, "so.orderDate", to, "<="
-        );
-
-        sql.append(
-            " GROUP BY i.item_id, i.sku, i.name " +
-            " ORDER BY revenue DESC"
-        );
+        sql.append("""
+                GROUP BY i.item_id, i.sku, i.name
+                ORDER BY revenue DESC
+                """);
 
         List<Map<String, Object>> rows = new ArrayList<>();
 
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql.toString())) {
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
 
-            bindDates(ps, dates, 1);
+            bindDates(ps, dates);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String sku = rs.getString("sku");
-                    String itemName = rs.getString("itemName");
+                    String name = rs.getString("itemName");
 
-                    if (!matchesSearch(sku, normalize(search))
-                            && !matchesSearch(itemName, normalize(search))) {
+                    if (!contains(sku, search) && !contains(name, search)) {
                         continue;
                     }
 
                     Map<String, Object> row = new LinkedHashMap<>();
-
                     row.put("itemId", rs.getLong("itemId"));
                     row.put("sku", sku);
-                    row.put("name", itemName);
+                    row.put("name", name);
                     row.put("quantitySold", rs.getBigDecimal("quantitySold"));
                     row.put("revenue", rs.getBigDecimal("revenue"));
                     row.put("orderCount", rs.getLong("orderCount"));
@@ -319,79 +247,64 @@ public class ReportsDAO {
             return rows;
 
         } catch (SQLException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Failed to load sales per item report", e);
+            throw new RuntimeException(
+                    "Failed to load sales per item report", e
+            );
         }
     }
 
-    /*
-     * SALES PER CUSTOMER
-     *
-     * Only SHIPPED sales orders contribute to customer totals.
-     */
+    // =========================================================
+    // 3. SALES PER CUSTOMER
+    // =========================================================
+
     public List<Map<String, Object>> getSalesByCustomerReport(
             String search,
             String fromDate,
             String toDate) {
 
-        Date from = parseOptionalDate(fromDate);
-        Date to = parseOptionalDate(toDate);
+        Date from = parseDate(fromDate);
+        Date to = parseDate(toDate);
+        validateDates(from, to);
 
-        if (from != null && to != null && from.after(to)) {
-            throw new IllegalArgumentException(
-                "From date cannot be after To date."
-            );
-        }
-
-        StringBuilder sql = new StringBuilder();
-
-        sql.append(
-            "SELECT " +
-            " c.id AS customerId, " +
-            " c.name AS customerName, " +
-            " COUNT(DISTINCT so.id) AS orderCount, " +
-            " SUM(soi.quantity * soi.sellingPrice) AS revenue, " +
-            " SUM(soi.quantity) AS quantitySold " +
-            "FROM customers c " +
-            "JOIN sales_orders so ON so.customer_id = c.id " +
-            "JOIN sales_order_items soi ON soi.sales_order_id = so.id " +
-            "WHERE UPPER(so.status) = 'SHIPPED' "
-        );
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                    c.id AS customerId,
+                    c.name AS customerName,
+                    COUNT(DISTINCT so.id) AS orderCount,
+                    SUM(soi.quantity * soi.sellingPrice) AS revenue,
+                    SUM(soi.quantity) AS quantitySold
+                FROM customers c
+                JOIN sales_orders so ON so.customer_id = c.id
+                JOIN sales_order_items soi ON soi.sales_order_id = so.id
+                WHERE UPPER(so.status) = 'SHIPPED'
+                """);
 
         List<Date> dates = new ArrayList<>();
+        addDateFilters(sql, dates, "so.orderDate", from, to);
 
-        appendDateCondition(
-            sql, dates, "so.orderDate", from, ">="
-        );
-
-        appendDateCondition(
-            sql, dates, "so.orderDate", to, "<="
-        );
-
-        sql.append(
-            " GROUP BY c.id, c.name " +
-            " ORDER BY revenue DESC"
-        );
+        sql.append("""
+                GROUP BY c.id, c.name
+                ORDER BY revenue DESC
+                """);
 
         List<Map<String, Object>> rows = new ArrayList<>();
 
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql.toString())) {
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
 
-            bindDates(ps, dates, 1);
+            bindDates(ps, dates);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    String customerName = rs.getString("customerName");
+                    String name = rs.getString("customerName");
 
-                    if (!matchesSearch(customerName, normalize(search))) {
+                    if (!contains(name, search)) {
                         continue;
                     }
 
                     Map<String, Object> row = new LinkedHashMap<>();
-
                     row.put("customerId", rs.getLong("customerId"));
-                    row.put("customerName", customerName);
+                    row.put("customerName", name);
                     row.put("orderCount", rs.getLong("orderCount"));
                     row.put("revenue", rs.getBigDecimal("revenue"));
                     row.put("quantitySold", rs.getBigDecimal("quantitySold"));
@@ -403,9 +316,83 @@ public class ReportsDAO {
             return rows;
 
         } catch (SQLException e) {
-            e.printStackTrace();
             throw new RuntimeException(
-                "Failed to load sales per customer report", e
+                    "Failed to load sales per customer report", e
+            );
+        }
+    }
+
+    // =========================================================
+    // 4. SALES ORDER SUMMARY
+    // =========================================================
+
+    public List<Map<String, Object>> getSalesOrderSummaryReport(
+            String search,
+            String fromDate,
+            String toDate) {
+
+        Date from = parseDate(fromDate);
+        Date to = parseDate(toDate);
+        validateDates(from, to);
+
+        StringBuilder sql = new StringBuilder("""
+                SELECT
+                    so.id AS orderId,
+                    so.orderDate AS orderDate,
+                    so.status AS status,
+                    c.name AS customerName,
+                    COALESCE(SUM(soi.quantity), 0) AS itemQuantity,
+                    COALESCE(SUM(soi.quantity * soi.sellingPrice), 0) AS subtotal
+                FROM sales_orders so
+                JOIN customers c ON c.id = so.customer_id
+                LEFT JOIN sales_order_items soi ON soi.sales_order_id = so.id
+                WHERE 1 = 1
+                """);
+
+        List<Date> dates = new ArrayList<>();
+        addDateFilters(sql, dates, "so.orderDate", from, to);
+
+        sql.append("""
+                GROUP BY so.id, so.orderDate, so.status, c.name
+                ORDER BY so.orderDate DESC, so.id DESC
+                """);
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql.toString())) {
+
+            bindDates(ps, dates);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String customer = rs.getString("customerName");
+                    String status = rs.getString("status");
+                    String orderId = String.valueOf(rs.getLong("orderId"));
+
+                    if (!contains(customer, search)
+                            && !contains(orderId, search)
+                            && !contains(status, search)) {
+                        continue;
+                    }
+
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("orderId", rs.getLong("orderId"));
+                    row.put("orderDate", rs.getDate("orderDate"));
+                    row.put("status", status);
+                    row.put("customerName", customer);
+                    row.put("itemQuantity", rs.getBigDecimal("itemQuantity"));
+                    row.put("subtotal", rs.getBigDecimal("subtotal"));
+
+                    rows.add(row);
+                }
+            }
+
+            return rows;
+
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                    "Failed to load sales order summary report", e
             );
         }
     }

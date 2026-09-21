@@ -67,23 +67,27 @@ public class InventoryDAO {
     public Inventory findByItemId(int itemId) {
 
         String sql = """
-                SELECT
-                    i.inventory_id,
-                    i.item_id,
-                    i.quantity,
-                    i.committedquantity,
-                    it.name,
-                    it.sku,
-                    it.description,
-                    it.purchase_price,
-                    it.selling_price,
-                    it.reorder_level,
-                    it.status
-                FROM inventory i
-                JOIN items it
-                    ON i.item_id = it.item_id
-                WHERE i.item_id = ?
-                """;
+    SELECT
+        i.inventory_id,
+        i.item_id,
+        i.quantity,
+        i.committedquantity,
+        it.name,
+        it.sku,
+        it.description,
+        it.purchase_price,
+        it.selling_price,
+        it.reorder_level,
+        it.status,
+        it.item_type,
+        it.track_inventory
+    FROM inventory i
+    JOIN items it
+        ON i.item_id = it.item_id
+    WHERE i.item_id = ?
+      AND UPPER(TRIM(it.item_type)) = 'GOODS'
+      AND it.track_inventory = 1
+    """;
 
         try (Connection connection =
                      DBConnection.getConnection();
@@ -117,24 +121,28 @@ public class InventoryDAO {
 
     public List<Inventory> findAll() {
 
-        String sql = """
-                SELECT
-                    i.inventory_id,
-                    i.item_id,
-                    i.quantity,
-                    i.committedquantity,
-                    it.name,
-                    it.sku,
-                    it.description,
-                    it.purchase_price,
-                    it.selling_price,
-                    it.reorder_level,
-                    it.status
-                FROM inventory i
-                JOIN items it
-                    ON i.item_id = it.item_id
-                ORDER BY i.inventory_id
-                """;
+       String sql = """
+    SELECT
+        i.inventory_id,
+        i.item_id,
+        i.quantity,
+        i.committedquantity,
+        it.name,
+        it.sku,
+        it.description,
+        it.purchase_price,
+        it.selling_price,
+        it.reorder_level,
+        it.status,
+        it.item_type,
+        it.track_inventory
+    FROM inventory i
+    JOIN items it
+        ON i.item_id = it.item_id
+    WHERE UPPER(TRIM(it.item_type)) = 'GOODS'
+      AND it.track_inventory = 1
+    ORDER BY i.inventory_id
+    """;
 
         List<Inventory> inventories =
                 new ArrayList<>();
@@ -294,6 +302,8 @@ public class InventoryDAO {
                         "committedquantity"
                 )
         );
+        item.setItemType(resultSet.getString("item_type"));
+        item.setTrackInventory(resultSet.getBoolean("track_inventory"));
 
         return inventory;
     }

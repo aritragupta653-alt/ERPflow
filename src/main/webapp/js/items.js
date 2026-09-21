@@ -26,6 +26,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 // =========================================================
+// HELPER: GET ELEMENT VALUE SAFELY
+// =========================================================
+
+function getValue(id) {
+
+    const element = document.getElementById(id);
+
+    return element ? element.value.trim() : "";
+}
+
+
+// =========================================================
+// HELPER: GET CHECKBOX VALUE
+// Defaults to true when the checkbox is absent.
+// =========================================================
+
+function getCheckboxValue(id, defaultValue = true) {
+
+    const element = document.getElementById(id);
+
+    return element ? element.checked : defaultValue;
+}
+
+
+// =========================================================
 // GET ALL ITEMS
 // GET /api/items
 // =========================================================
@@ -38,21 +63,13 @@ async function loadItems() {
             contextPath + "/api/items"
         );
 
-
         if (!response.ok) {
-
-            throw new Error(
-                "Failed to load items"
-            );
-
+            throw new Error("Failed to load items");
         }
-
 
         allItems = await response.json();
 
-
         renderItems(allItems);
-
 
     } catch (error) {
 
@@ -62,9 +79,7 @@ async function loadItems() {
             "Unable to load items.",
             "error"
         );
-
     }
-
 }
 
 
@@ -75,39 +90,23 @@ async function loadItems() {
 function renderItems(items) {
 
     const tableBody =
-        document.getElementById(
-            "itemsTableBody"
-        );
-
+        document.getElementById("itemsTableBody");
 
     const itemCount =
-        document.getElementById(
-            "itemCount"
-        );
-
+        document.getElementById("itemCount");
 
     tableBody.innerHTML = "";
 
-
-    itemCount.textContent =
-        items.length;
-
+    itemCount.textContent = items.length;
 
     if (items.length === 0) {
 
-        const row =
-            document.createElement("tr");
+        const row = document.createElement("tr");
 
-
-        const cell =
-            document.createElement("td");
-
+        const cell = document.createElement("td");
 
         cell.colSpan = 9;
-
-        cell.className =
-            "empty-state";
-
+        cell.className = "empty-state";
 
         cell.innerHTML = `
             <div class="empty-icon">📦</div>
@@ -115,40 +114,27 @@ function renderItems(items) {
             <p>Add an item or change your search.</p>
         `;
 
-
         row.appendChild(cell);
-
         tableBody.appendChild(row);
 
         return;
     }
 
-
     items.forEach(item => {
 
-        const row =
-            document.createElement("tr");
+        const row = document.createElement("tr");
 
 
         // =================================================
         // ID
         // =================================================
 
-        const idCell =
-            document.createElement("td");
+        const idCell = document.createElement("td");
 
+        const idBadge = document.createElement("span");
 
-        const idBadge =
-            document.createElement("span");
-
-
-        idBadge.className =
-            "id-badge";
-
-
-        idBadge.textContent =
-            item.id;
-
+        idBadge.className = "id-badge";
+        idBadge.textContent = item.id;
 
         idCell.appendChild(idBadge);
 
@@ -157,21 +143,12 @@ function renderItems(items) {
         // NAME
         // =================================================
 
-        const nameCell =
-            document.createElement("td");
+        const nameCell = document.createElement("td");
 
+        const name = document.createElement("div");
 
-        const name =
-            document.createElement("div");
-
-
-        name.className =
-            "item-name";
-
-
-        name.textContent =
-            item.name;
-
+        name.className = "item-name";
+        name.textContent = item.name || "";
 
         nameCell.appendChild(name);
 
@@ -180,21 +157,12 @@ function renderItems(items) {
         // SKU
         // =================================================
 
-        const skuCell =
-            document.createElement("td");
+        const skuCell = document.createElement("td");
 
+        const sku = document.createElement("span");
 
-        const sku =
-            document.createElement("span");
-
-
-        sku.className =
-            "sku-badge";
-
-
-        sku.textContent =
-            item.sku;
-
+        sku.className = "sku-badge";
+        sku.textContent = item.sku || "";
 
         skuCell.appendChild(sku);
 
@@ -203,152 +171,92 @@ function renderItems(items) {
         // DESCRIPTION
         // =================================================
 
-        const descriptionCell =
-            document.createElement("td");
+        const descriptionCell = document.createElement("td");
 
+        const description = document.createElement("span");
 
-        const description =
-            document.createElement("span");
-
-
-        description.className =
-            "description-cell";
-
-
+        description.className = "description-cell";
         description.textContent =
-            item.description ||
-            "No description";
+            item.description || "No description";
 
-
-        descriptionCell.appendChild(
-            description
-        );
+        descriptionCell.appendChild(description);
 
 
         // =================================================
         // PURCHASE PRICE
         // =================================================
 
-        const purchaseCell =
-            document.createElement("td");
-
+        const purchaseCell = document.createElement("td");
 
         purchaseCell.textContent =
-            "₹" +
-            Number(
-                item.purchasePrice
-            ).toFixed(2);
+            "₹" + Number(item.purchasePrice ?? 0).toFixed(2);
 
 
         // =================================================
         // SELLING PRICE
         // =================================================
 
-        const sellingCell =
-            document.createElement("td");
-
+        const sellingCell = document.createElement("td");
 
         sellingCell.textContent =
-            "₹" +
-            Number(
-                item.sellingPrice
-            ).toFixed(2);
+            "₹" + Number(item.sellingPrice ?? 0).toFixed(2);
 
 
         // =================================================
         // REORDER LEVEL
         // =================================================
 
-        const reorderCell =
-            document.createElement("td");
+        const reorderCell = document.createElement("td");
 
+        const reorderBadge = document.createElement("span");
 
-        const reorderBadge =
-            document.createElement("span");
+        reorderBadge.className = "reorder-badge";
+        reorderBadge.textContent = item.reorderLevel ?? 0;
 
-
-        reorderBadge.className =
-            "reorder-badge";
-
-
-        reorderBadge.textContent =
-            item.reorderLevel;
-
-
-        reorderCell.appendChild(
-            reorderBadge
-        );
+        reorderCell.appendChild(reorderBadge);
 
 
         // =================================================
         // STATUS
         // =================================================
 
-        const statusCell =
-            document.createElement("td");
+        const statusCell = document.createElement("td");
 
+        const statusBadge = document.createElement("span");
 
-        const statusBadge =
-            document.createElement("span");
-
-
-        statusBadge.className =
-            "status-badge";
-
-
-        statusBadge.textContent =
-            item.status || "ACTIVE";
-
+        statusBadge.className = "status-badge";
+        statusBadge.textContent = item.status || "ACTIVE";
 
         if (
             item.status &&
-            item.status.toUpperCase() ===
-            "INACTIVE"
+            item.status.toUpperCase() === "INACTIVE"
         ) {
-
-            statusBadge.classList.add(
-                "inactive"
-            );
-
+            statusBadge.classList.add("inactive");
         }
 
-
-        statusCell.appendChild(
-            statusBadge
-        );
+        statusCell.appendChild(statusBadge);
 
 
         // =================================================
         // ACTIONS
         // =================================================
 
-        const actionCell =
-            document.createElement("td");
+        const actionCell = document.createElement("td");
 
+        const actionButtons = document.createElement("div");
 
-        const actionButtons =
-            document.createElement("div");
-
-
-        actionButtons.className =
-            "action-buttons";
+        actionButtons.className = "action-buttons";
 
 
         // EDIT BUTTON
 
-        const editButton =
-            document.createElement("button");
-
+        const editButton = document.createElement("button");
 
         editButton.type = "button";
-
         editButton.className =
             "action-button edit-button";
 
-
-        editButton.textContent =
-            "Edit";
-
+        editButton.textContent = "Edit";
 
         editButton.addEventListener(
             "click",
@@ -356,21 +264,19 @@ function renderItems(items) {
         );
 
 
-        // DELETE BUTTON
+        // INACTIVE BUTTON
 
-        const deleteButton =
-            document.createElement("button");
-
+        const deleteButton = document.createElement("button");
 
         deleteButton.type = "button";
-
         deleteButton.className =
             "action-button delete-button";
 
+        deleteButton.textContent = "Inactive";
 
-        deleteButton.textContent =
-            "Inactive";
-
+        deleteButton.disabled =
+            item.status &&
+            item.status.toUpperCase() === "INACTIVE";
 
         deleteButton.addEventListener(
             "click",
@@ -378,48 +284,29 @@ function renderItems(items) {
         );
 
 
-        actionButtons.appendChild(
-            editButton
-        );
+        actionButtons.appendChild(editButton);
+        actionButtons.appendChild(deleteButton);
 
-
-        actionButtons.appendChild(
-            deleteButton
-        );
-
-
-        actionCell.appendChild(
-            actionButtons
-        );
+        actionCell.appendChild(actionButtons);
 
 
         // =================================================
-        // ADD CELLS
+        // ADD CELLS TO ROW
         // =================================================
 
         row.appendChild(idCell);
-
         row.appendChild(nameCell);
-
         row.appendChild(skuCell);
-
         row.appendChild(descriptionCell);
-
         row.appendChild(purchaseCell);
-
         row.appendChild(sellingCell);
-
         row.appendChild(reorderCell);
-
         row.appendChild(statusCell);
-
         row.appendChild(actionCell);
-
 
         tableBody.appendChild(row);
 
     });
-
 }
 
 
@@ -430,124 +317,94 @@ function renderItems(items) {
 
 function setupAddItemForm() {
 
-    const form =
-        document.getElementById(
-            "addItemForm"
-        );
+    const form = document.getElementById("addItemForm");
 
+    if (!form) return;
 
-    form.addEventListener(
-        "submit",
-        async (event) => {
+    form.addEventListener("submit", async (event) => {
 
-            event.preventDefault();
+        event.preventDefault();
 
+        const itemType = getValue("itemType").toUpperCase();
 
-            const item = {
+        const trackInventory =
+            getCheckboxValue("trackInventory", true);
 
-                name:
-                    document.getElementById(
-                        "name"
-                    ).value.trim(),
+        const item = {
 
-                sku:
-                    document.getElementById(
-                        "sku"
-                    ).value.trim(),
+            name: getValue("name"),
 
-                description:
-                    document.getElementById(
-                        "description"
-                    ).value.trim(),
+            sku: getValue("sku"),
 
-                purchasePrice:
-                    Number(
-                        document.getElementById(
-                            "purchasePrice"
-                        ).value
-                    ),
+            description: getValue("description"),
 
-                sellingPrice:
-                    Number(
-                        document.getElementById(
-                            "sellingPrice"
-                        ).value
-                    ),
+            purchasePrice:
+                Number(getValue("purchasePrice")),
 
-                reorderLevel:
-                    Number(
-                        document.getElementById(
-                            "reorderLevel"
-                        ).value
-                    )
+            sellingPrice:
+                Number(getValue("sellingPrice")),
 
-            };
+            reorderLevel:
+                Number(getValue("reorderLevel")),
 
+            itemType: itemType,
 
-            try {
+            // Services must not track inventory.
+            trackInventory:
+                itemType === "SERVICE" ? false : trackInventory
 
-                const response =
-                    await fetch(
-                        contextPath +
-                        "/api/items",
-                        {
+        };
 
-                            method: "POST",
+        try {
 
-                            headers: {
-                                "Content-Type":
-                                    "application/json"
-                            },
+            const response = await fetch(
+                contextPath + "/api/items",
+                {
+                    method: "POST",
 
-                            body:
-                                JSON.stringify(item)
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
 
-                        }
-                    );
+                    body: JSON.stringify(item)
+                }
+            );
 
+            if (!response.ok) {
 
-                if (!response.ok) {
+                let errorMessage = "Failed to create item";
 
-                    const error =
-                        await response.json();
-
-                    throw new Error(
-                        error.error ||
-                        "Failed to create item"
-                    );
-
+                try {
+                    const error = await response.json();
+                    errorMessage = error.error || errorMessage;
+                } catch (e) {
+                    // Ignore response parsing errors.
                 }
 
-
-                await response.json();
-
-
-                showMessage(
-                    "Item created successfully.",
-                    "success"
-                );
-
-
-                form.reset();
-
-
-                await loadItems();
-
-
-            } catch (error) {
-
-                console.error(error);
-
-                showMessage(
-                    error.message,
-                    "error"
-                );
-
+                throw new Error(errorMessage);
             }
 
-        }
-    );
+            await response.json();
 
+            showMessage(
+                "Item created successfully.",
+                "success"
+            );
+
+            form.reset();
+
+            await loadItems();
+
+        } catch (error) {
+
+            console.error(error);
+
+            showMessage(
+                error.message,
+                "error"
+            );
+        }
+    });
 }
 
 
@@ -557,49 +414,50 @@ function setupAddItemForm() {
 
 function openEditModal(item) {
 
-    document.getElementById(
-        "editId"
-    ).value = item.id;
+    document.getElementById("editId").value = item.id;
 
+    document.getElementById("editName").value =
+        item.name || "";
 
-    document.getElementById(
-        "editName"
-    ).value = item.name || "";
+    document.getElementById("editSku").value =
+        item.sku || "";
 
-
-    document.getElementById(
-        "editSku"
-    ).value = item.sku || "";
-
-
-    document.getElementById(
-        "editDescription"
-    ).value =
+    document.getElementById("editDescription").value =
         item.description || "";
 
-
-    document.getElementById(
-        "editPurchasePrice"
-    ).value =
+    document.getElementById("editPurchasePrice").value =
         item.purchasePrice ?? "";
 
-
-    document.getElementById(
-        "editSellingPrice"
-    ).value =
+    document.getElementById("editSellingPrice").value =
         item.sellingPrice ?? "";
 
-
-    document.getElementById(
-        "editReorderLevel"
-    ).value =
+    document.getElementById("editReorderLevel").value =
         item.reorderLevel ?? "";
 
 
-    document.getElementById(
-        "editModal"
-    ).hidden = false;
+    // Populate item type if the edit field exists.
+    const editItemType =
+        document.getElementById("editItemType");
 
+    if (editItemType) {
+        editItemType.value = item.itemType || "GOODS";
+    }
+
+
+    // Populate inventory tracking checkbox if it exists.
+    const editTrackInventory =
+        document.getElementById("editTrackInventory");
+
+    if (editTrackInventory) {
+
+        editTrackInventory.checked =
+            item.itemType &&
+            item.itemType.toUpperCase() === "SERVICE"
+                ? false
+                : Boolean(item.trackInventory);
+    }
+
+    document.getElementById("editModal").hidden = false;
 }
 
 
@@ -609,10 +467,7 @@ function openEditModal(item) {
 
 function closeEditModal() {
 
-    document.getElementById(
-        "editModal"
-    ).hidden = true;
-
+    document.getElementById("editModal").hidden = true;
 }
 
 
@@ -623,216 +478,103 @@ function closeEditModal() {
 
 function setupEditForm() {
 
-    const form =
-        document.getElementById(
-            "editItemForm"
-        );
+    const form = document.getElementById("editItemForm");
 
+    if (!form) return;
 
-    form.addEventListener(
-        "submit",
-        async (event) => {
+    form.addEventListener("submit", async (event) => {
 
-            event.preventDefault();
+        event.preventDefault();
 
+        const id = document.getElementById("editId").value;
 
-            const id =
-                document.getElementById(
-                    "editId"
-                ).value;
+        const itemType =
+            getValue("editItemType").toUpperCase();
 
+        const trackInventory =
+            getCheckboxValue("editTrackInventory", true);
 
-            const item = {
+        const item = {
 
-                name:
-                    document.getElementById(
-                        "editName"
-                    ).value.trim(),
+            name: getValue("editName"),
 
-                sku:
-                    document.getElementById(
-                        "editSku"
-                    ).value.trim(),
+            sku: getValue("editSku"),
 
-                description:
-                    document.getElementById(
-                        "editDescription"
-                    ).value.trim(),
+            description: getValue("editDescription"),
 
-                purchasePrice:
-                    Number(
-                        document.getElementById(
-                            "editPurchasePrice"
-                        ).value
-                    ),
+            purchasePrice:
+                Number(getValue("editPurchasePrice")),
 
-                sellingPrice:
-                    Number(
-                        document.getElementById(
-                            "editSellingPrice"
-                        ).value
-                    ),
+            sellingPrice:
+                Number(getValue("editSellingPrice")),
 
-                reorderLevel:
-                    Number(
-                        document.getElementById(
-                            "editReorderLevel"
-                        ).value
-                    )
+            reorderLevel:
+                Number(getValue("editReorderLevel")),
 
-            };
+            itemType: itemType,
 
+            // Services must not track inventory.
+            trackInventory:
+                itemType === "SERVICE" ? false : trackInventory
+        };
 
-            try {
+        try {
 
-                const response =
-                    await fetch(
-                        contextPath +
-                        "/api/items/" +
-                        id,
-                        {
-
-                            method: "PUT",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json"
-                            },
-
-                            body:
-                                JSON.stringify(item)
-
-                        }
-                    );
-
-
-                if (!response.ok) {
-
-                    const error =
-                        await response.json();
-
-                    throw new Error(
-                        error.error ||
-                        "Failed to update item"
-                    );
-
-                }
-
-
-                await response.json();
-
-
-                closeEditModal();
-
-
-                showMessage(
-                    "Item updated successfully.",
-                    "success"
-                );
-
-
-                await loadItems();
-
-
-            } catch (error) {
-
-                console.error(error);
-
-                showMessage(
-                    error.message,
-                    "error"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// =========================================================
-// DELETE / MARK INACTIVE
-// DELETE /api/items/{id}
-// =========================================================
-
-async function deleteItem(item) {
-
-    const confirmed =
-        confirm(
-            'Are you sure you want to mark "' +
-            item.name +
-            '" as inactive?'
-        );
-
-
-    if (!confirmed) {
-
-        return;
-
-    }
-
-
-    try {
-
-        const response =
-            await fetch(
-                contextPath +
-                "/api/items/" +
-                item.id,
+            const response = await fetch(
+                contextPath + "/api/items/" + id,
                 {
-                    method: "DELETE"
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify(item)
                 }
             );
 
+            if (!response.ok) {
 
-        if (!response.ok) {
+                let errorMessage = "Failed to update item";
 
-            let errorMessage =
-                "Failed to mark item as inactive";
+                try {
+                    const error = await response.json();
+                    errorMessage = error.error || errorMessage;
+                } catch (e) {
+                    // Ignore response parsing errors.
+                }
 
-
-            try {
-
-                const error =
-                    await response.json();
-
-                errorMessage =
-                    error.error ||
-                    errorMessage;
-
-            } catch (e) {
-                // Ignore JSON parsing failure
+                throw new Error(errorMessage);
             }
 
+            if (
+                response.status !== 204 &&
+                response.headers.get("content-type")?.includes(
+                    "application/json"
+                )
+            ) {
+                await response.json();
+            }
 
-            throw new Error(
-                errorMessage
+            closeEditModal();
+
+            showMessage(
+                "Item updated successfully.",
+                "success"
             );
 
+            await loadItems();
+
+        } catch (error) {
+
+            console.error("Edit Form Error:", error);
+
+            showMessage(
+                error.message,
+                "error"
+            );
         }
-
-
-        showMessage(
-            "Item marked as inactive.",
-            "success"
-        );
-
-
-        await loadItems();
-
-
-    } catch (error) {
-
-        console.error(error);
-
-        showMessage(
-            error.message,
-            "error"
-        );
-
-    }
-
+    });
 }
 
 
@@ -843,55 +585,90 @@ async function deleteItem(item) {
 function setupSearch() {
 
     const searchInput =
-        document.getElementById(
-            "searchInput"
-        );
+        document.getElementById("searchInput");
 
+    if (!searchInput) return;
 
-    searchInput.addEventListener(
-        "input",
-        () => {
+    searchInput.addEventListener("input", () => {
 
-            const searchTerm =
-                searchInput.value
-                    .trim()
-                    .toLowerCase();
+        const searchTerm =
+            searchInput.value.trim().toLowerCase();
 
+        const filteredItems = allItems.filter(item => {
 
-            const filteredItems =
-                allItems.filter(item => {
+            const name =
+                (item.name || "").toLowerCase();
 
-                    const name =
-                        (
-                            item.name || ""
-                        ).toLowerCase();
+            const sku =
+                (item.sku || "").toLowerCase();
 
+            const itemType =
+                (item.itemType || "").toLowerCase();
 
-                    const sku =
-                        (
-                            item.sku || ""
-                        ).toLowerCase();
-
-
-                    return (
-                        name.includes(
-                            searchTerm
-                        ) ||
-                        sku.includes(
-                            searchTerm
-                        )
-                    );
-
-                });
-
-
-            renderItems(
-                filteredItems
+            return (
+                name.includes(searchTerm) ||
+                sku.includes(searchTerm) ||
+                itemType.includes(searchTerm)
             );
+        });
 
-        }
+        renderItems(filteredItems);
+    });
+}
+
+
+// =========================================================
+// INACTIVE ITEM
+// DELETE /api/items/{id}
+// =========================================================
+
+async function deleteItem(item) {
+
+    const confirmed = confirm(
+        `Are you sure you want to mark "${item.name}" as inactive?`
     );
 
+    if (!confirmed) return;
+
+    try {
+
+        const response = await fetch(
+            contextPath + "/api/items/" + item.id,
+            {
+                method: "DELETE"
+            }
+        );
+
+        if (!response.ok) {
+
+            let errorMessage = "Failed to deactivate item";
+
+            try {
+                const error = await response.json();
+                errorMessage = error.error || errorMessage;
+            } catch (e) {
+                // Ignore response parsing errors.
+            }
+
+            throw new Error(errorMessage);
+        }
+
+        showMessage(
+            "Item marked as inactive.",
+            "success"
+        );
+
+        await loadItems();
+
+    } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+            error.message,
+            "error"
+        );
+    }
 }
 
 
@@ -901,40 +678,38 @@ function setupSearch() {
 
 function setupModal() {
 
-    document.getElementById(
-        "closeModalButton"
-    ).addEventListener(
-        "click",
-        closeEditModal
-    );
+    const closeButton =
+        document.getElementById("closeModalButton");
 
+    const cancelButton =
+        document.getElementById("cancelEditButton");
 
-    document.getElementById(
-        "cancelEditButton"
-    ).addEventListener(
-        "click",
-        closeEditModal
-    );
+    const modal =
+        document.getElementById("editModal");
 
+    if (closeButton) {
+        closeButton.addEventListener(
+            "click",
+            closeEditModal
+        );
+    }
 
-    document.getElementById(
-        "editModal"
-    ).addEventListener(
-        "click",
-        (event) => {
+    if (cancelButton) {
+        cancelButton.addEventListener(
+            "click",
+            closeEditModal
+        );
+    }
 
-            if (
-                event.target.id ===
-                "editModal"
-            ) {
+    if (modal) {
 
+        modal.addEventListener("click", (event) => {
+
+            if (event.target.id === "editModal") {
                 closeEditModal();
-
             }
-
-        }
-    );
-
+        });
+    }
 }
 
 
@@ -942,36 +717,19 @@ function setupModal() {
 // MESSAGE
 // =========================================================
 
-function showMessage(
-    message,
-    type
-) {
+function showMessage(message, type) {
 
-    const box =
-        document.getElementById(
-            "messageBox"
-        );
+    const box = document.getElementById("messageBox");
 
+    if (!box) return;
 
-    box.textContent =
-        message;
+    box.textContent = message;
 
-
-    box.className =
-        "message-box " +
-        type;
-
+    box.className = "message-box " + type;
 
     box.hidden = false;
 
-
-    setTimeout(
-        () => {
-
-            box.hidden = true;
-
-        },
-        3000
-    );
-
+    setTimeout(() => {
+        box.hidden = true;
+    }, 3000);
 }

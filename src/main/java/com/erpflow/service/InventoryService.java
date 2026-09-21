@@ -34,6 +34,11 @@ public class InventoryService {
     // Stock In
 
     public void stockIn(Item item, int quantity) {
+        if (!item.isTrackInventory()) {
+    throw new RuntimeException(
+        "Inventory operations are not allowed for this item"
+    );
+}
 
         Inventory inventory =
                 inventoryDAO.findByItemId(item.getId());
@@ -82,6 +87,11 @@ public class InventoryService {
     // Stock Out
 
     public void stockOut(Item item, int quantity) {
+        if (!item.isTrackInventory()) {
+    throw new RuntimeException(
+        "Inventory operations are not allowed for this item"
+    );
+}
 
         Inventory inventory =
                 inventoryDAO.findByItemId(item.getId());
@@ -136,6 +146,11 @@ public class InventoryService {
 public void shipReservedStock(
         Item item,
         int quantity) {
+                if (!item.isTrackInventory()) {
+    throw new RuntimeException(
+        "Inventory operations are not allowed for this item"
+    );
+}
 
     Inventory inventory =
             inventoryDAO.findByItemId(
@@ -222,6 +237,11 @@ public void shipReservedStock(
     // Reserve Stock
 
     public void reserveStock(Item item, int quantity) {
+        if (!item.isTrackInventory()) {
+    throw new RuntimeException(
+        "Inventory operations are not allowed for this item"
+    );
+}
 
         Inventory inventory =
                 inventoryDAO.findByItemId(item.getId());
@@ -259,6 +279,11 @@ public void shipReservedStock(
     // Release Committed Stock
 
     public void releaseStock(Item item, int quantity) {
+        if (!item.isTrackInventory()) {
+    throw new RuntimeException(
+        "Inventory operations are not allowed for this item"
+    );
+}
 
         Inventory inventory =
                 inventoryDAO.findByItemId(item.getId());
@@ -291,6 +316,11 @@ public void shipReservedStock(
     // Get Available Stock
 
     public int getAvailableStock(Item item) {
+        if (!item.isTrackInventory()) {
+    throw new RuntimeException(
+        "Inventory operations are not allowed for this item"
+    );
+}
 
         Inventory inventory =
                 inventoryDAO.findByItemId(item.getId());

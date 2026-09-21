@@ -279,18 +279,19 @@ function addItemRow() {
         </td>
 
 
-        <td>
+        
+<td class="quantity-cell">
+    <label class="quantity-label">Quantity</label>
 
-            <input
-                type="number"
-                name="quantity"
-                min="1"
-                step="1"
-                value="1"
-                required
-            >
-
-        </td>
+    <input
+        type="number"
+        name="quantity"
+        min="1"
+        step="1"
+        value="1"
+        required
+    >
+</td>
 
 
         <td>
@@ -432,6 +433,37 @@ function populateItemDetails(row, itemId) {
                 String(itemId);
 
         });
+
+    const quantityInput =
+        row.querySelector('input[name="quantity"]');
+
+    const quantityCell =
+        row.querySelector(".quantity-cell");
+
+    const isService =
+        String(item.itemType || "").toUpperCase() === "SERVICE";
+
+    if (quantityInput && quantityCell) {
+
+        if (isService) {
+
+            // Services use one unit by default.
+            quantityInput.value = "1";
+            quantityInput.readOnly = true;
+            quantityInput.required = false;
+
+            quantityCell.style.display = "none";
+
+        } else {
+
+            // Goods require a user-entered quantity.
+            quantityInput.readOnly = false;
+            quantityInput.required = true;
+
+            quantityCell.style.display = "";
+
+        }
+    }
 
 
     if (!item) {
@@ -700,7 +732,6 @@ function calculateOrderTotals() {
    ========================================================= */
 
 async function createSalesOrder() {
-
     const customerSelect =
         document.getElementById("customerSelect");
 
@@ -726,7 +757,6 @@ async function createSalesOrder() {
     let hasValidationError = false;
 
     rows.forEach(function (row) {
-
         const itemSelect =
             row.querySelector('select[name="itemId"]');
 
@@ -742,19 +772,33 @@ async function createSalesOrder() {
         }
 
         const itemId = parseInt(itemSelect.value, 10);
-        const quantity = parseInt(quantityInput.value, 10);
-        const sellingPrice = parseFloat(priceInput.value);
 
-        // Item selection validation
-        if (!itemId) {
-            showMessage(
-                "Please select an item in every row.",
-                "error"
+        // Find and validate the selected item first.
+        const selectedItem =
+            (window.erpflowItems || []).find(
+                item => Number(item.id) === Number(itemSelect.value)
             );
 
+        if (!itemId || !selectedItem) {
+            showMessage(
+                "Please select a valid item in every row.",
+                "error"
+            );
             hasValidationError = true;
             return;
         }
+
+        // IMPORTANT: Declare isService before using it.
+        const isService =
+            String(selectedItem.itemType || "").toUpperCase() === "SERVICE";
+
+        // Services always use quantity 1.
+        // Goods use the quantity entered by the user.
+        const quantity = isService
+            ? 1
+            : parseInt(quantityInput.value, 10);
+
+        const sellingPrice = parseFloat(priceInput.value);
 
         // Quantity validation
         if (!Number.isInteger(quantity) || quantity <= 0) {
@@ -781,19 +825,12 @@ async function createSalesOrder() {
             return;
         }
 
-        /*
-         * Duplicate item validation removed.
-         *
-         * The same item can now be included in multiple
-         * rows with separate quantities and selling prices.
-         */
-
+        // Same item can be added in multiple rows.
         items.push({
             itemId: itemId,
             quantity: quantity,
             sellingPrice: sellingPrice
         });
-
     });
 
     if (hasValidationError) {
@@ -825,7 +862,6 @@ async function createSalesOrder() {
     };
 
     try {
-
         const createButton =
             document.getElementById("createSalesOrderButton");
 
@@ -869,7 +905,6 @@ async function createSalesOrder() {
         await loadSalesOrders();
 
     } catch (error) {
-
         console.error("Error creating sales order:", error);
 
         showMessage(
@@ -878,7 +913,6 @@ async function createSalesOrder() {
         );
 
     } finally {
-
         const createButton =
             document.getElementById("createSalesOrderButton");
 
@@ -886,7 +920,6 @@ async function createSalesOrder() {
             createButton.disabled = false;
             createButton.textContent = "Create Sales Order";
         }
-
     }
 }
 
@@ -1081,22 +1114,22 @@ function displaySalesOrders(orders) {
 
             <td>
                 ${escapeHtml(
-                    customer.name || "-"
-                )}
+            customer.name || "-"
+        )}
             </td>
 
 
             <td>
                 ${formatDate(
-                    order.orderDate
-                )}
+            order.orderDate
+        )}
             </td>
 
 
             <td>
                 ${formatCurrency(
-                    subtotal
-                )}
+            subtotal
+        )}
             </td>
 
 
@@ -1105,8 +1138,8 @@ function displaySalesOrders(orders) {
                 <br>
                 <small>
                     ${formatCurrency(
-                        taxAmount
-                    )}
+            taxAmount
+        )}
                 </small>
             </td>
 
@@ -1114,16 +1147,16 @@ function displaySalesOrders(orders) {
             <td>
                 <strong>
                     ${formatCurrency(
-                        totalAmount
-                    )}
+            totalAmount
+        )}
                 </strong>
             </td>
 
 
             <td>
                 ${escapeHtml(
-                    order.status || "-"
-                )}
+            order.status || "-"
+        )}
             </td>
 
 

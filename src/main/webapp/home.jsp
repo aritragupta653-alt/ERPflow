@@ -29,7 +29,7 @@
 
                     <img src="${pageContext.request.contextPath}/images/erpflow-logo.png" alt="ERPFlow Logo">
 
-                    <span>ERPFlow nig</span>
+                    <span>ERPFlow </span>
 
                 </a>
 
@@ -243,6 +243,21 @@
 
                         <h3>
                             Packages
+                        </h3>
+
+                        <p>
+                            View and manage packages.
+                        </p>
+
+                    </a>
+                    <a href="${pageContext.request.contextPath}/reports.jsp" class="dashboard-card">
+
+                        <div class="card-icon">
+                            📦
+                        </div>
+
+                        <h3>
+                            Reports
                         </h3>
 
                         <p>
