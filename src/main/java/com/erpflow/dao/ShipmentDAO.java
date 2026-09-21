@@ -733,4 +733,150 @@ shipment.setCarrierService(service);
 
         return shipment;
     }
+
+    // =========================
+    // REPLACE SHIPMENT PACKAGES
+    // =========================
+
+    public void replacePackages(
+            int shipmentId,
+            List<Integer> packageIds) {
+
+        if (shipmentId <= 0) {
+            throw new IllegalArgumentException("Invalid shipment ID");
+        }
+
+        if (packageIds == null) {
+            throw new IllegalArgumentException("Package IDs are required");
+        }
+
+        // Reject null, zero, negative, or duplicate package IDs.
+        java.util.Set<Integer> uniqueIds = new java.util.HashSet<>();
+
+        for (Integer packageId : packageIds) {
+            if (packageId == null || packageId <= 0) {
+                throw new IllegalArgumentException("Invalid package ID");
+            }
+
+            if (!uniqueIds.add(packageId)) {
+                throw new IllegalArgumentException(
+                        "Duplicate package IDs are not allowed"
+                );
+            }
+        }
+
+        String shipmentExistsSql =
+                "SELECT COUNT(*) FROM shipments WHERE id = ?";
+
+        String packageExistsSql =
+                "SELECT COUNT(*) FROM packages WHERE id = ?";
+
+        String alreadyAssignedSql = """
+                SELECT COUNT(*)
+                FROM shipment_packages
+                WHERE package_id = ?
+                  AND shipment_id <> ?
+                """;
+
+        String deleteSql =
+                "DELETE FROM shipment_packages WHERE shipment_id = ?";
+
+        String insertSql = """
+                INSERT INTO shipment_packages (shipment_id, package_id)
+                VALUES (?, ?)
+                """;
+
+        try (Connection connection = DBConnection.getConnection()) {
+
+            boolean previousAutoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+
+            try {
+                // Ensure the shipment exists.
+                try (PreparedStatement statement =
+                             connection.prepareStatement(shipmentExistsSql)) {
+
+                    statement.setInt(1, shipmentId);
+
+                    try (ResultSet rs = statement.executeQuery()) {
+                        if (!rs.next() || rs.getInt(1) == 0) {
+                            throw new IllegalArgumentException(
+                                    "Shipment not found"
+                            );
+                        }
+                    }
+                }
+
+                // Validate every package before changing any assignments.
+                for (Integer packageId : packageIds) {
+
+                    try (PreparedStatement statement =
+                                 connection.prepareStatement(packageExistsSql)) {
+
+                        statement.setInt(1, packageId);
+
+                        try (ResultSet rs = statement.executeQuery()) {
+                            if (!rs.next() || rs.getInt(1) == 0) {
+                                throw new IllegalArgumentException(
+                                        "Package not found: " + packageId
+                                );
+                            }
+                        }
+                    }
+
+                    try (PreparedStatement statement =
+                                 connection.prepareStatement(alreadyAssignedSql)) {
+
+                        statement.setInt(1, packageId);
+                        statement.setInt(2, shipmentId);
+
+                        try (ResultSet rs = statement.executeQuery()) {
+                            if (rs.next() && rs.getInt(1) > 0) {
+                                throw new IllegalArgumentException(
+                                        "Package " + packageId +
+                                        " is already assigned to another shipment"
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // Remove the current package assignments.
+                try (PreparedStatement statement =
+                             connection.prepareStatement(deleteSql)) {
+
+                    statement.setInt(1, shipmentId);
+                    statement.executeUpdate();
+                }
+
+                // Insert the requested assignments.
+                try (PreparedStatement statement =
+                             connection.prepareStatement(insertSql)) {
+
+                    for (Integer packageId : packageIds) {
+                        statement.setInt(1, shipmentId);
+                        statement.setInt(2, packageId);
+                        statement.addBatch();
+                    }
+
+                    statement.executeBatch();
+                }
+
+                connection.commit();
+
+            } catch (Exception e) {
+                connection.rollback();
+                throw e;
+
+            } finally {
+                connection.setAutoCommit(previousAutoCommit);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                    "Failed to update shipment packages",
+                    e
+            );
+        }
+    }
 }
