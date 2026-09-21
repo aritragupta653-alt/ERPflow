@@ -1,3 +1,4 @@
+
 package com.erpflow.controller;
 
 import com.erpflow.model.Customer;
@@ -39,11 +40,7 @@ public class SalesOrderServlet extends HttpServlet {
             new ItemService();
 
     private final ObjectMapper objectMapper =
-            new ObjectMapper()
-                    .registerModule(
-                            new JavaTimeModule()
-                    );
-
+            new ObjectMapper().registerModule(new JavaTimeModule());
 
     // =========================================================
     // GET
@@ -53,606 +50,371 @@ public class SalesOrderServlet extends HttpServlet {
     protected void doGet(
             HttpServletRequest request,
             HttpServletResponse response
-    )
-            throws ServletException, IOException {
+    ) throws ServletException, IOException {
 
-        response.setContentType(
-                "application/json"
-        );
-
-        response.setCharacterEncoding(
-                "UTF-8"
-        );
-
+        setJsonResponse(response);
 
         try {
+            String path = request.getPathInfo();
 
-            String path =
-                    request.getPathInfo();
+            if (path != null && !path.equals("/")) {
+                String[] parts = path.split("/");
 
+                // GET /api/sales-orders/{id}/items
+                if (parts.length == 3 &&
+                        "items".equalsIgnoreCase(parts[2])) {
 
-            // =================================================
-            // GET /api/sales-orders/{id}/items
-            // =================================================
-
-            if (
-                    path != null &&
-                    !path.equals("/")
-            ) {
-
-                String[] parts =
-                        path.split("/");
-
-
-                if (
-                        parts.length == 3 &&
-                        "items".equalsIgnoreCase(
-                                parts[2]
-                        )
-                ) {
-
-                    int salesOrderId =
-                            Integer.parseInt(
-                                    parts[1]
-                            );
-
-
+                    int id = Integer.parseInt(parts[1]);
                     SalesOrder order =
-                            salesOrderService
-                                    .getSalesOrderById(
-                                            salesOrderId
-                                    );
-
+                            salesOrderService.getSalesOrderById(id);
 
                     if (order == null) {
-
-                        sendError(
-                                response,
-                                HttpServletResponse.SC_NOT_FOUND,
-                                "Sales order not found"
-                        );
-
+                        sendError(response, 404, "Sales order not found");
                         return;
                     }
 
+                    List<Map<String, Object>> result = new ArrayList<>();
 
-                    List<SalesOrderItem>
-                            orderItems =
-                            salesOrderService
-                                    .getSalesOrderItems(
-                                            order
-                                    );
+                    for (SalesOrderItem orderItem :
+                            salesOrderService.getSalesOrderItems(order)) {
 
-
-                    /*
-                     * Return simplified objects
-                     * to avoid Jackson recursion.
-                     */
-
-                    List<Map<String, Object>>
-                            result =
-                            new ArrayList<>();
-
-
-                    for (
-                            SalesOrderItem orderItem :
-                            orderItems
-                    ) {
-
-                        Map<String, Object>
-                                item =
-                                new HashMap<>();
-
-
-                        item.put(
-                                "itemId",
-                                orderItem
-                                        .getItem()
-                                        .getId()
-                        );
-
-                        item.put(
-                                "name",
-                                orderItem
-                                        .getItem()
-                                        .getName()
-                        );
-
-                        item.put(
-                                "sku",
-                                orderItem
-                                        .getItem()
-                                        .getSku()
-                        );
-
-                        item.put(
-                                "quantity",
-                                orderItem
-                                        .getQuantity()
-                        );
-
-                        item.put(
-                                "sellingPrice",
-                                orderItem
-                                        .getSellingPrice()
-                        );
-
+                        Map<String, Object> item = new HashMap<>();
+                        item.put("itemId", orderItem.getItem().getId());
+                        item.put("name", orderItem.getItem().getName());
+                        item.put("sku", orderItem.getItem().getSku());
+                        item.put("quantity", orderItem.getQuantity());
+                        item.put("sellingPrice", orderItem.getSellingPrice());
 
                         result.add(item);
                     }
 
-
-                    objectMapper.writeValue(
-                            response.getWriter(),
-                            result
-                    );
-
+                    objectMapper.writeValue(response.getWriter(), result);
                     return;
                 }
 
-
-                // =============================================
                 // GET /api/sales-orders/{id}
-                // =============================================
-
                 if (parts.length == 2) {
-
-                    int salesOrderId =
-                            Integer.parseInt(
-                                    parts[1]
-                            );
-
-
+                    int id = Integer.parseInt(parts[1]);
                     SalesOrder order =
-                            salesOrderService
-                                    .getSalesOrderById(
-                                            salesOrderId
-                                    );
-
+                            salesOrderService.getSalesOrderById(id);
 
                     if (order == null) {
-
-                        sendError(
-                                response,
-                                HttpServletResponse.SC_NOT_FOUND,
-                                "Sales order not found"
-                        );
-
+                        sendError(response, 404, "Sales order not found");
                         return;
                     }
 
-
-                    List<SalesOrderItem>
-                            orderItems =
-                            salesOrderService
-                                    .getSalesOrderItems(
-                                            order
-                                    );
-
-
-                    /*
-                     * Return a flattened response.
-                     *
-                     * This is what the current
-                     * salesOrderDetails.js expects.
-                     */
-
-                    Map<String, Object>
-                            result =
-                            new HashMap<>();
-
-
-                    result.put(
-                            "id",
-                            order.getId()
-                    );
-
-                    result.put(
-                            "orderDate",
-                            order.getOrderDate()
-                    );
-
-                    result.put(
-                            "status",
-                            order.getStatus()
-                    );
-
-                    result.put(
-                            "customer",
-                            order.getCustomer()
-                    );
-
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", order.getId());
+                    result.put("orderDate", order.getOrderDate());
+                    result.put("status", order.getStatus());
+                    result.put("customer", order.getCustomer());
                     result.put(
                             "items",
-                            orderItems
+                            salesOrderService.getSalesOrderItems(order)
                     );
+                    result.put("taxRate", order.getTaxRate());
+                    result.put("subtotal", order.getSubtotal());
+                    result.put("taxAmount", order.getTaxAmount());
+                    result.put("totalAmount", order.getTotalAmount());
 
-
-                    // TAX
-
-                    result.put(
-                            "taxRate",
-                            order.getTaxRate()
-                    );
-
-                    result.put(
-                            "subtotal",
-                            order.getSubtotal()
-                    );
-
-                    result.put(
-                            "taxAmount",
-                            order.getTaxAmount()
-                    );
-
-                    result.put(
-                            "totalAmount",
-                            order.getTotalAmount()
-                    );
-
-
-                    objectMapper.writeValue(
-                            response.getWriter(),
-                            result
-                    );
-
+                    objectMapper.writeValue(response.getWriter(), result);
                     return;
                 }
             }
 
-
-            // =================================================
             // GET /api/sales-orders
-            // =================================================
-
-            List<SalesOrder> orders =
-                    salesOrderService
-                            .getAllSalesOrders();
-
-
             objectMapper.writeValue(
                     response.getWriter(),
-                    orders
+                    salesOrderService.getAllSalesOrders()
             );
-
 
         } catch (NumberFormatException e) {
-
-            sendError(
-                    response,
-                    HttpServletResponse.SC_BAD_REQUEST,
-                    "Invalid sales order ID"
-            );
-
-
+            sendError(response, 400, "Invalid sales order ID");
         } catch (Exception e) {
-
             e.printStackTrace();
-
-
-            sendError(
-                    response,
-                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    e.getMessage()
-            );
+            sendError(response, 500, e.getMessage());
         }
     }
 
-
     // =========================================================
-    // POST
+    // POST - CREATE SALES ORDER
     // =========================================================
 
     @Override
     protected void doPost(
             HttpServletRequest request,
             HttpServletResponse response
-    )
-            throws ServletException, IOException {
+    ) throws ServletException, IOException {
 
-        response.setContentType(
-                "application/json"
-        );
-
-        response.setCharacterEncoding(
-                "UTF-8"
-        );
-
+        setJsonResponse(response);
 
         try {
-
             JsonNode root =
-                    objectMapper.readTree(
-                            request.getInputStream()
-                    );
+                    objectMapper.readTree(request.getInputStream());
 
+            SalesOrder order = new SalesOrder();
 
-            // =================================================
-            // CUSTOMER
-            // =================================================
+            Customer customer = getCustomer(root);
+            order.setCustomer(customer);
+            order.setOrderDate(LocalDateTime.now());
+            order.setStatus("CREATED");
+            order.setTaxRate(getTaxRate(root));
 
-            JsonNode customerNode =
-                    root.get("customerId");
+            List<SalesOrderItem> items = parseItems(root);
 
+            salesOrderService.createSalesOrder(order, items);
 
-            if (
-                    customerNode == null ||
-                    customerNode.isNull()
-            ) {
+            response.setStatus(HttpServletResponse.SC_CREATED);
 
-                throw new RuntimeException(
-                        "Customer is required"
-                );
-            }
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "Sales order created successfully");
+            result.put("salesOrderId", order.getId());
+            result.put("subtotal", order.getSubtotal());
+            result.put("taxRate", order.getTaxRate());
+            result.put("taxAmount", order.getTaxAmount());
+            result.put("totalAmount", order.getTotalAmount());
 
-
-            int customerId =
-                    customerNode.asInt();
-
-
-            Customer customer =
-                    customerService
-                            .getCustomerById(
-                                    customerId
-                            );
-
-
-            if (customer == null) {
-
-                throw new RuntimeException(
-                        "Customer not found"
-                );
-            }
-
-
-            // =================================================
-            // TAX RATE
-            // =================================================
-
-            BigDecimal taxRate =
-                    BigDecimal.ZERO;
-
-
-            JsonNode taxNode =
-                    root.get("taxRate");
-
-
-            if (
-                    taxNode != null &&
-                    !taxNode.isNull()
-            ) {
-
-                taxRate =
-                        taxNode.decimalValue();
-            }
-
-
-            // =================================================
-            // CREATE ORDER
-            // =================================================
-
-            SalesOrder salesOrder =
-                    new SalesOrder();
-
-
-            salesOrder.setCustomer(
-                    customer
-            );
-
-
-            salesOrder.setOrderDate(
-                    LocalDateTime.now()
-            );
-
-
-            salesOrder.setStatus(
-                    "CREATED"
-            );
-
-
-            salesOrder.setTaxRate(
-                    taxRate
-            );
-
-
-            // =================================================
-            // ITEMS
-            // =================================================
-
-            JsonNode itemsNode =
-                    root.get("items");
-
-
-            if (
-                    itemsNode == null ||
-                    !itemsNode.isArray() ||
-                    itemsNode.isEmpty()
-            ) {
-
-                throw new RuntimeException(
-                        "Sales Order must contain at least one item"
-                );
-            }
-
-
-            List<SalesOrderItem>
-                    salesOrderItems =
-                    new ArrayList<>();
-
-
-            
-for (JsonNode itemNode : itemsNode) {
-
-    JsonNode itemIdNode = itemNode.get("itemId");
-    JsonNode quantityNode = itemNode.get("quantity");
-    JsonNode priceNode = itemNode.get("sellingPrice");
-
-    // Item ID and selling price are always required.
-    if (itemIdNode == null || itemIdNode.isNull()
-            || priceNode == null || priceNode.isNull()) {
-        throw new RuntimeException(
-                "Each order item must contain itemId and sellingPrice"
-        );
-    }
-
-    int itemId = itemIdNode.asInt();
-
-    // Fetch the actual item from the database.
-    Item item = itemService.getItemById(itemId);
-
-    if (item == null) {
-        throw new RuntimeException("Item not found: " + itemId);
-    }
-
-    int quantity;
-
-    // Services always have quantity 1.
-    if ("SERVICE".equalsIgnoreCase(item.getItemType())) {
-        quantity = 1;
-
-    } else {
-        // GOODS must have a valid quantity.
-        if (quantityNode == null || quantityNode.isNull()
-                || !quantityNode.canConvertToInt()) {
-            throw new RuntimeException(
-                    "Quantity is required for goods"
-            );
-        }
-
-        quantity = quantityNode.asInt();
-
-        if (quantity <= 0) {
-            throw new RuntimeException(
-                    "Goods quantity must be greater than zero"
-            );
-        }
-    }
-
-    BigDecimal sellingPrice = priceNode.decimalValue();
-
-    if (sellingPrice.signum() < 0) {
-        throw new RuntimeException(
-                "Selling price cannot be negative"
-        );
-    }
-
-    SalesOrderItem orderItem = new SalesOrderItem();
-
-    orderItem.setItem(item);
-    orderItem.setQuantity(quantity);
-    orderItem.setSellingPrice(sellingPrice);
-
-    salesOrderItems.add(orderItem);
-}
-
-            // =================================================
-            // CREATE
-            // =================================================
-
-            salesOrderService.createSalesOrder(
-                    salesOrder,
-                    salesOrderItems
-            );
-
-
-            // =================================================
-            // RESPONSE
-            // =================================================
-
-            response.setStatus(
-                    HttpServletResponse.SC_CREATED
-            );
-
-
-            Map<String, Object> result =
-                    new HashMap<>();
-
-
-            result.put(
-                    "message",
-                    "Sales order created successfully"
-            );
-
-            result.put(
-                    "salesOrderId",
-                    salesOrder.getId()
-            );
-
-            result.put(
-                    "subtotal",
-                    salesOrder.getSubtotal()
-            );
-
-            result.put(
-                    "taxRate",
-                    salesOrder.getTaxRate()
-            );
-
-            result.put(
-                    "taxAmount",
-                    salesOrder.getTaxAmount()
-            );
-
-            result.put(
-                    "totalAmount",
-                    salesOrder.getTotalAmount()
-            );
-
-
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    result
-            );
-
+            objectMapper.writeValue(response.getWriter(), result);
 
         } catch (Exception e) {
-
             e.printStackTrace();
-
-
-            response.setStatus(
-                    HttpServletResponse.SC_BAD_REQUEST
-            );
-
-
-            sendError(
-                    response,
-                    HttpServletResponse.SC_BAD_REQUEST,
-                    e.getMessage()
-            );
+            sendError(response, 400, e.getMessage());
         }
     }
 
+    // =========================================================
+    // PUT - UPDATE SALES ORDER
+    // PUT /api/sales-orders/{id}
+    // =========================================================
+
+    @Override
+    protected void doPut(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws ServletException, IOException {
+
+        setJsonResponse(response);
+
+        try {
+            String path = request.getPathInfo();
+
+            if (path == null || path.equals("/") ||
+                    path.split("/").length != 2) {
+                sendError(response, 400, "Sales order ID is required");
+                return;
+            }
+
+            int salesOrderId = Integer.parseInt(path.split("/")[1]);
+
+            SalesOrder existingOrder =
+                    salesOrderService.getSalesOrderById(salesOrderId);
+
+            if (existingOrder == null) {
+                sendError(response, 404, "Sales order not found");
+                return;
+            }
+
+            if (!"CREATED".equalsIgnoreCase(existingOrder.getStatus())) {
+                sendError(
+                        response,
+                        400,
+                        "Only CREATED sales orders can be edited"
+                );
+                return;
+            }
+
+            JsonNode root =
+                    objectMapper.readTree(request.getInputStream());
+
+            SalesOrder updatedOrder = new SalesOrder();
+
+            updatedOrder.setId(salesOrderId);
+            updatedOrder.setCustomer(getCustomer(root));
+            updatedOrder.setOrderDate(existingOrder.getOrderDate());
+            updatedOrder.setStatus(existingOrder.getStatus());
+            updatedOrder.setTaxRate(getTaxRate(root));
+
+            List<SalesOrderItem> updatedItems = parseItems(root);
+
+            salesOrderService.updateSalesOrder(
+                    salesOrderId,
+                    updatedOrder,
+                    updatedItems
+            );
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "Sales order updated successfully");
+            result.put("salesOrderId", salesOrderId);
+            result.put("subtotal", updatedOrder.getSubtotal());
+            result.put("taxRate", updatedOrder.getTaxRate());
+            result.put("taxAmount", updatedOrder.getTaxAmount());
+            result.put("totalAmount", updatedOrder.getTotalAmount());
+
+            objectMapper.writeValue(response.getWriter(), result);
+
+        } catch (NumberFormatException e) {
+            sendError(response, 400, "Invalid sales order ID");
+        } catch (Exception e) {
+            e.printStackTrace();
+            sendError(response, 400, e.getMessage());
+        }
+    }
 
     // =========================================================
-    // ERROR RESPONSE
+    // CUSTOMER PARSING
     // =========================================================
+
+    private Customer getCustomer(JsonNode root) {
+
+        JsonNode customerNode = root.get("customerId");
+
+        if (customerNode == null || customerNode.isNull() ||
+                !customerNode.canConvertToInt()) {
+            throw new RuntimeException("Customer is required");
+        }
+
+        int customerId = customerNode.asInt();
+
+        Customer customer = customerService.getCustomerById(customerId);
+
+        if (customer == null) {
+            throw new RuntimeException("Customer not found");
+        }
+
+        return customer;
+    }
+
+    // =========================================================
+    // TAX RATE PARSING
+    // =========================================================
+
+    private BigDecimal getTaxRate(JsonNode root) {
+
+        JsonNode taxNode = root.get("taxRate");
+
+        if (taxNode == null || taxNode.isNull()) {
+            return BigDecimal.ZERO;
+        }
+
+        if (!taxNode.isNumber()) {
+            throw new RuntimeException("Tax rate must be a number");
+        }
+
+        BigDecimal taxRate = taxNode.decimalValue();
+
+        if (taxRate.compareTo(BigDecimal.ZERO) < 0 ||
+                taxRate.compareTo(new BigDecimal("100")) > 0) {
+            throw new RuntimeException(
+                    "Tax rate must be between 0 and 100"
+            );
+        }
+
+        return taxRate;
+    }
+
+    // =========================================================
+    // ITEM PARSING
+    // =========================================================
+
+    private List<SalesOrderItem> parseItems(JsonNode root) {
+
+        JsonNode itemsNode = root.get("items");
+
+        if (itemsNode == null || !itemsNode.isArray() ||
+                itemsNode.isEmpty()) {
+            throw new RuntimeException(
+                    "Sales Order must contain at least one item"
+            );
+        }
+
+        List<SalesOrderItem> items = new ArrayList<>();
+
+        for (JsonNode itemNode : itemsNode) {
+
+            JsonNode itemIdNode = itemNode.get("itemId");
+            JsonNode quantityNode = itemNode.get("quantity");
+            JsonNode priceNode = itemNode.get("sellingPrice");
+
+            if (itemIdNode == null || itemIdNode.isNull() ||
+                    !itemIdNode.canConvertToInt()) {
+                throw new RuntimeException("Valid itemId is required");
+            }
+
+            if (priceNode == null || priceNode.isNull() ||
+                    !priceNode.isNumber()) {
+                throw new RuntimeException(
+                        "Selling price is required and must be a number"
+                );
+            }
+
+            int itemId = itemIdNode.asInt();
+
+            Item item = itemService.getItemById(itemId);
+
+            if (item == null) {
+                throw new RuntimeException("Item not found: " + itemId);
+            }
+
+            int quantity;
+
+            if ("SERVICE".equalsIgnoreCase(item.getItemType())) {
+                quantity = 1;
+            } else {
+                if (quantityNode == null || quantityNode.isNull() ||
+                        !quantityNode.canConvertToInt()) {
+                    throw new RuntimeException(
+                            "Quantity is required for goods"
+                    );
+                }
+
+                quantity = quantityNode.asInt();
+
+                if (quantity <= 0) {
+                    throw new RuntimeException(
+                            "Goods quantity must be greater than zero"
+                    );
+                }
+            }
+
+            BigDecimal sellingPrice = priceNode.decimalValue();
+
+            if (sellingPrice.signum() < 0) {
+                throw new RuntimeException(
+                        "Selling price cannot be negative"
+                );
+            }
+
+            SalesOrderItem orderItem = new SalesOrderItem();
+            orderItem.setItem(item);
+            orderItem.setQuantity(quantity);
+            orderItem.setSellingPrice(sellingPrice);
+
+            items.add(orderItem);
+        }
+
+        return items;
+    }
+
+    // =========================================================
+    // JSON RESPONSE HELPERS
+    // =========================================================
+
+    private void setJsonResponse(HttpServletResponse response) {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+    }
 
     private void sendError(
             HttpServletResponse response,
             int status,
             String message
-    )
-            throws IOException {
+    ) throws IOException {
 
         response.setStatus(status);
 
+        Map<String, String> error = new HashMap<>();
+        error.put("error", message != null ? message : "Unknown error");
 
-        Map<String, String> error =
-                new HashMap<>();
-
-
-        error.put(
-                "error",
-                message != null
-                        ? message
-                        : "Unknown error"
-        );
-
-
-        objectMapper.writeValue(
-                response.getWriter(),
-                error
-        );
+        objectMapper.writeValue(response.getWriter(), error);
     }
 }

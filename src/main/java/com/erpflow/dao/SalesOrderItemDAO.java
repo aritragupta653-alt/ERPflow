@@ -1,3 +1,4 @@
+
 package com.erpflow.dao;
 
 import com.erpflow.model.Item;
@@ -14,6 +15,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SalesOrderItemDAO {
+
+    // =========================================================
+    // SAVE SALES ORDER ITEM
+    // =========================================================
 
     public void save(SalesOrderItem salesOrderItem) {
 
@@ -62,10 +67,7 @@ public class SalesOrderItemDAO {
             try (ResultSet rs = statement.getGeneratedKeys()) {
 
                 if (rs.next()) {
-
-                    salesOrderItem.setId(
-                            rs.getInt(1)
-                    );
+                    salesOrderItem.setId(rs.getInt(1));
                 }
             }
 
@@ -79,38 +81,41 @@ public class SalesOrderItemDAO {
     }
 
 
+    // =========================================================
+    // FIND ITEMS BY SALES ORDER
+    // =========================================================
+
     public List<SalesOrderItem> findBySalesOrder(
             SalesOrder salesOrder
     ) {
 
-       String sql = """
-        SELECT
-            soi.id,
-            soi.quantity,
-            soi.sellingPrice,
-            soi.item_id,
-            soi.sales_order_id,
+        String sql = """
+                SELECT
+                    soi.id,
+                    soi.quantity,
+                    soi.sellingPrice,
+                    soi.item_id,
+                    soi.sales_order_id,
 
-            i.name,
-            i.description,
-            i.purchase_price,
-            i.reorder_level,
-            i.selling_price,
-            i.sku,
-            i.status,
-            i.item_type,
-            i.track_inventory
+                    i.name,
+                    i.description,
+                    i.purchase_price,
+                    i.reorder_level,
+                    i.selling_price,
+                    i.sku,
+                    i.status,
+                    i.item_type,
+                    i.track_inventory
 
-        FROM sales_order_items soi
+                FROM sales_order_items soi
 
-        JOIN items i
-            ON soi.item_id = i.item_id
+                JOIN items i
+                    ON soi.item_id = i.item_id
 
-        WHERE soi.sales_order_id = ?
-        """;
+                WHERE soi.sales_order_id = ?
+                """;
 
-        List<SalesOrderItem> items =
-                new ArrayList<>();
+        List<SalesOrderItem> items = new ArrayList<>();
 
         try (
                 Connection connection = DBConnection.getConnection();
@@ -139,14 +144,13 @@ public class SalesOrderItemDAO {
                     );
 
                     orderItem.setSellingPrice(
-                            rs.getBigDecimal(
-                                    "sellingPrice"
-                            )
+                            rs.getBigDecimal("sellingPrice")
                     );
 
 
-                    Item item =
-                            new Item();
+                    // Build associated item.
+
+                    Item item = new Item();
 
                     item.setId(
                             rs.getInt("item_id")
@@ -161,21 +165,15 @@ public class SalesOrderItemDAO {
                     );
 
                     item.setPurchasePrice(
-                            rs.getBigDecimal(
-                                    "purchase_price"
-                            )
+                            rs.getBigDecimal("purchase_price")
                     );
 
                     item.setReorderLevel(
-                            rs.getInt(
-                                    "reorder_level"
-                            )
+                            rs.getInt("reorder_level")
                     );
 
                     item.setSellingPrice(
-                            rs.getBigDecimal(
-                                    "selling_price"
-                            )
+                            rs.getBigDecimal("selling_price")
                     );
 
                     item.setSku(
@@ -185,13 +183,14 @@ public class SalesOrderItemDAO {
                     item.setStatus(
                             rs.getString("status")
                     );
-                    item.setItemType(
-        rs.getString("item_type")
-);
 
-item.setTrackInventory(
-        rs.getBoolean("track_inventory")
-);
+                    item.setItemType(
+                            rs.getString("item_type")
+                    );
+
+                    item.setTrackInventory(
+                            rs.getBoolean("track_inventory")
+                    );
 
 
                     orderItem.setItem(item);
@@ -213,5 +212,37 @@ item.setTrackInventory(
         }
 
         return items;
+    }
+
+
+    // =========================================================
+    // DELETE ALL ITEMS FOR A SALES ORDER
+    // Used when replacing order lines during an edit.
+    // =========================================================
+
+    public void deleteBySalesOrderId(int salesOrderId) {
+
+        String sql = """
+                DELETE FROM sales_order_items
+                WHERE sales_order_id = ?
+                """;
+
+        try (
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement statement =
+                        connection.prepareStatement(sql)
+        ) {
+
+            statement.setInt(1, salesOrderId);
+
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error deleting sales order items",
+                    e
+            );
+        }
     }
 }

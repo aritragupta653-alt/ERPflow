@@ -420,4 +420,18 @@ public class SalesOrderDAO {
 
         return order;
     }
+
+
+    /** Remove all persisted lines for an order before inserting its replacement lines. */
+public void deleteBySalesOrderId(int salesOrderId) {
+    String sql = "DELETE FROM sales_order_items WHERE sales_order_id = ?";
+
+    try (Connection connection = DBConnection.getConnection();
+         PreparedStatement statement = connection.prepareStatement(sql)) {
+        statement.setInt(1, salesOrderId);
+        statement.executeUpdate();
+    } catch (SQLException e) {
+        throw new RuntimeException("Error replacing sales order items", e);
+    }
+}
 }

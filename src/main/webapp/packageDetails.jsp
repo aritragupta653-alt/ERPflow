@@ -10,7 +10,7 @@
     <title>Package Details - ERPFlow</title>
 
     <!-- Keep the existing ERPFlow stylesheet -->
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/css/app.css">
+    <link rel="stylesheet" href="/erpflow/css/app.css">
 
     <style>
         /* Compact layout adjustments only.
@@ -303,12 +303,11 @@
 
 </div>
 
-<script src="${pageContext.request.contextPath}/js/packageDetails.js?v=3"
-        defer></script>
+<script src="/erpflow/js/packageDetails.js?v=1" defer></script>
+
 
 </body>
 </html>
 
 
-<script src="/erpflow/js/packageDetails.js?v=1" defer></script>
 
