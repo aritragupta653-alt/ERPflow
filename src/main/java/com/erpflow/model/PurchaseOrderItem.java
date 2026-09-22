@@ -1,7 +1,11 @@
+
 package com.erpflow.model;
 
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 
+@Entity
+@Table(name = "purchase_order_items")
 public class PurchaseOrderItem {
 
     private int id;
@@ -9,8 +13,10 @@ public class PurchaseOrderItem {
     private Item item;
     private int quantity;
     private BigDecimal purchasePrice;
+    private int recievedQuantity;
 
-    private int recievedQuantity ;
+    public PurchaseOrderItem() {
+    }
 
     public int getId() {
         return id;
@@ -52,10 +58,15 @@ public class PurchaseOrderItem {
         this.purchasePrice = purchasePrice;
     }
 
-    public void setReceivedQuantity(int q){
-        this.recievedQuantity = q;
-    }
-    public int getRecievedQuantity(){
+    public int getRecievedQuantity() {
         return recievedQuantity;
+    }
+
+    public void setReceivedQuantity(int recievedQuantity) {
+        this.recievedQuantity = recievedQuantity;
+    }
+
+    public int getRemainingQuantity() {
+        return Math.max(0, quantity - recievedQuantity);
     }
 }

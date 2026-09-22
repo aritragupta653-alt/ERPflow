@@ -1,3 +1,4 @@
+
 package com.erpflow.dao;
 
 import com.erpflow.model.PurchaseOrder;
@@ -11,7 +12,6 @@ import java.util.List;
 public class PurchaseOrderDAO {
 
     public void save(PurchaseOrder purchaseOrder) {
-
         String sql =
                 "INSERT INTO purchase_orders " +
                 "(supplier_id, status, orderDate) " +
@@ -19,53 +19,32 @@ public class PurchaseOrderDAO {
 
         try (
                 Connection connection = DBConnection.getConnection();
-                PreparedStatement statement =
-                        connection.prepareStatement(
-                                sql,
-                                Statement.RETURN_GENERATED_KEYS
-                        )
+                PreparedStatement statement = connection.prepareStatement(
+                        sql,
+                        Statement.RETURN_GENERATED_KEYS
+                )
         ) {
-
-            statement.setInt(
-                    1,
-                    purchaseOrder.getSupplier().getId()
-            );
-
-            statement.setString(
-                    2,
-                    purchaseOrder.getStatus()
-            );
-
+            statement.setInt(1, purchaseOrder.getSupplier().getId());
+            statement.setString(2, purchaseOrder.getStatus());
             statement.setTimestamp(
                     3,
-                    Timestamp.valueOf(
-                            purchaseOrder.getOrderDate()
-                    )
+                    Timestamp.valueOf(purchaseOrder.getOrderDate())
             );
 
             statement.executeUpdate();
 
-            try (ResultSet rs =
-                         statement.getGeneratedKeys()) {
-
+            try (ResultSet rs = statement.getGeneratedKeys()) {
                 if (rs.next()) {
-                    purchaseOrder.setId(
-                            rs.getInt(1)
-                    );
+                    purchaseOrder.setId(rs.getInt(1));
                 }
             }
 
         } catch (SQLException e) {
-            throw new RuntimeException(
-                    "Failed to save purchase order",
-                    e
-            );
+            throw new RuntimeException("Failed to save purchase order", e);
         }
     }
 
-
     public List<PurchaseOrder> findAll() {
-
         String sql =
                 "SELECT po.id, po.status, po.orderDate, " +
                 "s.id AS supplier_id, " +
@@ -75,45 +54,28 @@ public class PurchaseOrderDAO {
                 "s.email, " +
                 "s.address " +
                 "FROM purchase_orders po " +
-                "JOIN suppliers s " +
-                "ON po.supplier_id = s.id " +
+                "JOIN suppliers s ON po.supplier_id = s.id " +
                 "ORDER BY po.orderDate DESC";
 
-        List<PurchaseOrder> orders =
-                new ArrayList<>();
+        List<PurchaseOrder> orders = new ArrayList<>();
 
         try (
-                Connection connection =
-                        DBConnection.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(sql);
-
-                ResultSet rs =
-                        statement.executeQuery()
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql);
+                ResultSet rs = statement.executeQuery()
         ) {
-
             while (rs.next()) {
-
-                orders.add(
-                        mapPurchaseOrder(rs)
-                );
+                orders.add(mapPurchaseOrder(rs));
             }
 
             return orders;
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Failed to fetch purchase orders",
-                    e
-            );
+            throw new RuntimeException("Failed to fetch purchase orders", e);
         }
     }
 
-
     public PurchaseOrder findById(int id) {
-
         String sql =
                 "SELECT po.id, po.status, po.orderDate, " +
                 "s.id AS supplier_id, " +
@@ -123,23 +85,16 @@ public class PurchaseOrderDAO {
                 "s.email, " +
                 "s.address " +
                 "FROM purchase_orders po " +
-                "JOIN suppliers s " +
-                "ON po.supplier_id = s.id " +
+                "JOIN suppliers s ON po.supplier_id = s.id " +
                 "WHERE po.id = ?";
 
         try (
-                Connection connection =
-                        DBConnection.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
         ) {
-
             statement.setInt(1, id);
 
-            try (ResultSet rs =
-                         statement.executeQuery()) {
-
+            try (ResultSet rs = statement.executeQuery()) {
                 if (rs.next()) {
                     return mapPurchaseOrder(rs);
                 }
@@ -148,121 +103,56 @@ public class PurchaseOrderDAO {
             return null;
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Failed to fetch purchase order",
-                    e
-            );
+            throw new RuntimeException("Failed to fetch purchase order", e);
         }
     }
 
-
-    public void update(
-            PurchaseOrder purchaseOrder
-    ) {
-
+    public void update(PurchaseOrder purchaseOrder) {
         String sql =
                 "UPDATE purchase_orders " +
-                "SET supplier_id = ?, " +
-                "status = ?, " +
-                "orderDate = ? " +
+                "SET supplier_id = ?, status = ?, orderDate = ? " +
                 "WHERE id = ?";
 
         try (
-                Connection connection =
-                        DBConnection.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
         ) {
-
-            statement.setInt(
-                    1,
-                    purchaseOrder
-                            .getSupplier()
-                            .getId()
-            );
-
-            statement.setString(
-                    2,
-                    purchaseOrder.getStatus()
-            );
-
+            statement.setInt(1, purchaseOrder.getSupplier().getId());
+            statement.setString(2, purchaseOrder.getStatus());
             statement.setTimestamp(
                     3,
-                    Timestamp.valueOf(
-                            purchaseOrder.getOrderDate()
-                    )
+                    Timestamp.valueOf(purchaseOrder.getOrderDate())
             );
-
-            statement.setInt(
-                    4,
-                    purchaseOrder.getId()
-            );
+            statement.setInt(4, purchaseOrder.getId());
 
             statement.executeUpdate();
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Failed to update purchase order",
-                    e
-            );
+            throw new RuntimeException("Failed to update purchase order", e);
         }
     }
 
+    private PurchaseOrder mapPurchaseOrder(ResultSet rs) throws SQLException {
+        Supplier supplier = new Supplier();
 
-    private PurchaseOrder mapPurchaseOrder(
-            ResultSet rs
-    ) throws SQLException {
+        supplier.setId(rs.getInt("supplier_id"));
+        supplier.setName(rs.getString("supplier_name"));
+        supplier.setContactPerson(rs.getString("contact_person"));
+        supplier.setPhone(rs.getString("phone"));
+        supplier.setEmail(rs.getString("email"));
+        supplier.setAddress(rs.getString("address"));
 
-        Supplier supplier =
-                new Supplier();
+        PurchaseOrder purchaseOrder = new PurchaseOrder();
 
-        supplier.setId(
-                rs.getInt("supplier_id")
-        );
+        purchaseOrder.setId(rs.getInt("id"));
+        purchaseOrder.setStatus(rs.getString("status"));
 
-        supplier.setName(
-                rs.getString("supplier_name")
-        );
+        Timestamp orderTimestamp = rs.getTimestamp("orderDate");
+        if (orderTimestamp != null) {
+            purchaseOrder.setOrderDate(orderTimestamp.toLocalDateTime());
+        }
 
-        supplier.setContactPerson(
-                rs.getString("contact_person")
-        );
-
-        supplier.setPhone(
-                rs.getString("phone")
-        );
-
-        supplier.setEmail(
-                rs.getString("email")
-        );
-
-        supplier.setAddress(
-                rs.getString("address")
-        );
-
-
-        PurchaseOrder purchaseOrder =
-                new PurchaseOrder();
-
-        purchaseOrder.setId(
-                rs.getInt("id")
-        );
-
-        purchaseOrder.setStatus(
-                rs.getString("status")
-        );
-
-        purchaseOrder.setOrderDate(
-                rs.getTimestamp("orderDate")
-                        .toLocalDateTime()
-        );
-
-        purchaseOrder.setSupplier(
-                supplier
-        );
+        purchaseOrder.setSupplier(supplier);
 
         return purchaseOrder;
     }

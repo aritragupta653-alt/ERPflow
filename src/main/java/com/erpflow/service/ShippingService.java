@@ -1,3 +1,4 @@
+
 package com.erpflow.service;
 
 import com.erpflow.dao.CarrierServiceDAO;
@@ -14,7 +15,6 @@ import com.erpflow.model.SalesOrder;
 import com.erpflow.model.SalesOrderItem;
 import com.erpflow.model.Shipment;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -62,16 +62,13 @@ public class ShippingService {
         // BASIC VALIDATION
         // -------------------------------------------------
 
-        if (packageIds == null ||
-                packageIds.isEmpty()) {
-
+        if (packageIds == null || packageIds.isEmpty()) {
             throw new RuntimeException(
                     "Select at least one package"
             );
         }
 
         if (carrierServiceId <= 0) {
-
             throw new RuntimeException(
                     "Carrier service is required"
             );
@@ -83,12 +80,9 @@ public class ShippingService {
         // -------------------------------------------------
 
         SalesOrder salesOrder =
-                salesOrderDAO.findById(
-                        salesOrderId
-                );
+                salesOrderDAO.findById(salesOrderId);
 
         if (salesOrder == null) {
-
             throw new RuntimeException(
                     "Sales Order not found"
             );
@@ -102,9 +96,7 @@ public class ShippingService {
         Set<Integer> uniquePackageIds =
                 new HashSet<>(packageIds);
 
-        if (uniquePackageIds.size()
-                != packageIds.size()) {
-
+        if (uniquePackageIds.size() != packageIds.size()) {
             throw new RuntimeException(
                     "Duplicate package selected"
             );
@@ -116,19 +108,15 @@ public class ShippingService {
         // -------------------------------------------------
 
         CarrierService carrierService =
-                carrierServiceDAO.findById(
-                        carrierServiceId
-                );
+                carrierServiceDAO.findById(carrierServiceId);
 
         if (carrierService == null) {
-
             throw new RuntimeException(
                     "Carrier service not found"
             );
         }
 
         if (carrierService.getCarrier() == null) {
-
             throw new RuntimeException(
                     "Carrier not found for selected service"
             );
@@ -141,16 +129,18 @@ public class ShippingService {
 
         for (Integer packageId : packageIds) {
 
+            if (packageId == null || packageId <= 0) {
+                throw new RuntimeException(
+                        "Invalid package ID"
+                );
+            }
+
             Package pkg =
-                    packageDAO.findById(
-                            packageId
-                    );
+                    packageDAO.findById(packageId);
 
             if (pkg == null) {
-
                 throw new RuntimeException(
-                        "Package not found: "
-                                + packageId
+                        "Package not found: " + packageId
                 );
             }
 
@@ -158,12 +148,10 @@ public class ShippingService {
             // Package must belong to this Sales Order
 
             if (pkg.getSalesOrder() == null ||
-                    pkg.getSalesOrder().getId()
-                            != salesOrderId) {
+                    pkg.getSalesOrder().getId() != salesOrderId) {
 
                 throw new RuntimeException(
-                        "Package "
-                                + packageId
+                        "Package " + packageId
                                 + " does not belong to Sales Order "
                                 + salesOrderId
                 );
@@ -172,25 +160,19 @@ public class ShippingService {
 
             // Only PACKED packages can be shipped
 
-            if (!"PACKED".equals(
-                    pkg.getStatus())) {
-
+            if (!"PACKED".equals(pkg.getStatus())) {
                 throw new RuntimeException(
-                        "Package "
-                                + packageId
+                        "Package " + packageId
                                 + " is not ready for shipping"
                 );
             }
 
 
-            // Package cannot already belong to shipment
+            // Package cannot already belong to a shipment
 
-            if (shipmentDAO.isPackageAlreadyShipped(
-                    packageId)) {
-
+            if (shipmentDAO.isPackageAlreadyShipped(packageId)) {
                 throw new RuntimeException(
-                        "Package "
-                                + packageId
+                        "Package " + packageId
                                 + " has already been shipped"
                 );
             }
@@ -199,16 +181,11 @@ public class ShippingService {
             // Package must contain items
 
             List<PackageItem> packageItems =
-                    packageItemDAO.findByPackage(
-                            pkg
-                    );
+                    packageItemDAO.findByPackage(pkg);
 
-            if (packageItems == null ||
-                    packageItems.isEmpty()) {
-
+            if (packageItems == null || packageItems.isEmpty()) {
                 throw new RuntimeException(
-                        "Package "
-                                + packageId
+                        "Package " + packageId
                                 + " contains no items"
                 );
             }
@@ -227,18 +204,30 @@ public class ShippingService {
 
 
         // -------------------------------------------------
-        // CREATE SHIPMENT OBJECT
+        // PREPARE SHIPMENT OBJECT
         // -------------------------------------------------
 
         if (shipment == null) {
             shipment = new Shipment();
         }
 
-        shipment.setShipmentDate(
-                LocalDateTime.now()
-        );
+        /*
+         * Preserve a date supplied by the caller.
+         * If none was supplied, use the current date/time.
+         */
+        if (shipment.getShipmentDate() == null) {
+            shipment.setShipmentDate(LocalDateTime.now());
+        }
 
-        shipment.setStatus("CREATED");
+        /*
+         * Preserve a status supplied by the caller.
+         * If none was supplied, default to CREATED.
+         */
+        if (shipment.getStatus() == null ||
+                shipment.getStatus().trim().isEmpty()) {
+
+            shipment.setStatus("CREATED");
+        }
 
         shipment.setCarrier(
                 carrierService.getCarrier()
@@ -263,9 +252,7 @@ public class ShippingService {
         if (estimatedDays > 0) {
 
             shipment.setEstimatedDeliveryDate(
-                    LocalDate.now().plusDays(
-                            estimatedDays
-                    )
+                    LocalDate.now().plusDays(estimatedDays)
             );
         }
 
@@ -288,30 +275,22 @@ public class ShippingService {
                 )
         );
 
-
-        shipmentDAO.update(
-                shipment
-        );
+        shipmentDAO.update(shipment);
 
 
         // -------------------------------------------------
-        // SHIP INVENTORY
+        // SHIP INVENTORY AND MARK PACKAGES
         // -------------------------------------------------
 
         for (Integer packageId : packageIds) {
 
             Package pkg =
-                    packageDAO.findById(
-                            packageId
-                    );
+                    packageDAO.findById(packageId);
 
             List<PackageItem> packageItems =
-                    packageItemDAO.findByPackage(
-                            pkg
-                    );
+                    packageItemDAO.findByPackage(pkg);
 
-            for (PackageItem packageItem :
-                    packageItems) {
+            for (PackageItem packageItem : packageItems) {
 
                 inventoryService.shipReservedStock(
                         packageItem.getItem(),
@@ -344,10 +323,7 @@ public class ShippingService {
         // UPDATE SALES ORDER STATUS
         // -------------------------------------------------
 
-        updateSalesOrderStatus(
-                salesOrder
-        );
-
+        updateSalesOrderStatus(salesOrder);
 
         return shipment;
     }
@@ -361,16 +337,12 @@ public class ShippingService {
             SalesOrder salesOrder) {
 
         List<SalesOrderItem> orderItems =
-                salesOrderItemDAO.findBySalesOrder(
-                        salesOrder
-                );
+                salesOrderItemDAO.findBySalesOrder(salesOrder);
 
         boolean allShipped = true;
         boolean anyShipped = false;
 
-
-        for (SalesOrderItem orderItem :
-                orderItems) {
+        for (SalesOrderItem orderItem : orderItems) {
 
             int orderedQuantity =
                     orderItem.getQuantity();
@@ -381,37 +353,25 @@ public class ShippingService {
                             orderItem.getItem().getId()
                     );
 
-
             if (shippedQuantity > 0) {
                 anyShipped = true;
             }
 
-
-            if (shippedQuantity <
-                    orderedQuantity) {
-
+            if (shippedQuantity < orderedQuantity) {
                 allShipped = false;
             }
         }
 
-
         if (allShipped) {
 
-            salesOrder.setStatus(
-                    "SHIPPED"
-            );
+            salesOrder.setStatus("SHIPPED");
 
         } else if (anyShipped) {
 
-            salesOrder.setStatus(
-                    "PARTIALLY_SHIPPED"
-            );
+            salesOrder.setStatus("PARTIALLY_SHIPPED");
         }
 
-
-        salesOrderDAO.update(
-                salesOrder
-        );
+        salesOrderDAO.update(salesOrder);
     }
 
 
@@ -424,41 +384,28 @@ public class ShippingService {
             int itemId) {
 
         List<Package> packages =
-                packageDAO.findBySalesOrder(
-                        salesOrderId
-                );
+                packageDAO.findBySalesOrder(salesOrderId);
 
         int total = 0;
 
-
         for (Package pkg : packages) {
 
-            if (!"SHIPPED".equals(
-                    pkg.getStatus())) {
-
+            if (!"SHIPPED".equals(pkg.getStatus())) {
                 continue;
             }
 
-
             List<PackageItem> items =
-                    packageItemDAO.findByPackage(
-                            pkg
-                    );
+                    packageItemDAO.findByPackage(pkg);
 
-
-            for (PackageItem packageItem :
-                    items) {
+            for (PackageItem packageItem : items) {
 
                 if (packageItem.getItem() != null &&
-                        packageItem.getItem().getId()
-                                == itemId) {
+                        packageItem.getItem().getId() == itemId) {
 
-                    total +=
-                            packageItem.getQuantity();
+                    total += packageItem.getQuantity();
                 }
             }
         }
-
 
         return total;
     }

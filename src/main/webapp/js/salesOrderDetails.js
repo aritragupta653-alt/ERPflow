@@ -16,6 +16,7 @@ const salesOrderApi = `/erpflow/api/sales-orders/${salesOrderId}`;
 const packagesApi = `/erpflow/api/packages?salesOrderId=${salesOrderId}`;
 const carriersApi = "/erpflow/api/carriers";
 const shippingApi = "/erpflow/api/shipping";
+const autoPackShipApi = `/erpflow/api/auto-pack-ship/${salesOrderId}`;
 
 // =====================================================
 // PAGE LOAD
@@ -39,6 +40,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (createShipmentButton) {
         createShipmentButton.addEventListener("click", createShipment);
     }
+
+    const packShipButton = document.getElementById("packShipButton");
+    if (packShipButton) {
+        packShipButton.addEventListener("click", packAndShip);
+    }
+
+    // Default the shipment date to today using the browser's local date.
+    const shipmentDateInput = document.getElementById("shipmentDate");
+    if (shipmentDateInput && !shipmentDateInput.value) {
+        const now = new Date();
+        const localDate = new Date(
+            now.getTime() - now.getTimezoneOffset() * 60000
+        ).toISOString().slice(0, 10);
+
+        shipmentDateInput.value = localDate;
+    }
 });
 
 // =====================================================
@@ -56,7 +73,6 @@ async function loadSalesOrder() {
         const order = await response.json();
 
         console.log("Sales Order:", order);
-
         displaySalesOrder(order);
     } catch (error) {
         console.error("Sales Order Error:", error);
@@ -69,12 +85,10 @@ async function loadSalesOrder() {
 // =====================================================
 
 function displaySalesOrder(order) {
-    // Order information
     setValue("orderId", order.id != null ? `#${order.id}` : "-");
     setValue("orderDate", formatDate(order.orderDate));
     setValue("orderStatus", order.status || "-");
 
-    // Customer information
     const customer = order.customer || {};
 
     setValue("customerId", customer.id ?? "-");
@@ -82,13 +96,19 @@ function displaySalesOrder(order) {
     setValue("customerEmail", customer.email || "-");
     setValue("customerPhone", customer.phone || "-");
 
-    // Order totals
     setValue("subtotal", formatCurrency(order.subtotal));
     setValue("taxRate", `${order.taxRate ?? 0}%`);
     setValue("taxAmount", formatCurrency(order.taxAmount));
     setValue("totalAmount", formatCurrency(order.totalAmount));
 
-    // Order items
+    // Use the customer's address as the destination in the manual shipment form.
+    const customerAddress = customer.address || "";
+    const destinationInput = document.getElementById("destinationAddress");
+
+    if (destinationInput && !destinationInput.value) {
+        destinationInput.value = customerAddress;
+    }
+
     const tableBody = document.getElementById("orderItemsTableBody");
 
     if (!tableBody) {
@@ -103,9 +123,7 @@ function displaySalesOrder(order) {
     if (items.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="6" class="empty-message">
-                    No items found.
-                </td>
+                <td colspan="6" class="empty-message">No items found.</td>
             </tr>
         `;
         return;
@@ -115,7 +133,6 @@ function displaySalesOrder(order) {
         const item = orderItem.item || {};
         const quantity = Number(orderItem.quantity || 0);
         const price = Number(orderItem.sellingPrice || 0);
-        const total = quantity * price;
 
         const row = document.createElement("tr");
 
@@ -125,7 +142,7 @@ function displaySalesOrder(order) {
             item.sku || "-",
             quantity,
             formatCurrency(price),
-            formatCurrency(total)
+            formatCurrency(quantity * price)
         ].forEach(value => {
             const cell = document.createElement("td");
             cell.textContent = String(value);
@@ -158,7 +175,6 @@ async function loadPackages() {
         const packages = await response.json();
 
         console.log("Packages:", packages);
-
         tableBody.replaceChildren();
 
         if (!Array.isArray(packages) || packages.length === 0) {
@@ -177,7 +193,6 @@ async function loadPackages() {
             const row = document.createElement("tr");
             const canShip = pkg.status === "PACKED";
 
-            // Selection checkbox
             const selectCell = document.createElement("td");
             const checkbox = document.createElement("input");
 
@@ -190,7 +205,6 @@ async function loadPackages() {
             selectCell.appendChild(checkbox);
             row.appendChild(selectCell);
 
-            // Package number
             const packageCell = document.createElement("td");
             const packageStrong = document.createElement("strong");
 
@@ -198,7 +212,6 @@ async function loadPackages() {
             packageCell.appendChild(packageStrong);
             row.appendChild(packageCell);
 
-            // Status
             const statusCell = document.createElement("td");
             const statusBadge = document.createElement("span");
 
@@ -207,31 +220,27 @@ async function loadPackages() {
             statusCell.appendChild(statusBadge);
             row.appendChild(statusCell);
 
-            // Weight
             const weightCell = document.createElement("td");
             weightCell.textContent = `${Number(pkg.weight || 0).toFixed(2)} kg`;
             row.appendChild(weightCell);
 
-            // Dimensions
             const dimensionsCell = document.createElement("td");
             dimensionsCell.textContent =
                 `${Number(pkg.length || 0)} × ` +
                 `${Number(pkg.width || 0)} × ` +
                 `${Number(pkg.height || 0)} cm`;
-
             row.appendChild(dimensionsCell);
 
-            // Package date
             const dateCell = document.createElement("td");
             dateCell.textContent = formatDate(pkg.packageDate);
             row.appendChild(dateCell);
 
-            // View action
             const actionCell = document.createElement("td");
             const viewLink = document.createElement("a");
 
             viewLink.className = "action-button";
-            viewLink.href = `/erpflow/packageDetails.jsp?id=${encodeURIComponent(pkg.id)}`;
+            viewLink.href =
+                `/erpflow/packageDetails.jsp?id=${encodeURIComponent(pkg.id)}`;
             viewLink.textContent = "View";
 
             actionCell.appendChild(viewLink);
@@ -246,9 +255,7 @@ async function loadPackages() {
 
         tableBody.innerHTML = `
             <tr>
-                <td colspan="7" class="empty-message">
-                    Failed to load packages.
-                </td>
+                <td colspan="7" class="empty-message">Failed to load packages.</td>
             </tr>
         `;
 
@@ -284,7 +291,6 @@ function updateShipButton() {
     }
 
     shipButton.disabled = selectedIds.length === 0;
-
     shipButton.textContent = selectedIds.length > 0
         ? `Ship Selected Packages (${selectedIds.length})`
         : "Ship Selected Packages";
@@ -380,7 +386,6 @@ async function loadCarriers() {
         carrierSelect.appendChild(placeholder);
 
         (Array.isArray(carriers) ? carriers : []).forEach(carrier => {
-            // Ignore inactive carriers.
             if (carrier.status && carrier.status !== "ACTIVE") {
                 return;
             }
@@ -388,7 +393,6 @@ async function loadCarriers() {
             const option = document.createElement("option");
             option.value = carrier.id;
             option.textContent = `${carrier.name} (${carrier.code})`;
-
             carrierSelect.appendChild(option);
         });
 
@@ -449,7 +453,8 @@ async function loadCarrierServices() {
             const option = document.createElement("option");
 
             option.value = service.id;
-            option.textContent = `${service.name} - ${service.estimatedDays} days`;
+            option.textContent =
+                `${service.name} - ${service.estimatedDays} days`;
 
             serviceSelect.appendChild(option);
         });
@@ -490,8 +495,8 @@ async function calculateShippingRate() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                packageIds: packageIds,
-                carrierServiceId: carrierServiceId
+                packageIds,
+                carrierServiceId
             })
         });
 
@@ -508,7 +513,6 @@ async function calculateShippingRate() {
         const rate = await response.json();
 
         console.log("Shipping Rate:", rate);
-
         displayShippingRate(rate);
 
         if (createButton) {
@@ -566,7 +570,7 @@ function clearShippingRate() {
 }
 
 // =====================================================
-// CREATE SHIPMENT
+// CREATE MANUAL SHIPMENT
 // =====================================================
 
 async function createShipment() {
@@ -605,14 +609,14 @@ async function createShipment() {
 
     const shipment = {
         salesOrderId: Number(salesOrderId),
-        packageIds: packageIds,
-        carrierServiceId: carrierServiceId,
+        packageIds,
+        carrierServiceId,
         shippingMethod: "CARRIER",
-        trackingNumber: trackingNumber,
-        trackingUrl: trackingUrl,
-        dispatchAddress: dispatchAddress,
-        destinationAddress: destinationAddress,
-        notes: notes
+        trackingNumber,
+        trackingUrl,
+        dispatchAddress,
+        destinationAddress,
+        notes
     };
 
     try {
@@ -644,27 +648,21 @@ async function createShipment() {
         const result = await response.json();
 
         console.log("Shipment Created:", result);
-
         showMessage("Shipment created successfully.", "success");
 
-        // Reload packages so their statuses are refreshed.
         await loadPackages();
 
-        // Hide the shipment section.
         const shippingSection = document.getElementById("shippingSection");
 
         if (shippingSection) {
             shippingSection.style.display = "none";
         }
 
-        // Redirect back to the sales order details page.
         const shipmentId = result.shipmentId || result.id;
 
         if (shipmentId) {
-            setTimeout(() => {
-                window.location.href =
-                    `/erpflow/salesOrderDetails.jsp?id=${encodeURIComponent(salesOrderId)}`;
-            }, 800);
+            window.location.href =
+                `/erpflow/salesOrderDetails.jsp?id=${encodeURIComponent(salesOrderId)}`;
         } else if (createButton) {
             createButton.textContent = "Create Shipment";
         }
@@ -676,6 +674,87 @@ async function createShipment() {
         if (createButton) {
             createButton.disabled = false;
             createButton.textContent = "Create Shipment";
+        }
+    }
+}
+
+// =====================================================
+// ONE-CLICK PACK & SHIP
+// =====================================================
+
+async function packAndShip() {
+    const shipmentDateInput = document.getElementById("shipmentDate");
+    const deliveryStatusInput = document.getElementById("deliveryStatus");
+    const packShipButton = document.getElementById("packShipButton");
+
+    const shipmentDate = shipmentDateInput?.value || "";
+    const deliveryStatus = deliveryStatusInput?.value || "";
+
+    if (!shipmentDate) {
+        showMessage("Please select a shipment date.", "error");
+        return;
+    }
+
+    if (!deliveryStatus) {
+        showMessage("Please select a delivery status.", "error");
+        return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(shipmentDate)) {
+        showMessage("Shipment date must be in YYYY-MM-DD format.", "error");
+        return;
+    }
+
+    try {
+        if (packShipButton) {
+            packShipButton.disabled = true;
+            packShipButton.textContent = "Packing & Shipping...";
+        }
+
+        const response = await fetch(autoPackShipApi, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                shipmentDate,
+                deliveryStatus
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+
+            throw new Error(
+                errorData?.message ||
+                errorData?.error ||
+                "Pack & Ship operation failed."
+            );
+        }
+
+        const result = await response.json();
+
+        console.log("Pack & Ship Result:", result);
+
+        showMessage(
+            "Package and shipment created successfully.",
+            "success"
+        );
+
+        await loadSalesOrder();
+        await loadPackages();
+
+        // Refresh the page's order and shipment-related information.
+        window.location.href =
+            `/erpflow/salesOrderDetails.jsp?id=${encodeURIComponent(salesOrderId)}`;
+    } catch (error) {
+        console.error("Pack & Ship Error:", error);
+
+        showMessage(error.message || "Pack & Ship operation failed.", "error");
+
+        if (packShipButton) {
+            packShipButton.disabled = false;
+            packShipButton.textContent = "Pack & Ship";
         }
     }
 }
@@ -729,7 +808,6 @@ function formatDate(value) {
         return result;
     }
 
-    // ISO date strings and other string representations.
     if (typeof value === "string") {
         return value.replace("T", " ").slice(0, 16);
     }
@@ -782,7 +860,6 @@ function showMessage(message, type = "info") {
     messageElement.textContent = message;
     messageBox.replaceChildren(messageElement);
 
-    // Automatically remove the message after four seconds.
     setTimeout(() => {
         if (messageBox.contains(messageElement)) {
             messageBox.removeChild(messageElement);

@@ -1,3 +1,4 @@
+
 const packagesApiUrl = "/erpflow/api/packages";
 const salesOrdersApiUrl = "/erpflow/api/sales-orders";
 
@@ -25,7 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-
 // ===============================
 // LOAD PACKAGES
 // ===============================
@@ -44,7 +44,7 @@ async function loadPackages() {
 
         const packages = await response.json();
 
-        if (!packages || packages.length === 0) {
+        if (!Array.isArray(packages) || packages.length === 0) {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="7" style="text-align:center;">
@@ -58,6 +58,7 @@ async function loadPackages() {
         tableBody.innerHTML = packages.map(pkg => {
             const salesOrder = pkg.salesOrder || {};
             const customer = salesOrder.customer || {};
+            const editable = String(pkg.status || "").toUpperCase() === "PACKED";
 
             return `
                 <tr>
@@ -73,13 +74,9 @@ async function loadPackages() {
                         </a>
                     </td>
 
-                    <td>
-                        ${escapeHtml(customer.name || "-")}
-                    </td>
+                    <td>${escapeHtml(customer.name || "-")}</td>
 
-                    <td>
-                        ${formatNumber(pkg.weight)} kg
-                    </td>
+                    <td>${formatNumber(pkg.weight)} kg</td>
 
                     <td>
                         ${formatNumber(pkg.length)}
@@ -96,12 +93,25 @@ async function loadPackages() {
                     </td>
 
                     <td>
-                        <button
-                            type="button"
-                            class="btn btn-secondary"
-                            onclick="viewPackage(${Number(pkg.id)})">
-                            View
-                        </button>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                onclick="viewPackage(${Number(pkg.id)})">
+                                View
+                            </button>
+
+                            ${
+                                editable
+                                    ? `<button
+                                        type="button"
+                                        class="btn btn-primary"
+                                        onclick="editPackage(${Number(pkg.id)})">
+                                        Edit
+                                    </button>`
+                                    : ""
+                            }
+                        </div>
                     </td>
                 </tr>
             `;
@@ -119,7 +129,6 @@ async function loadPackages() {
         `;
     }
 }
-
 
 // ===============================
 // LOAD SALES ORDERS
@@ -157,8 +166,7 @@ async function loadSalesOrders() {
 
                 const option = document.createElement("option");
                 option.value = order.id;
-                option.textContent =
-                    `SO #${order.id} - ${customerName}`;
+                option.textContent = `SO #${order.id} - ${customerName}`;
 
                 select.appendChild(option);
             });
@@ -172,11 +180,8 @@ async function loadSalesOrders() {
     }
 }
 
-
 // ===============================
 // LOAD SALES ORDER ITEMS
-// Only inventory-tracked GOODS can be packaged.
-// Each sales order line is handled separately.
 // ===============================
 
 async function loadSalesOrderItems() {
@@ -227,8 +232,6 @@ async function loadSalesOrderItems() {
             return;
         }
 
-        // Keep only inventory-tracked GOODS.
-        // Services and non-tracked goods cannot be packaged.
         const packageableOrderItems = orderItems.filter(orderItem => {
             const item = orderItem.item || {};
             const itemType = String(item.itemType || "").toUpperCase();
@@ -247,7 +250,6 @@ async function loadSalesOrderItems() {
             return;
         }
 
-        // Preserve each sales order line separately.
         selectedOrderItems = packageableOrderItems.map((orderItem, index) => {
             const item = orderItem.item || {};
 
@@ -263,8 +265,6 @@ async function loadSalesOrderItems() {
             };
         });
 
-        // Select only packages belonging to this sales order.
-        // Exclude cancelled packages from packed totals.
         const orderPackages = packages.filter(pkg => {
             const packageOrderId =
                 Number(pkg.salesOrder?.id ?? pkg.salesOrderId);
@@ -275,8 +275,6 @@ async function loadSalesOrderItems() {
                    status !== "CANCELLED";
         });
 
-        // Match quantities using Sales Order LINE ID.
-        // Do not aggregate by product/item ID.
         orderPackages.forEach(pkg => {
             (pkg.items || []).forEach(packageItem => {
                 const rawLineId =
@@ -299,21 +297,15 @@ async function loadSalesOrderItems() {
                 );
 
                 if (matchingLine) {
-                    matchingLine.packed +=
-                        Number(packageItem.quantity || 0);
+                    matchingLine.packed += Number(packageItem.quantity || 0);
                 }
             });
         });
 
-        // Calculate remaining quantity for every order line.
         selectedOrderItems.forEach(line => {
-            line.remaining = Math.max(
-                0,
-                line.ordered - line.packed
-            );
+            line.remaining = Math.max(0, line.ordered - line.packed);
         });
 
-        // Render each packageable sales order line independently.
         container.innerHTML = selectedOrderItems.map(line => {
             const displayLineId =
                 line.lineId ?? `Line ${line.lineIndex + 1}`;
@@ -333,9 +325,7 @@ async function loadSalesOrderItems() {
                     ">
 
                     <div>
-                        <strong>
-                            ${escapeHtml(line.name)}
-                        </strong>
+                        <strong>${escapeHtml(line.name)}</strong>
 
                         <div class="muted">
                             SKU: ${escapeHtml(line.sku)}
@@ -347,20 +337,9 @@ async function loadSalesOrderItems() {
                     </div>
 
                     <div>
-                        <div>
-                            Ordered:
-                            <strong>${line.ordered}</strong>
-                        </div>
-
-                        <div>
-                            Packed:
-                            <strong>${line.packed}</strong>
-                        </div>
-
-                        <div>
-                            To Be Packed:
-                            <strong>${line.remaining}</strong>
-                        </div>
+                        <div>Ordered: <strong>${line.ordered}</strong></div>
+                        <div>Packed: <strong>${line.packed}</strong></div>
+                        <div>To Be Packed: <strong>${line.remaining}</strong></div>
                     </div>
 
                     <div>
@@ -398,7 +377,6 @@ async function loadSalesOrderItems() {
     }
 }
 
-
 // ===============================
 // CREATE PACKAGE
 // ===============================
@@ -411,25 +389,13 @@ async function createPackage(event) {
     const salesOrderId =
         Number(document.getElementById("salesOrderId")?.value);
 
-    const weight =
-        Number(document.getElementById("weight")?.value);
+    const weight = Number(document.getElementById("weight")?.value);
+    const length = Number(document.getElementById("length")?.value);
+    const width = Number(document.getElementById("width")?.value);
+    const height = Number(document.getElementById("height")?.value);
 
-    const length =
-        Number(document.getElementById("length")?.value);
-
-    const width =
-        Number(document.getElementById("width")?.value);
-
-    const height =
-        Number(document.getElementById("height")?.value);
-
-
-    // -------------------------------
-    // Basic validation
-    // -------------------------------
-
-    if (!salesOrderId) {
-        showError("Please select a sales order.");
+    if (!Number.isSafeInteger(salesOrderId) || salesOrderId <= 0) {
+        showError("Please select a valid Sales Order.");
         return;
     }
 
@@ -447,15 +413,7 @@ async function createPackage(event) {
         return;
     }
 
-
-    // -------------------------------
-    // Collect package item quantities
-    // Keep every order line distinct.
-    // -------------------------------
-
-    const quantityInputs =
-        document.querySelectorAll(".package-quantity");
-
+    const quantityInputs = document.querySelectorAll(".package-quantity");
     const items = [];
 
     for (const input of quantityInputs) {
@@ -464,35 +422,31 @@ async function createPackage(event) {
         const lineId = input.dataset.lineId;
         const maxQuantity = Number(input.dataset.maxQuantity);
 
-        if (!Number.isInteger(quantity) || quantity < 0) {
+        if (!Number.isSafeInteger(quantity) || quantity < 0) {
             showError("Quantity must be a non-negative whole number.");
             return;
         }
 
         if (quantity > maxQuantity) {
-            showError(
-                `Quantity cannot exceed the remaining quantity (${maxQuantity}).`
-            );
+            showError(`Quantity cannot exceed the remaining quantity (${maxQuantity}).`);
             return;
         }
 
         if (quantity > 0) {
             if (!lineId) {
-                showError(
-                    "Sales order line ID is missing. The package cannot be created safely."
-                );
+                showError("Sales Order line ID is missing.");
                 return;
             }
 
-            if (!Number.isFinite(itemId)) {
+            if (!Number.isSafeInteger(itemId) || itemId <= 0) {
                 showError("Invalid item ID.");
                 return;
             }
 
             items.push({
-                itemId: itemId,
+                itemId,
                 salesOrderItemId: Number(lineId),
-                quantity: quantity
+                quantity
             });
         }
     }
@@ -502,24 +456,21 @@ async function createPackage(event) {
         return;
     }
 
-
-    // -------------------------------
-    // Request body
-    // -------------------------------
-
     const requestBody = {
-        salesOrderId: salesOrderId,
-        weight: weight,
-        length: length,
-        width: width,
-        height: height,
-        items: items
+        salesOrderId,
+        weight,
+        length,
+        width,
+        height,
+        items
     };
 
+    const submitButton =
+        document.querySelector("#createPackageForm button[type='submit']");
 
-    // -------------------------------
-    // Send request
-    // -------------------------------
+    if (submitButton) {
+        submitButton.disabled = true;
+    }
 
     try {
         const response = await fetch(packagesApiUrl, {
@@ -534,29 +485,27 @@ async function createPackage(event) {
 
         if (!response.ok) {
             throw new Error(
-                result.message ||
-                result.error ||
-                "Failed to create package."
+                result.error || result.message || "Failed to create package."
             );
         }
 
-        alert(
-            `Package ${result.packageNumber || ""} created successfully!`
-        );
+        alert(`Package ${result.packageNumber || ""} created successfully!`);
 
         closeCreatePackage();
-
         await loadPackages();
 
     } catch (error) {
         console.error(error);
         showError(error.message || "Failed to create package.");
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+        }
     }
 }
 
-
 // ===============================
-// OPEN CREATE PACKAGE
+// OPEN / CLOSE CREATE PACKAGE
 // ===============================
 
 function openCreatePackage() {
@@ -564,13 +513,8 @@ function openCreatePackage() {
     const form = document.getElementById("createPackageForm");
     const container = document.getElementById("orderItemsContainer");
 
-    if (modal) {
-        modal.style.display = "flex";
-    }
-
-    if (form) {
-        form.reset();
-    }
+    if (modal) modal.style.display = "flex";
+    if (form) form.reset();
 
     selectedOrderItems = [];
 
@@ -583,11 +527,6 @@ function openCreatePackage() {
     hideError();
 }
 
-
-// ===============================
-// CLOSE CREATE PACKAGE
-// ===============================
-
 function closeCreatePackage() {
     const modal = document.getElementById("createPackageModal");
 
@@ -596,9 +535,8 @@ function closeCreatePackage() {
     }
 }
 
-
 // ===============================
-// VIEW PACKAGE
+// VIEW / EDIT PACKAGE
 // ===============================
 
 function viewPackage(id) {
@@ -606,6 +544,15 @@ function viewPackage(id) {
         `/erpflow/packageDetails.jsp?id=${encodeURIComponent(id)}`;
 }
 
+function editPackage(id) {
+    if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0) {
+        alert("Invalid package ID.");
+        return;
+    }
+
+    window.location.href =
+        `/erpflow/editPackage.jsp?id=${encodeURIComponent(id)}`;
+}
 
 // ===============================
 // STATUS CLASS
@@ -617,21 +564,16 @@ function getStatusClass(status) {
     switch (status.toUpperCase()) {
         case "PACKED":
             return "status-success";
-
         case "SHIPPED":
             return "status-info";
-
         case "DELIVERED":
             return "status-success";
-
         case "PACKING":
             return "status-warning";
-
         default:
             return "";
     }
 }
-
 
 // ===============================
 // NUMBER FORMAT
@@ -647,14 +589,12 @@ function formatNumber(value) {
     return number.toFixed(2);
 }
 
-
 // ===============================
 // ERROR HANDLING
 // ===============================
 
 function showError(message) {
-    const errorElement =
-        document.getElementById("createPackageError");
+    const errorElement = document.getElementById("createPackageError");
 
     if (!errorElement) {
         alert(message);
@@ -666,15 +606,13 @@ function showError(message) {
 }
 
 function hideError() {
-    const errorElement =
-        document.getElementById("createPackageError");
+    const errorElement = document.getElementById("createPackageError");
 
     if (!errorElement) return;
 
     errorElement.textContent = "";
     errorElement.style.display = "none";
 }
-
 
 // ===============================
 // HTML ESCAPING

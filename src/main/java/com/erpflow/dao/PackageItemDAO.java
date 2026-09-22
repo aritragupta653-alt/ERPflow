@@ -34,9 +34,7 @@ public class PackageItemDAO {
                 """;
 
         try (
-                Connection connection =
-                        DBConnection.getConnection();
-
+                Connection connection = DBConnection.getConnection();
                 PreparedStatement statement =
                         connection.prepareStatement(
                                 sql,
@@ -44,69 +42,46 @@ public class PackageItemDAO {
                         )
         ) {
 
-            statement.setInt(
-                    1,
-                    packageItem.getQuantity()
-            );
-
-            statement.setInt(
-                    2,
-                    packageItem.getItem().getId()
-            );
-
+            statement.setInt(1, packageItem.getQuantity());
+            statement.setInt(2, packageItem.getItem().getId());
             statement.setInt(
                     3,
                     packageItem.getPackageEntity().getId()
             );
 
-            // Sales order line ID can be null for legacy records.
             if (packageItem.getSalesOrderItemId() != null) {
-
                 statement.setInt(
                         4,
                         packageItem.getSalesOrderItemId()
                 );
-
             } else {
-
-                statement.setNull(
-                        4,
-                        java.sql.Types.INTEGER
-                );
+                statement.setNull(4, java.sql.Types.INTEGER);
             }
 
             statement.executeUpdate();
 
             try (ResultSet keys = statement.getGeneratedKeys()) {
-
                 if (keys.next()) {
                     packageItem.setId(keys.getInt(1));
                 }
             }
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Failed to save package item",
-                    e
-            );
+            throw new RuntimeException("Failed to save package item", e);
         }
     }
-
 
     // =====================================================
     // FIND ITEMS BY PACKAGE
     // =====================================================
 
-    public List<PackageItem> findByPackage(
-            Package packageEntity) {
+    public List<PackageItem> findByPackage(Package packageEntity) {
 
         String sql = """
                 SELECT
                     pi.id,
                     pi.quantity,
                     pi.sales_order_item_id,
-
                     i.item_id,
                     i.name,
                     i.description,
@@ -115,118 +90,90 @@ public class PackageItemDAO {
                     i.selling_price,
                     i.reorder_level,
                     i.status
-
                 FROM package_items pi
-
-                JOIN items i
-                    ON pi.item_id = i.item_id
-
+                JOIN items i ON pi.item_id = i.item_id
                 WHERE pi.package_id = ?
-
                 ORDER BY pi.id
                 """;
 
-        List<PackageItem> packageItems =
-                new ArrayList<>();
+        List<PackageItem> packageItems = new ArrayList<>();
 
         try (
-                Connection connection =
-                        DBConnection.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
         ) {
 
-            statement.setInt(
-                    1,
-                    packageEntity.getId()
-            );
+            statement.setInt(1, packageEntity.getId());
 
             try (ResultSet rs = statement.executeQuery()) {
 
                 while (rs.next()) {
 
-                    PackageItem packageItem =
-                            new PackageItem();
+                    PackageItem packageItem = new PackageItem();
 
-                    packageItem.setId(
-                            rs.getInt("id")
-                    );
+                    packageItem.setId(rs.getInt("id"));
+                    packageItem.setQuantity(rs.getInt("quantity"));
 
-                    packageItem.setQuantity(
-                            rs.getInt("quantity")
-                    );
-
-                    // Preserve null for older package records.
                     int salesOrderItemId =
                             rs.getInt("sales_order_item_id");
 
                     if (rs.wasNull()) {
-
                         packageItem.setSalesOrderItemId(null);
-
                     } else {
-
-                        packageItem.setSalesOrderItemId(
-                                salesOrderItemId
-                        );
+                        packageItem.setSalesOrderItemId(salesOrderItemId);
                     }
 
-
-                    // Build the associated item.
                     Item item = new Item();
 
-                    item.setId(
-                            rs.getInt("item_id")
-                    );
-
-                    item.setName(
-                            rs.getString("name")
-                    );
-
-                    item.setDescription(
-                            rs.getString("description")
-                    );
-
-                    item.setSku(
-                            rs.getString("sku")
-                    );
-
-                    item.setPurchasePrice(
-                            rs.getBigDecimal("purchase_price")
-                    );
-
-                    item.setSellingPrice(
-                            rs.getBigDecimal("selling_price")
-                    );
-
-                    item.setReorderLevel(
-                            rs.getInt("reorder_level")
-                    );
-
-                    item.setStatus(
-                            rs.getString("status")
-                    );
-
+                    item.setId(rs.getInt("item_id"));
+                    item.setName(rs.getString("name"));
+                    item.setDescription(rs.getString("description"));
+                    item.setSku(rs.getString("sku"));
+                    item.setPurchasePrice(rs.getBigDecimal("purchase_price"));
+                    item.setSellingPrice(rs.getBigDecimal("selling_price"));
+                    item.setReorderLevel(rs.getInt("reorder_level"));
+                    item.setStatus(rs.getString("status"));
 
                     packageItem.setItem(item);
-
-                    packageItem.setPackageEntity(
-                            packageEntity
-                    );
+                    packageItem.setPackageEntity(packageEntity);
 
                     packageItems.add(packageItem);
                 }
             }
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Failed to fetch package items",
-                    e
-            );
+            throw new RuntimeException("Failed to fetch package items", e);
         }
 
         return packageItems;
+    }
+
+    // =====================================================
+    // DELETE ALL ITEMS FOR A PACKAGE
+    // Used by the package edit operation after validation.
+    // =====================================================
+
+    public void deleteByPackageId(int packageId) {
+
+        if (packageId <= 0) {
+            throw new IllegalArgumentException("Invalid package ID");
+        }
+
+        String sql = "DELETE FROM package_items WHERE package_id = ?";
+
+        try (
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)
+        ) {
+
+            statement.setInt(1, packageId);
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                    "Failed to delete package items for package " + packageId,
+                    e
+            );
+        }
     }
 }

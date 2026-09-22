@@ -1,1142 +1,488 @@
-const purchaseOrderApi =
-    "/erpflow/api/purchase-orders";
 
-const supplierApi =
-    "/erpflow/api/suppliers";
-
-const itemApi =
-    "/erpflow/api/items";
-
+const purchaseOrderApi = "/erpflow/api/purchase-orders";
+const supplierApi = "/erpflow/api/suppliers";
+const itemApi = "/erpflow/api/items";
 
 let allPurchaseOrders = [];
 let allSuppliers = [];
 let allItems = [];
+let editingOrderId = null;
 
+document.addEventListener("DOMContentLoaded", async () => {
+    setupForm();
+    setupAddItemButton();
+    setupSearch();
 
-// ========================================
-// PAGE LOAD
-// ========================================
+    await Promise.all([
+        loadSuppliers(),
+        loadItems(),
+        loadPurchaseOrders()
+    ]);
+});
 
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
+// ---------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------
 
-        loadSuppliers();
+function isService(item) {
+    return String(item?.itemType || "").toUpperCase() === "SERVICE"
+        || item?.trackInventory === false;
+}
 
-        loadItems();
+function showMessage(message, type = "success") {
+    const box = document.getElementById("messageBox");
+    if (!box) return;
 
-        loadPurchaseOrders();
+    box.textContent = message;
+    box.className = type === "error" ? "error-message" : "success-message";
+    box.style.display = "block";
+}
 
-        setupForm();
+async function readJson(response) {
+    const text = await response.text();
 
-        setupAddItemButton();
-
-        setupSearch();
-
+    let data = {};
+    if (text) {
+        try {
+            data = JSON.parse(text);
+        } catch {
+            data = { error: text };
+        }
     }
-);
 
+    if (!response.ok) {
+        throw new Error(data.error || data.message || "Request failed");
+    }
 
-// ========================================
+    return data;
+}
+
+function setFormMode(editing) {
+    const heading = document.querySelector(".form-section h2");
+    const submit = document.querySelector("#purchaseOrderForm button[type='submit']");
+
+    if (heading) {
+        heading.textContent = editing ? "Edit Purchase Order" : "Create Purchase Order";
+    }
+
+    if (submit) {
+        submit.textContent = editing ? "Save Changes" : "Create Purchase Order";
+    }
+
+    let cancelButton = document.getElementById("cancelEditButton");
+
+    if (editing && !cancelButton) {
+        cancelButton = document.createElement("button");
+        cancelButton.type = "button";
+        cancelButton.id = "cancelEditButton";
+        cancelButton.className = "btn";
+        cancelButton.textContent = "Cancel Edit";
+        cancelButton.style.marginLeft = "10px";
+        submit?.parentElement?.appendChild(cancelButton);
+        cancelButton.addEventListener("click", resetForm);
+    }
+
+    if (cancelButton) {
+        cancelButton.style.display = editing ? "inline-block" : "none";
+    }
+}
+
+function resetForm() {
+    editingOrderId = null;
+
+    const form = document.getElementById("purchaseOrderForm");
+    form?.reset();
+
+    const container = document.getElementById("itemContainer");
+    if (container) {
+        container.innerHTML = "";
+        container.appendChild(createItemRow());
+    }
+
+    setFormMode(false);
+}
+
+// ---------------------------------------------------------
 // LOAD SUPPLIERS
-// ========================================
+// ---------------------------------------------------------
 
 async function loadSuppliers() {
-
     try {
-
-        const response =
-            await fetch(
-                supplierApi
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Failed to load suppliers"
-            );
-        }
-
-
-        allSuppliers =
-            await response.json();
-
-
+        const response = await fetch(supplierApi);
+        allSuppliers = await readJson(response);
         populateSuppliers();
-
-
     } catch (error) {
-
         console.error(error);
-
-        showMessage(
-            "Failed to load suppliers.",
-            "error"
-        );
+        showMessage("Failed to load suppliers: " + error.message, "error");
     }
 }
-
-
-// ========================================
-// POPULATE SUPPLIERS
-// ========================================
 
 function populateSuppliers() {
+    const select = document.getElementById("supplierSelect");
+    if (!select) return;
 
-    const select =
-        document.getElementById(
-            "supplierSelect"
-        );
+    select.innerHTML = '<option value="">Select Supplier</option>';
 
-
-    select.innerHTML = `
-        <option value="">
-            Select Supplier
-        </option>
-    `;
-
-
-    allSuppliers.forEach(
-        supplier => {
-
-            const option =
-                document.createElement(
-                    "option"
-                );
-
-
-            option.value =
-                supplier.id;
-
-
-            option.textContent =
-                supplier.name;
-
-
-            select.appendChild(
-                option
-            );
-
-        }
-    );
+    allSuppliers.forEach(supplier => {
+        const option = document.createElement("option");
+        option.value = supplier.id;
+        option.textContent = supplier.name;
+        select.appendChild(option);
+    });
 }
 
-
-// ========================================
+// ---------------------------------------------------------
 // LOAD ITEMS
-// ========================================
+// ---------------------------------------------------------
 
 async function loadItems() {
-
     try {
+        const response = await fetch(itemApi);
+        allItems = await readJson(response);
 
-        const response =
-            await fetch(
-                itemApi
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Failed to load items"
-            );
+        const container = document.getElementById("itemContainer");
+        if (container && container.children.length === 0) {
+            container.appendChild(createItemRow());
         }
-
-
-        allItems =
-            await response.json();
-
-
-        addInitialItemRow();
-
-
     } catch (error) {
-
         console.error(error);
-
-        showMessage(
-            "Failed to load items.",
-            "error"
-        );
+        showMessage("Failed to load items: " + error.message, "error");
     }
 }
 
+// ---------------------------------------------------------
+// ITEM ROWS
+// ---------------------------------------------------------
 
-// ========================================
-// CREATE ITEM SELECT
-// ========================================
-
-function createItemSelect() {
-
-    const select =
-        document.createElement(
-            "select"
-        );
-
-
-    select.className =
-        "purchase-item-select";
-
-
+function createItemSelect(selectedItemId = "") {
+    const select = document.createElement("select");
+    select.className = "purchase-item-select";
     select.required = true;
 
-
-    const defaultOption =
-        document.createElement(
-            "option"
-        );
-
-
+    const defaultOption = document.createElement("option");
     defaultOption.value = "";
+    defaultOption.textContent = "Select Item";
+    select.appendChild(defaultOption);
 
-    defaultOption.textContent =
-        "Select Item";
-
-    defaultOption.disabled = true;
-
-    defaultOption.selected = true;
-
-
-    select.appendChild(
-        defaultOption
-    );
-
-
-    allItems.forEach(
-        item => {
-
-            if (
-                item.status &&
-                item.status !== "ACTIVE"
-            ) {
-                return;
-            }
-
-
-            const option =
-                document.createElement(
-                    "option"
-                );
-
-
-            option.value =
-                item.id;
-
-
-            option.textContent =
-                `${item.name} - ${item.sku}`;
-
-
-            option.dataset.price =
-                item.purchasePrice || 0;
-
-
-            select.appendChild(
-                option
-            );
-
+    allItems.forEach(item => {
+        if (item.status && String(item.status).toUpperCase() !== "ACTIVE") {
+            return;
         }
-    );
 
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = `${item.name} - ${item.sku || ""}`;
+        option.dataset.price = item.purchasePrice ?? 0;
+        option.dataset.service = isService(item) ? "true" : "false";
+
+        if (String(item.id) === String(selectedItemId)) {
+            option.selected = true;
+        }
+
+        select.appendChild(option);
+    });
 
     return select;
 }
 
+function createItemRow(line = {}) {
+    const row = document.createElement("div");
+    row.className = "sales-item-row";
 
-// ========================================
-// CREATE ITEM ROW
-// ========================================
+    const itemSelect = createItemSelect(line.itemId ?? line.item?.id ?? "");
 
-function createItemRow() {
+    const quantity = document.createElement("input");
+    quantity.type = "number";
+    quantity.className = "quantity-input";
+    quantity.placeholder = "Quantity";
+    quantity.min = "1";
+    quantity.step = "1";
+    quantity.value = line.quantity ?? "";
 
-    const row =
-        document.createElement(
-            "div"
-        );
+    const price = document.createElement("input");
+    price.type = "number";
+    price.className = "price-input";
+    price.placeholder = "Purchase Price";
+    price.min = "0";
+    price.step = "0.01";
+    price.required = true;
+    price.value = line.purchasePrice ?? "";
 
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "btn small-btn danger-btn";
+    removeButton.textContent = "Remove";
+    removeButton.addEventListener("click", () => row.remove());
 
-    row.className =
-        "sales-item-row";
+    function updateQuantityField() {
+        const selected = itemSelect.options[itemSelect.selectedIndex];
+        const service = selected?.dataset.service === "true";
 
-
-    const itemSelect =
-        createItemSelect();
-
-
-    const quantity =
-        document.createElement(
-            "input"
-        );
-
-
-    quantity.type =
-        "number";
-
-    quantity.className =
-        "quantity-input";
-
-    quantity.placeholder =
-        "Quantity";
-
-    quantity.min =
-        "1";
-
-    quantity.required =
-        true;
-
-
-    const price =
-        document.createElement(
-            "input"
-        );
-
-
-    price.type =
-        "number";
-
-    price.className =
-        "price-input";
-
-    price.placeholder =
-        "Purchase Price";
-
-    price.min =
-        "0";
-
-    price.step =
-        "0.01";
-
-    price.required =
-        true;
-
-
-    const removeButton =
-        document.createElement(
-            "button"
-        );
-
-
-    removeButton.type =
-        "button";
-
-    removeButton.className =
-        "btn small-btn danger-btn";
-
-    removeButton.textContent =
-        "Remove";
-
-
-    itemSelect.addEventListener(
-        "change",
-        () => {
-
-            const selected =
-                itemSelect.options[
-                    itemSelect.selectedIndex
-                ];
-
-
-            price.value =
-                selected.dataset.price || "";
-
+        if (service) {
+            quantity.value = "";
+            quantity.disabled = true;
+            quantity.required = false;
+            quantity.placeholder = "Not required for service";
+        } else {
+            quantity.disabled = false;
+            quantity.required = true;
+            quantity.placeholder = "Quantity";
+            quantity.min = "1";
         }
-    );
 
-
-    removeButton.addEventListener(
-        "click",
-        () => {
-
-            row.remove();
-
+        if (selected && selected.value && !price.value) {
+            price.value = selected.dataset.price || "0";
         }
-    );
+    }
 
+    itemSelect.addEventListener("change", () => {
+        price.value = itemSelect.options[itemSelect.selectedIndex]?.dataset.price || "0";
+        updateQuantityField();
+    });
 
-    row.appendChild(
-        itemSelect
-    );
-
-    row.appendChild(
-        quantity
-    );
-
-    row.appendChild(
-        price
-    );
-
-    row.appendChild(
-        removeButton
-    );
-
+    row.append(itemSelect, quantity, price, removeButton);
+    updateQuantityField();
 
     return row;
 }
 
-
-// ========================================
-// INITIAL ITEM ROW
-// ========================================
-
-function addInitialItemRow() {
-
-    const container =
-        document.getElementById(
-            "itemContainer"
-        );
-
-
-    if (
-        container.children.length === 0
-    ) {
-
-        container.appendChild(
-            createItemRow()
-        );
-
-    }
-}
-
-
-// ========================================
-// ADD ITEM BUTTON
-// ========================================
-
 function setupAddItemButton() {
-
-    const button =
-        document.getElementById(
-            "addItemButton"
-        );
-
-
-    button.addEventListener(
-        "click",
-        () => {
-
-            const container =
-                document.getElementById(
-                    "itemContainer"
-                );
-
-
-            container.appendChild(
-                createItemRow()
-            );
-
-        }
-    );
+    document.getElementById("addItemButton")?.addEventListener("click", () => {
+        document.getElementById("itemContainer")?.appendChild(createItemRow());
+    });
 }
 
-
-// ========================================
-// CREATE PURCHASE ORDER
-// ========================================
+// ---------------------------------------------------------
+// FORM SUBMIT: CREATE OR EDIT
+// ---------------------------------------------------------
 
 function setupForm() {
+    const form = document.getElementById("purchaseOrderForm");
+    if (!form) return;
 
-    const form =
-        document.getElementById(
-            "purchaseOrderForm"
-        );
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
 
+        const supplierId = document.getElementById("supplierSelect").value;
 
-    form.addEventListener(
-        "submit",
-        async event => {
-
-            event.preventDefault();
-
-
-            const supplierId =
-                document.getElementById(
-                    "supplierSelect"
-                ).value;
-
-
-            if (!supplierId) {
-
-                showMessage(
-                    "Please select a supplier.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            const rows =
-                document.querySelectorAll(
-                    "#itemContainer > div"
-                );
-
-
-            const items = [];
-
-
-            for (
-                const row of rows
-            ) {
-
-                const itemId =
-                    row.querySelector(
-                        ".purchase-item-select"
-                    ).value;
-
-
-                const quantity =
-                    Number(
-                        row.querySelector(
-                            ".quantity-input"
-                        ).value
-                    );
-
-
-                const purchasePrice =
-                    Number(
-                        row.querySelector(
-                            ".price-input"
-                        ).value
-                    );
-
-
-                if (!itemId) {
-
-                    showMessage(
-                        "Please select an item for every row.",
-                        "error"
-                    );
-
-                    return;
-                }
-
-
-                if (quantity <= 0) {
-
-                    showMessage(
-                        "Quantity must be greater than zero.",
-                        "error"
-                    );
-
-                    return;
-                }
-
-
-                if (purchasePrice < 0) {
-
-                    showMessage(
-                        "Purchase price cannot be negative.",
-                        "error"
-                    );
-
-                    return;
-                }
-
-
-                items.push({
-
-                    itemId:
-                        Number(itemId),
-
-                    quantity:
-                        quantity,
-
-                    purchasePrice:
-                        purchasePrice
-
-                });
-
-            }
-
-
-            if (
-                items.length === 0
-            ) {
-
-                showMessage(
-                    "Add at least one item.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            const requestBody = {
-
-                supplierId:
-                    Number(supplierId),
-
-                items:
-                    items
-
-            };
-
-
-            try {
-
-                const response =
-                    await fetch(
-                        purchaseOrderApi,
-                        {
-
-                            method: "POST",
-
-                            headers: {
-                                "Content-Type":
-                                    "application/json"
-                            },
-
-                            body:
-                                JSON.stringify(
-                                    requestBody
-                                )
-
-                        }
-                    );
-
-
-                const data =
-                    await response.json();
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        data.error ||
-                        "Failed to create purchase order"
-                    );
-                }
-
-
-                showMessage(
-                    "Purchase Order created successfully.",
-                    "success"
-                );
-
-
-                form.reset();
-
-
-                document.getElementById(
-                    "itemContainer"
-                ).innerHTML = "";
-
-
-                addInitialItemRow();
-
-
-                await loadPurchaseOrders();
-
-
-            } catch (error) {
-
-                console.error(error);
-
-                showMessage(
-                    error.message,
-                    "error"
-                );
-            }
-
+        if (!supplierId) {
+            showMessage("Please select a supplier.", "error");
+            return;
         }
-    );
+
+        const rows = document.querySelectorAll("#itemContainer .sales-item-row");
+        const items = [];
+
+        for (const row of rows) {
+            const itemId = row.querySelector(".purchase-item-select").value;
+            const quantityInput = row.querySelector(".quantity-input");
+            const priceInput = row.querySelector(".price-input");
+
+            if (!itemId) {
+                showMessage("Please select an item for every row.", "error");
+                return;
+            }
+
+            const item = allItems.find(candidate => String(candidate.id) === String(itemId));
+            if (!item) {
+                showMessage("The selected item could not be found.", "error");
+                return;
+            }
+
+            const service = isService(item);
+            const quantity = service ? 1 : Number(quantityInput.value);
+            const purchasePrice = Number(priceInput.value);
+
+            if (!service && (!Number.isInteger(quantity) || quantity <= 0)) {
+                showMessage("Enter a positive whole-number quantity for goods.", "error");
+                return;
+            }
+
+            if (!Number.isFinite(purchasePrice) || purchasePrice < 0) {
+                showMessage("Enter a valid purchase price.", "error");
+                return;
+            }
+
+            items.push({
+                itemId: Number(itemId),
+                quantity,
+                purchasePrice
+            });
+        }
+
+        if (items.length === 0) {
+            showMessage("Add at least one item.", "error");
+            return;
+        }
+
+        const body = {
+            supplierId: Number(supplierId),
+            items
+        };
+
+        const url = editingOrderId
+            ? `${purchaseOrderApi}/${editingOrderId}`
+            : purchaseOrderApi;
+
+        try {
+            const response = await fetch(url, {
+                method: editingOrderId ? "PUT" : "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+
+            await readJson(response);
+
+            showMessage(
+                editingOrderId
+                    ? "Purchase order updated successfully."
+                    : "Purchase order created successfully."
+            );
+
+            resetForm();
+            await loadPurchaseOrders();
+        } catch (error) {
+            console.error(error);
+            showMessage(error.message, "error");
+        }
+    });
 }
 
-
-// ========================================
-// LOAD PURCHASE ORDERS
-// ========================================
+// ---------------------------------------------------------
+// LOAD AND RENDER PURCHASE ORDERS
+// ---------------------------------------------------------
 
 async function loadPurchaseOrders() {
-
     try {
-
-        const response =
-            await fetch(
-                purchaseOrderApi
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Failed to load purchase orders"
-            );
-        }
-
-
-        allPurchaseOrders =
-            await response.json();
-
-
-        renderPurchaseOrders(
-            allPurchaseOrders
-        );
-
-
+        const response = await fetch(purchaseOrderApi);
+        allPurchaseOrders = await readJson(response);
+        renderPurchaseOrders(allPurchaseOrders);
     } catch (error) {
-
         console.error(error);
-
-        showMessage(
-            "Failed to load purchase orders.",
-            "error"
-        );
+        showMessage("Failed to load purchase orders: " + error.message, "error");
     }
 }
 
-
-// ========================================
-// RENDER PURCHASE ORDERS
-// ========================================
-
-function renderPurchaseOrders(
-    orders
-) {
-
-    const tableBody =
-        document.getElementById(
-            "purchaseOrdersTableBody"
-        );
-
-
-    const count =
-        document.getElementById(
-            "purchaseOrderCount"
-        );
-
+function renderPurchaseOrders(orders) {
+    const tableBody = document.getElementById("purchaseOrdersTableBody");
+    if (!tableBody) return;
 
     tableBody.innerHTML = "";
 
-    count.textContent =
-        orders.length;
+    document.getElementById("purchaseOrderCount").textContent = orders.length;
 
+    orders.forEach(order => {
+        const row = document.createElement("tr");
 
-    if (orders.length === 0) {
+        const idCell = document.createElement("td");
+        idCell.textContent = order.id;
 
-        tableBody.innerHTML = `
-            <tr>
-                <td
-                    colspan="5"
-                    style="text-align:center;"
-                >
-                    No purchase orders found.
-                </td>
-            </tr>
-        `;
+        const supplierCell = document.createElement("td");
+        supplierCell.textContent = order.supplier?.name || "—";
 
-        return;
-    }
+        const dateCell = document.createElement("td");
+        dateCell.textContent = formatDate(order.orderDate);
 
+        const statusCell = document.createElement("td");
+        statusCell.textContent = order.status || "—";
 
-    orders.forEach(
-        order => {
+        const actionCell = document.createElement("td");
 
-            const row =
-                document.createElement(
-                    "tr"
-                );
+        const detailsLink = document.createElement("a");
+        detailsLink.className = "btn small-btn";
+        detailsLink.href = `/erpflow/purchaseOrderDetails.jsp?id=${order.id}`;
+        detailsLink.textContent = "View";
 
+        actionCell.appendChild(detailsLink);
 
-            const supplierName =
-                order.supplier
-                    ? order.supplier.name
-                    : "-";
-
-
-            row.innerHTML = `
-
-                <td>
-                    #${order.id}
-                </td>
-
-                <td>
-                    ${supplierName}
-                </td>
-
-                <td>
-                    ${formatDate(
-                        order.orderDate
-                    )}
-                </td>
-
-                <td>
-
-                    <span
-                        class="status-badge
-                        ${getStatusClass(
-                            order.status
-                        )}"
-                    >
-                        ${order.status || "-"}
-                    </span>
-
-                </td>
-
-                <td>
-
-                    <button
-                        class="btn small-btn"
-                        onclick="viewPurchaseOrder(${order.id})"
-                    >
-                        View
-                    </button>
-
-                    ${
-                        order.status !== "RECEIVED"
-                        ?
-
-                        `
-                        <button
-                            class="btn small-btn"
-                            onclick="receivePurchaseOrder(${order.id})"
-                        >
-                            Receive
-                        </button>
-                        `
-
-                        :
-
-                        ""
-                    }
-
-                </td>
-
-            `;
-
-
-            tableBody.appendChild(
-                row
-            );
-
-        }
-    );
-}
-
-
-// ========================================
-// VIEW PURCHASE ORDER
-// ========================================
-
-function viewPurchaseOrder(id) {
-
-    window.location.href =
-        "/erpflow/purchaseOrderDetails.jsp?id=" +
-        id;
-}
-
-
-// ========================================
-// RECEIVE PURCHASE ORDER
-// ========================================
-
-async function receivePurchaseOrder(
-    id
-) {
-
-    if (
-        !confirm(
-            "Are you sure you want to receive this purchase order?"
-        )
-    ) {
-
-        return;
-    }
-
-
-    try {
-
-        const response =
-            await fetch(
-                `${purchaseOrderApi}/${id}/receive`,
-                {
-                    method: "POST"
-                }
-            );
-
-
-        const data =
-            await response.json();
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                data.error ||
-                "Failed to receive purchase order"
-            );
+        if (String(order.status).toUpperCase() === "CREATED") {
+            const editButton = document.createElement("button");
+            editButton.type = "button";
+            editButton.className = "btn small-btn";
+            editButton.textContent = "Edit";
+            editButton.style.marginLeft = "6px";
+            editButton.addEventListener("click", () => beginEdit(order.id));
+            actionCell.appendChild(editButton);
         }
 
-
-        showMessage(
-            "Purchase Order received successfully.",
-            "success"
-        );
-
-
-        await loadPurchaseOrders();
-
-
-    } catch (error) {
-
-        console.error(error);
-
-        showMessage(
-            error.message,
-            "error"
-        );
-    }
+        row.append(idCell, supplierCell, dateCell, statusCell, actionCell);
+        tableBody.appendChild(row);
+    });
 }
 
+function formatDate(value) {
+    if (!value) return "—";
 
-// ========================================
-// SEARCH
-// ========================================
-
-function setupSearch() {
-
-    const searchInput =
-        document.getElementById(
-            "searchInput"
-        );
-
-
-    searchInput.addEventListener(
-        "input",
-        () => {
-
-            const term =
-                searchInput.value
-                    .toLowerCase()
-                    .trim();
-
-
-            if (!term) {
-
-                renderPurchaseOrders(
-                    allPurchaseOrders
-                );
-
-                return;
-            }
-
-
-            const filtered =
-                allPurchaseOrders.filter(
-                    order => {
-
-                        const id =
-                            String(
-                                order.id || ""
-                            );
-
-
-                        const supplier =
-                            order.supplier
-                                ? order.supplier.name
-                                : "";
-
-
-                        const status =
-                            order.status || "";
-
-
-                        return (
-
-                            id.includes(
-                                term
-                            )
-
-                            ||
-
-                            supplier
-                                .toLowerCase()
-                                .includes(
-                                    term
-                                )
-
-                            ||
-
-                            status
-                                .toLowerCase()
-                                .includes(
-                                    term
-                                )
-
-                        );
-
-                    }
-                );
-
-
-            renderPurchaseOrders(
-                filtered
-            );
-
-        }
-    );
-}
-
-
-// ========================================
-// FORMAT DATE
-// ========================================
-
-function formatDate(
-    dateValue
-) {
-
-    if (!dateValue) {
-        return "-";
+    if (Array.isArray(value)) {
+        const [year, month, day, hour = 0, minute = 0] = value;
+        return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")} `
+            + `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
     }
 
-
-    // Jackson LocalDateTime array
-
-    if (
-        Array.isArray(dateValue)
-    ) {
-
-        const [
-            year,
-            month,
-            day,
-            hour = 0,
-            minute = 0,
-            second = 0
-        ] = dateValue;
-
-
-        const date =
-            new Date(
-                year,
-                month - 1,
-                day,
-                hour,
-                minute,
-                second
-            );
-
-
-        if (
-            isNaN(
-                date.getTime()
-            )
-        ) {
-
-            return "-";
-        }
-
-
-        return date.toLocaleString();
-    }
-
-
-    // ISO string fallback
-
-    const date =
-        new Date(
-            dateValue
-        );
-
-
-    if (
-        isNaN(
-            date.getTime()
-        )
-    ) {
-
-        return "-";
-    }
-
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
 
     return date.toLocaleString();
 }
 
+// ---------------------------------------------------------
+// EDIT EXISTING ORDER
+// ---------------------------------------------------------
 
-// ========================================
-// STATUS CLASS
-// ========================================
+async function beginEdit(orderId) {
+    try {
+        const response = await fetch(`${purchaseOrderApi}/${orderId}`);
+        const order = await readJson(response);
 
-function getStatusClass(
-    status
-) {
+        if (String(order.status).toUpperCase() !== "CREATED") {
+            showMessage("Only orders that have not been received can be edited.", "error");
+            return;
+        }
 
-    if (!status) {
-        return "";
+        editingOrderId = orderId;
+
+        document.getElementById("supplierSelect").value = order.supplier?.id ?? "";
+
+        const container = document.getElementById("itemContainer");
+        container.innerHTML = "";
+
+        (order.items || []).forEach(line => {
+            container.appendChild(createItemRow({
+                itemId: line.item?.id,
+                quantity: line.quantity,
+                purchasePrice: line.purchasePrice
+            }));
+        });
+
+        if (container.children.length === 0) {
+            container.appendChild(createItemRow());
+        }
+
+        setFormMode(true);
+        document.getElementById("purchaseOrderForm")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        showMessage(`Editing purchase order #${orderId}.`);
+    } catch (error) {
+        console.error(error);
+        showMessage("Could not load purchase order for editing: " + error.message, "error");
     }
-
-
-    const value =
-        status.toLowerCase();
-
-
-    if (
-        value === "created"
-    ) {
-
-        return "active";
-    }
-
-
-    if (
-        value === "received"
-    ) {
-
-        return "active";
-    }
-
-
-    if (
-        value === "cancelled" ||
-        value === "cancel"
-    ) {
-
-        return "inactive";
-    }
-
-
-    return "";
 }
 
+// ---------------------------------------------------------
+// SEARCH
+// ---------------------------------------------------------
 
-// ========================================
-// MESSAGE
-// ========================================
+function setupSearch() {
+    document.getElementById("searchInput")?.addEventListener("input", event => {
+        const query = event.target.value.trim().toLowerCase();
 
-function showMessage(
-    message,
-    type
-) {
-
-    const messageBox =
-        document.getElementById(
-            "messageBox"
+        const filtered = allPurchaseOrders.filter(order =>
+            String(order.id).includes(query)
+            || String(order.supplier?.name || "").toLowerCase().includes(query)
+            || String(order.status || "").toLowerCase().includes(query)
         );
 
-
-    messageBox.textContent =
-        message;
-
-
-    messageBox.className =
-        "message-box " + type;
-
-
-    messageBox.style.display =
-        "block";
-
-
-    setTimeout(
-        () => {
-
-            messageBox.style.display =
-                "none";
-
-        },
-        3000
-    );
+        renderPurchaseOrders(filtered);
+    });
 }

@@ -304,6 +304,13 @@
                     >
                         Ship Selected Packages
                     </button>
+                    <button
+    type="button"
+    id="packShipButton"
+    class="btn btn-primary"
+>
+    Pack &amp; Ship
+</button>
                 </div>
             </div>
 
@@ -331,6 +338,42 @@
                 </table>
             </div>
         </div>
+
+<!-- ONE-CLICK PACK & SHIP -->
+<div class="form-section" id="packShipSection">
+    <h2>Pack &amp; Ship</h2>
+
+    <p>
+        Automatically create a package and shipment using the sales order items
+        and the customer's destination address.
+    </p>
+
+    <div class="form-grid">
+        <div class="form-group">
+            <label for="shipmentDate">Shipment Date</label>
+            <input
+                type="date"
+                id="shipmentDate"
+                name="shipmentDate"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="deliveryStatus">Delivery Status</label>
+            <select id="deliveryStatus" name="deliveryStatus" required>
+                <option value="CREATED">Created</option>
+                <option value="IN_TRANSIT">In Transit</option>
+            </select>
+        </div>
+    </div>
+
+    <div style="margin-top: 20px; text-align: right;">
+        <button type="button" id="packShipButton" class="btn btn-primary">
+            Pack &amp; Ship
+        </button>
+    </div>
+</div>
 
         <!-- SHIPPING SECTION -->
         <div

@@ -183,11 +183,7 @@
 <div class="app-container">
 
     <header class="topbar">
-        <div class="logo-section">
-            <img src="/erpflow/images/erpflow-logo.png"
-                 alt="ERPFlow"
-                 class="logo">
-        </div>
+        
 
         <nav>
             <a href="/erpflow/home.jsp">Dashboard</a>

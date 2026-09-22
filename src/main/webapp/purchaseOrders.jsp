@@ -1,207 +1,108 @@
-<%@ page contentType="text/html;charset=UTF-8" %>
 
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-
-    <title>Purchase Orders - ERPFlow</title>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Orders | ERPFlow</title>
     <link rel="stylesheet" href="/erpflow/css/app.css">
-
 </head>
-
 <body>
 
-<header class="navbar">
 
-    <a href="/erpflow/home.jsp" class="logo">
-
-        <img
-            src="/erpflow/images/erpflow-logo.png"
-            alt="ERPFlow Logo"
-        >
-
-        <span>ERPFlow</span>
-
-    </a>
-
-</header>
-
-
-<div class="container">
-
-    <a
-        class="back"
-        href="/erpflow/home.jsp"
-    >
-        ← Back to Dashboard
-    </a>
-
-
+<main class="container">
     <div class="page-header">
-
         <div>
-
             <h1>Purchase Orders</h1>
-
-            <p>
-                Create and manage purchase orders.
-            </p>
-
+            <p>Create, view, edit, and manage supplier purchase orders.</p>
         </div>
 
+        <a href="erpflow/dashboard.jsp" class="btn btn-secondary">
+            Back to Dashboard
+        </a>
     </div>
 
+    <div id="messageBox" class="message-box" style="display: none;"></div>
 
-    <div id="messageBox"></div>
-
-
-    <!-- CREATE PURCHASE ORDER -->
-
-    <div class="form-section">
-
-        <h2>Create Purchase Order</h2>
-
+    <!-- Create Purchase Order -->
+    <section class="form-section">
+        <h2 id="purchaseOrderFormTitle">Create Purchase Order</h2>
 
         <form id="purchaseOrderForm">
-
+            <input type="hidden" id="purchaseOrderId" name="purchaseOrderId">
 
             <div class="form-grid">
-
                 <div class="form-group">
-
-                    <label>
-                        Supplier
-                    </label>
-
-                    <select
-                        id="supplierSelect"
-                        required
-                    >
-
-                        <option value="">
-                            Select Supplier
-                        </option>
-
+                    <label for="supplierSelect">Supplier</label>
+                    <select id="supplierSelect" name="supplierId" required>
+                        <option value="">Loading suppliers...</option>
                     </select>
-
                 </div>
-
             </div>
 
+            <div class="section-header">
+                <h3>Order Items</h3>
+                <button type="button" id="addItemButton" class="btn btn-secondary">
+                    Add Item
+                </button>
+            </div>
 
-            <h3 style="margin-top: 25px;">
-                Items
-            </h3>
+            <div id="itemContainer">
+                <!-- Item rows are added by purchaseOrders.js -->
+            </div>
 
-
-            <div id="itemContainer"></div>
-
-
-            <button
-                type="button"
-                class="btn"
-                id="addItemButton"
-            >
-                + Add Item
-            </button>
-
-
-            <div style="margin-top: 25px;">
-
-                <button
-                    type="submit"
-                    class="btn"
-                >
+            <div class="form-actions">
+                <button type="submit" id="submitPurchaseOrderButton" class="btn btn-primary">
                     Create Purchase Order
                 </button>
 
+                <button type="button" id="cancelEditButton" class="btn btn-secondary"
+                        style="display: none;">
+                    Cancel Edit
+                </button>
             </div>
-
         </form>
+    </section>
 
-    </div>
-
-
-    <!-- PURCHASE ORDER LIST -->
-
-    <div class="table-section">
-
+    <!-- Purchase Order List -->
+    <section class="table-section">
         <div class="section-header">
-
             <div>
-
-                <h2>
-                    Purchase Orders
-                </h2>
-
-                <p>
-                    <span id="purchaseOrderCount">
-                        0
-                    </span>
-                    purchase orders
-                </p>
-
+                <h2>Purchase Orders</h2>
+                <p>Total orders: <span id="purchaseOrderCount">0</span></p>
             </div>
 
-
-            <div class="search-box">
-
-                <input
-                    type="text"
-                    id="searchInput"
-                    placeholder="Search purchase orders..."
-                >
-
+            <div class="form-group">
+                <label for="searchInput">Search Orders</label>
+                <input type="text" id="searchInput"
+                       placeholder="Search by order ID, supplier, or status">
             </div>
-
         </div>
 
-
-        <div class="table-container">
-
-            <table>
-
+        <div class="table-responsive">
+            <table class="data-table">
                 <thead>
-
                 <tr>
-
-                    <th>ID</th>
-
+                    <th>Order ID</th>
                     <th>Supplier</th>
-
                     <th>Order Date</th>
-
                     <th>Status</th>
-
-                    <th>Action</th>
-
+                    <th>Actions</th>
                 </tr>
-
                 </thead>
 
-
-                <tbody
-                    id="purchaseOrdersTableBody"
-                >
-
+                <tbody id="purchaseOrdersTableBody">
+                <tr>
+                    <td colspan="5">Loading purchase orders...</td>
+                </tr>
                 </tbody>
-
             </table>
-
         </div>
+    </section>
+</main>
 
-    </div>
-
-</div>
-
-
-<script
-    src="/erpflow/js/purchaseOrders.js"
-    defer
-></script>
+<script src="/erpflow/js/purchaseOrders.js"></script>
 
 </body>
-
 </html>

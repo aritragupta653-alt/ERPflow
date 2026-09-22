@@ -1,16 +1,16 @@
+
 package com.erpflow.controller;
 
+import com.erpflow.model.Item;
 import com.erpflow.model.PurchaseOrder;
 import com.erpflow.model.PurchaseOrderItem;
 import com.erpflow.model.Supplier;
-import com.erpflow.model.Item;
-
+import com.erpflow.service.ItemService;
 import com.erpflow.service.PurchaseOrderService;
 import com.erpflow.service.SupplierService;
-import com.erpflow.service.ItemService;
-
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,10 +19,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @WebServlet("/api/purchase-orders/*")
 public class PurchaseOrderServlet extends HttpServlet {
@@ -37,12 +34,7 @@ public class PurchaseOrderServlet extends HttpServlet {
             new ItemService();
 
     private final ObjectMapper objectMapper =
-            new ObjectMapper().registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
-
-
-    // ========================================
-    // GET
-    // ========================================
+            new ObjectMapper().registerModule(new JavaTimeModule());
 
     @Override
     protected void doGet(
@@ -50,179 +42,70 @@ public class PurchaseOrderServlet extends HttpServlet {
             HttpServletResponse response
     ) throws IOException {
 
-        response.setContentType(
-                "application/json"
-        );
-
-        response.setCharacterEncoding(
-                "UTF-8"
-        );
-
-
-        String pathInfo =
-                request.getPathInfo();
-
+        prepareResponse(response);
 
         try {
+            String path = request.getPathInfo();
 
-            // GET /api/purchase-orders
+            if (path == null || path.equals("/")) {
+                List<Map<String, Object>> result = new ArrayList<>();
 
-            if (pathInfo == null ||
-                    pathInfo.equals("/")) {
-
-                List<PurchaseOrder> orders =
-                        purchaseOrderService
-                                .getAllPurchaseOrders();
-
-                List<Map<String, Object>> result =
-                        new ArrayList<>();
-
-
-                for (PurchaseOrder order : orders) {
-
-                    result.add(
-                            convertOrder(order)
-                    );
+                for (PurchaseOrder order : purchaseOrderService.getAllPurchaseOrders()) {
+                    result.add(convertOrder(order));
                 }
 
-
-                objectMapper.writeValue(
-                        response.getWriter(),
-                        result
-                );
-
+                objectMapper.writeValue(response.getWriter(), result);
                 return;
             }
 
+            int id = parseOrderId(path);
 
-            // GET /api/purchase-orders/{id}
-
-            int id =
-                    Integer.parseInt(
-                            pathInfo.substring(1)
-                    );
-
-
-            PurchaseOrder order =
-                    purchaseOrderService
-                            .getPurchaseOrderById(id);
-
+            PurchaseOrder order = purchaseOrderService.getPurchaseOrderById(id);
 
             if (order == null) {
-
-                sendError(
-                        response,
-                        404,
-                        "Purchase Order not found"
-                );
-
+                sendError(response, 404, "Purchase order not found");
                 return;
             }
 
+            Map<String, Object> result = convertOrder(order);
+            List<Map<String, Object>> itemList = new ArrayList<>();
 
-            Map<String, Object> result =
-                    convertOrder(order);
+            for (PurchaseOrderItem line :
+                    purchaseOrderService.getPurchaseOrderItems(order)) {
 
+                Map<String, Object> lineMap = new HashMap<>();
+                lineMap.put("id", line.getId());
+                lineMap.put("quantity", line.getQuantity());
+                lineMap.put("purchasePrice", line.getPurchasePrice());
+                lineMap.put("recievedQuantity", line.getRecievedQuantity());
+                lineMap.put("remainingQuantity", line.getRemainingQuantity());
 
-            List<PurchaseOrderItem> items =
-                    purchaseOrderService
-                            .getPurchaseOrderItems(
-                                    order
-                            );
+                if (line.getItem() != null) {
+                    Item item = line.getItem();
 
+                    Map<String, Object> itemMap = new HashMap<>();
+                    itemMap.put("id", item.getId());
+                    itemMap.put("name", item.getName());
+                    itemMap.put("sku", item.getSku());
+                    itemMap.put("itemType", item.getItemType());
+                    itemMap.put("trackInventory", item.isTrackInventory());
 
-            List<Map<String, Object>> itemList =
-                    new ArrayList<>();
-
-
-            for (PurchaseOrderItem orderItem
-                    : items) {
-
-                Map<String, Object> itemMap =
-                        new HashMap<>();
-
-                itemMap.put(
-                        "id",
-                        orderItem.getId()
-                );
-
-                itemMap.put(
-                        "quantity",
-                        orderItem.getQuantity()
-                );
-
-                itemMap.put(
-                        "purchasePrice",
-                        orderItem.getPurchasePrice()
-                );
-
-                if (orderItem.getItem() != null) {
-
-                    Map<String, Object> item =
-                            new HashMap<>();
-
-                    item.put(
-                            "id",
-                            orderItem.getItem().getId()
-                    );
-
-                    item.put(
-                            "name",
-                            orderItem.getItem().getName()
-                    );
-
-                    item.put(
-                            "sku",
-                            orderItem.getItem().getSku()
-                    );
-
-                    itemMap.put(
-                            "item",
-                            item
-                    );
+                    lineMap.put("item", itemMap);
                 }
 
-
-                itemList.add(itemMap);
+                itemList.add(lineMap);
             }
 
-
-            result.put(
-                    "items",
-                    itemList
-            );
-
-
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    result
-            );
-
+            result.put("items", itemList);
+            objectMapper.writeValue(response.getWriter(), result);
 
         } catch (NumberFormatException e) {
-
-            sendError(
-                    response,
-                    400,
-                    "Invalid purchase order ID"
-            );
-
+            sendError(response, 400, "Invalid purchase order ID");
         } catch (RuntimeException e) {
-
             e.printStackTrace();
-
-            sendError(
-                    response,
-                    400,
-                    e.getMessage()
-            );
+            sendError(response, 400, e.getMessage());
         }
     }
-
-
-    // ========================================
-    // POST
-    // ========================================
 
     @Override
     protected void doPost(
@@ -230,349 +113,251 @@ public class PurchaseOrderServlet extends HttpServlet {
             HttpServletResponse response
     ) throws IOException {
 
-        response.setContentType(
-                "application/json"
-        );
-
-        response.setCharacterEncoding(
-                "UTF-8"
-        );
-
+        prepareResponse(response);
 
         try {
+            String path = request.getPathInfo();
 
-            String pathInfo =
-                    request.getPathInfo();
+            // POST /api/purchase-orders/{id}/receive
+            if (path != null && path.matches("/\\d+/receive")) {
+                int id = Integer.parseInt(path.split("/")[1]);
 
+                Map<String, Object> body = readBody(request);
 
-            // RECEIVE
+                Object linesObject = body.get("items");
 
-            if (pathInfo != null &&
-                    pathInfo.matches("/\\d+/receive")) {
-
-                int id =
-                        Integer.parseInt(
-                                pathInfo
-                                        .split("/")[1]
-                        );
-
-
-                purchaseOrderService
-                        .receivePurchaseOrder(id);
-
-
-                response.setStatus(
-                        HttpServletResponse.SC_OK
-                );
-
-
-                Map<String, Object> result =
-                        new HashMap<>();
-
-                result.put(
-                        "message",
-                        "Purchase Order received successfully"
-                );
-
-                result.put(
-                        "purchaseOrderId",
-                        id
-                );
-
-
-                objectMapper.writeValue(
-                        response.getWriter(),
-                        result
-                );
-
-                return;
-            }
-
-
-            // CREATE
-
-            Map<String, Object> body =
-                    objectMapper.readValue(
-                            request.getReader(),
-                            Map.class
-                    );
-
-
-            Number supplierIdNumber =
-                    (Number) body.get(
-                            "supplierId"
-                    );
-
-
-            if (supplierIdNumber == null) {
-
-                sendError(
-                        response,
-                        400,
-                        "Supplier ID is required"
-                );
-
-                return;
-            }
-
-
-            int supplierId =
-                    supplierIdNumber.intValue();
-
-
-            Supplier supplier =
-                    supplierService
-                            .getSupplierById(
-                                    supplierId
-                            );
-
-
-            if (supplier == null) {
-
-                sendError(
-                        response,
-                        404,
-                        "Supplier not found"
-                );
-
-                return;
-            }
-
-
-            PurchaseOrder purchaseOrder =
-                    new PurchaseOrder();
-
-
-            purchaseOrder.setSupplier(
-                    supplier
-            );
-
-            purchaseOrder.setStatus(
-                    "CREATED"
-            );
-
-            purchaseOrder.setOrderDate(
-                    LocalDateTime.now()
-            );
-
-
-            List<Map<String, Object>> items =
-                    (List<Map<String, Object>>)
-                            body.get("items");
-
-
-            if (items == null ||
-                    items.isEmpty()) {
-
-                sendError(
-                        response,
-                        400,
-                        "At least one item is required"
-                );
-
-                return;
-            }
-
-
-            List<PurchaseOrderItem>
-                    purchaseOrderItems =
-                    new ArrayList<>();
-
-
-            for (
-                    Map<String, Object> itemData
-                    : items
-            ) {
-
-                Number itemIdNumber =
-                        (Number) itemData.get(
-                                "itemId"
-                        );
-
-                Number quantityNumber =
-                        (Number) itemData.get(
-                                "quantity"
-                        );
-
-
-                if (itemIdNumber == null ||
-                        quantityNumber == null) {
-
-                    throw new RuntimeException(
-                            "Item ID and quantity are required"
-                    );
-                }
-
-
-                Item item =
-                        itemService.getItemById(
-                                itemIdNumber.intValue()
-                        );
-
-
-                if (item == null) {
-
-                    throw new RuntimeException(
-                            "Item not found"
-                    );
-                }
-
-
-                PurchaseOrderItem
-                        purchaseOrderItem =
-                        new PurchaseOrderItem();
-
-
-                purchaseOrderItem.setItem(
-                        item
-                );
-
-
-                purchaseOrderItem.setQuantity(
-                        quantityNumber.intValue()
-                );
-
-
-                Object price =
-                        itemData.get(
-                                "purchasePrice"
-                        );
-
-
-                if (price == null) {
-
-                    purchaseOrderItem
-                            .setPurchasePrice(
-                                    item.getPurchasePrice()
-                            );
-
+                if (linesObject == null) {
+                    // Backwards-compatible behavior: receive all remaining goods.
+                    purchaseOrderService.receivePurchaseOrder(id);
                 } else {
-
-                    purchaseOrderItem
-                            .setPurchasePrice(
-                                    new BigDecimal(
-                                            price.toString()
-                                    )
+                    List<Map<String, Object>> receiveItems =
+                            objectMapper.convertValue(
+                                    linesObject,
+                                    new TypeReference<List<Map<String, Object>>>() {}
                             );
+
+                    List<PurchaseOrderService.ReceiveLine> lines = new ArrayList<>();
+
+                    for (Map<String, Object> data : receiveItems) {
+                        Number lineId = number(data.get("purchaseOrderItemId"));
+                        Number quantity = number(data.get("quantity"));
+
+                        if (lineId == null || quantity == null) {
+                            throw new RuntimeException(
+                                    "Each receive line requires purchaseOrderItemId and quantity"
+                            );
+                        }
+
+                        lines.add(new PurchaseOrderService.ReceiveLine(
+                                lineId.intValue(),
+                                quantity.intValue()
+                        ));
+                    }
+
+                    purchaseOrderService.receivePurchaseOrder(id, lines);
                 }
 
+                Map<String, Object> result = new HashMap<>();
+                result.put("message", "Purchase order receiving processed");
+                result.put("purchaseOrderId", id);
 
-                purchaseOrderItems.add(
-                        purchaseOrderItem
-                );
+                objectMapper.writeValue(response.getWriter(), result);
+                return;
             }
 
+            // POST /api/purchase-orders
+            Map<String, Object> body = readBody(request);
+            PurchaseOrder order = createOrderFromBody(body);
 
-            purchaseOrderService
-                    .createPurchaseOrder(
-                            purchaseOrder,
-                            purchaseOrderItems
-                    );
+            List<PurchaseOrderItem> lines = createLinesFromBody(body);
 
+            purchaseOrderService.createPurchaseOrder(order, lines);
 
-            response.setStatus(
-                    HttpServletResponse.SC_CREATED
-            );
+            response.setStatus(HttpServletResponse.SC_CREATED);
+            objectMapper.writeValue(response.getWriter(), convertOrder(order));
 
-
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    convertOrder(purchaseOrder)
-            );
-
-
+        } catch (NumberFormatException e) {
+            sendError(response, 400, "Invalid ID or quantity");
         } catch (RuntimeException e) {
-
             e.printStackTrace();
-
-            sendError(
-                    response,
-                    400,
-                    e.getMessage()
-            );
+            sendError(response, 400, e.getMessage());
         }
     }
 
+    @Override
+    protected void doPut(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
 
-    // ========================================
-    // CONVERT ORDER TO JSON
-    // ========================================
+        prepareResponse(response);
 
-    private Map<String, Object> convertOrder(
-            PurchaseOrder order
-    ) {
+        try {
+            String path = request.getPathInfo();
 
-        Map<String, Object> result =
-                new HashMap<>();
+            if (path == null || !path.matches("/\\d+")) {
+                sendError(response, 400, "Use PUT /api/purchase-orders/{id}");
+                return;
+            }
 
+            int id = parseOrderId(path);
 
-        result.put(
-                "id",
-                order.getId()
-        );
+            Map<String, Object> body = readBody(request);
 
-        result.put(
-                "status",
-                order.getStatus()
-        );
+            PurchaseOrder updatedOrder = createOrderFromBody(body);
+            List<PurchaseOrderItem> updatedLines = createLinesFromBody(body);
 
-        result.put(
-                "orderDate",
-                order.getOrderDate()
-        );
+            purchaseOrderService.editPurchaseOrder(id, updatedOrder, updatedLines);
 
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "Purchase order updated successfully");
+            result.put("purchaseOrderId", id);
 
-        if (order.getSupplier() != null) {
+            objectMapper.writeValue(response.getWriter(), result);
 
-            Map<String, Object> supplier =
-                    new HashMap<>();
+        } catch (NumberFormatException e) {
+            sendError(response, 400, "Invalid purchase order ID");
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            sendError(response, 400, e.getMessage());
+        }
+    }
 
-            supplier.put(
-                    "id",
-                    order.getSupplier().getId()
-            );
+    private PurchaseOrder createOrderFromBody(Map<String, Object> body) {
+        Number supplierNumber = number(body.get("supplierId"));
 
-            supplier.put(
-                    "name",
-                    order.getSupplier().getName()
-            );
-
-            supplier.put(
-                    "contactPerson",
-                    order.getSupplier()
-                            .getContactPerson()
-            );
-
-            supplier.put(
-                    "phone",
-                    order.getSupplier().getPhone()
-            );
-
-            supplier.put(
-                    "email",
-                    order.getSupplier().getEmail()
-            );
-
-            supplier.put(
-                    "address",
-                    order.getSupplier().getAddress()
-            );
-
-
-            result.put(
-                    "supplier",
-                    supplier
-            );
+        if (supplierNumber == null) {
+            throw new RuntimeException("Supplier ID is required");
         }
 
+        Supplier supplier = supplierService.getSupplierById(supplierNumber.intValue());
+
+        if (supplier == null) {
+            throw new RuntimeException("Supplier not found");
+        }
+
+        PurchaseOrder order = new PurchaseOrder();
+        order.setSupplier(supplier);
+        order.setStatus("CREATED");
+        order.setOrderDate(LocalDateTime.now());
+
+        return order;
+    }
+
+    private List<PurchaseOrderItem> createLinesFromBody(Map<String, Object> body) {
+        Object itemsObject = body.get("items");
+
+        if (itemsObject == null) {
+            throw new RuntimeException("At least one item is required");
+        }
+
+        List<Map<String, Object>> itemData =
+                objectMapper.convertValue(
+                        itemsObject,
+                        new TypeReference<List<Map<String, Object>>>() {}
+                );
+
+        if (itemData.isEmpty()) {
+            throw new RuntimeException("At least one item is required");
+        }
+
+        List<PurchaseOrderItem> result = new ArrayList<>();
+
+        for (Map<String, Object> data : itemData) {
+            Number itemIdNumber = number(data.get("itemId"));
+
+            if (itemIdNumber == null) {
+                throw new RuntimeException("Item ID is required");
+            }
+
+            Item item = itemService.getItemById(itemIdNumber.intValue());
+
+            if (item == null) {
+                throw new RuntimeException("Item not found: " + itemIdNumber);
+            }
+
+            Number quantityNumber = number(data.get("quantity"));
+            int quantity;
+
+            if (item.isTrackInventory()) {
+                if (quantityNumber == null || quantityNumber.intValue() <= 0) {
+                    throw new RuntimeException(
+                            "A positive quantity is required for inventory-tracked goods"
+                    );
+                }
+
+                quantity = quantityNumber.intValue();
+            } else {
+                // quantity is NOT NULL in the current table; use a placeholder
+                // for services, whose quantity is not used for inventory.
+                quantity = 1;
+            }
+
+            Object priceObject = data.get("purchasePrice");
+            BigDecimal price = priceObject == null
+                    ? item.getPurchasePrice()
+                    : new BigDecimal(priceObject.toString());
+
+            if (price == null || price.signum() < 0) {
+                throw new RuntimeException("Invalid purchase price");
+            }
+
+            PurchaseOrderItem line = new PurchaseOrderItem();
+            line.setItem(item);
+            line.setQuantity(quantity);
+            line.setPurchasePrice(price);
+            line.setReceivedQuantity(0);
+
+            result.add(line);
+        }
 
         return result;
     }
 
+    private Map<String, Object> convertOrder(PurchaseOrder order) {
+        Map<String, Object> result = new HashMap<>();
 
-    // ========================================
-    // ERROR
-    // ========================================
+        result.put("id", order.getId());
+        result.put("status", order.getStatus());
+        result.put("orderDate", order.getOrderDate());
+
+        if (order.getSupplier() != null) {
+            Supplier supplier = order.getSupplier();
+
+            Map<String, Object> supplierMap = new HashMap<>();
+            supplierMap.put("id", supplier.getId());
+            supplierMap.put("name", supplier.getName());
+            supplierMap.put("contactPerson", supplier.getContactPerson());
+            supplierMap.put("phone", supplier.getPhone());
+            supplierMap.put("email", supplier.getEmail());
+            supplierMap.put("address", supplier.getAddress());
+
+            result.put("supplier", supplierMap);
+        }
+
+        return result;
+    }
+
+    private Map<String, Object> readBody(HttpServletRequest request) throws IOException {
+        return objectMapper.readValue(
+                request.getReader(),
+                new TypeReference<Map<String, Object>>() {}
+        );
+    }
+
+    private Number number(Object value) {
+        return value instanceof Number ? (Number) value : null;
+    }
+
+    private int parseOrderId(String path) {
+        String value = path.startsWith("/") ? path.substring(1) : path;
+        return Integer.parseInt(value);
+    }
+
+    private void prepareResponse(HttpServletResponse response) {
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+    }
 
     private void sendError(
             HttpServletResponse response,
@@ -582,20 +367,9 @@ public class PurchaseOrderServlet extends HttpServlet {
 
         response.setStatus(status);
 
-        Map<String, String> error =
-                new HashMap<>();
+        Map<String, String> error = new HashMap<>();
+        error.put("error", message == null ? "Unknown error" : message);
 
-        error.put(
-                "error",
-                message != null
-                        ? message
-                        : "Unknown error"
-        );
-
-
-        objectMapper.writeValue(
-                response.getWriter(),
-                error
-        );
+        objectMapper.writeValue(response.getWriter(), error);
     }
 }
