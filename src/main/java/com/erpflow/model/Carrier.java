@@ -1,11 +1,14 @@
+
 package com.erpflow.model;
+
+import com.erpflow.model.enums.CarrierStatus;
 
 public class Carrier {
 
     private int id;
     private String name;
     private String code;
-    private String status;
+    private CarrierStatus status;
 
     public int getId() {
         return id;
@@ -31,11 +34,11 @@ public class Carrier {
         this.code = code;
     }
 
-    public String getStatus() {
+    public CarrierStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(CarrierStatus status) {
         this.status = status;
     }
 }

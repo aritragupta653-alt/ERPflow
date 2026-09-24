@@ -1,4 +1,3 @@
-
 package com.erpflow.controller;
 
 import com.erpflow.model.Shipment;
@@ -15,6 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import com.erpflow.model.enums.ShipmentStatus;
 
 @WebServlet("/api/shipments/*")
 public class ShipmentServlet extends HttpServlet {
@@ -35,11 +35,13 @@ public class ShipmentServlet extends HttpServlet {
 
         String pathInfo = request.getPathInfo();
 
+        String status = request.getParameter("status");
+
         try {
             // GET /api/shipments
             if (pathInfo == null || pathInfo.equals("/")) {
                 List<Shipment> shipments =
-                        shipmentService.getAllShipments();
+                        shipmentService.getAllShipments(status);
 
                 objectMapper.writeValue(
                         response.getWriter(),
@@ -74,6 +76,7 @@ public class ShipmentServlet extends HttpServlet {
                     HttpServletResponse.SC_BAD_REQUEST,
                     "Invalid shipment ID"
             );
+
         } catch (Exception e) {
             sendError(
                     response,
@@ -138,9 +141,8 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            // Prevent ALL PUT modifications after delivery.
-            // This applies to both shipment details and packages.
-            if ("DELIVERED".equalsIgnoreCase(existing.getStatus())) {
+            // Prevent all PUT modifications after delivery.
+            if ("DELIVERED".equalsIgnoreCase(existing.getStatus().name())) {
                 sendError(
                         response,
                         HttpServletResponse.SC_CONFLICT,
@@ -216,18 +218,21 @@ public class ShipmentServlet extends HttpServlet {
                     HttpServletResponse.SC_BAD_REQUEST,
                     "Invalid shipment ID"
             );
+
         } catch (IllegalStateException e) {
             sendError(
                     response,
                     HttpServletResponse.SC_CONFLICT,
                     e.getMessage()
             );
+
         } catch (IllegalArgumentException e) {
             sendError(
                     response,
                     HttpServletResponse.SC_BAD_REQUEST,
                     e.getMessage()
             );
+
         } catch (Exception e) {
             sendError(
                     response,
@@ -286,7 +291,7 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            if ("DELIVERED".equalsIgnoreCase(existing.getStatus())) {
+            if ("DELIVERED".equalsIgnoreCase(existing.getStatus().name())) {
                 sendError(
                         response,
                         HttpServletResponse.SC_CONFLICT,
@@ -311,18 +316,21 @@ public class ShipmentServlet extends HttpServlet {
                     HttpServletResponse.SC_BAD_REQUEST,
                     "Invalid shipment ID"
             );
+
         } catch (IllegalStateException e) {
             sendError(
                     response,
                     HttpServletResponse.SC_CONFLICT,
                     e.getMessage()
             );
+
         } catch (IllegalArgumentException e) {
             sendError(
                     response,
                     HttpServletResponse.SC_BAD_REQUEST,
                     e.getMessage()
             );
+
         } catch (Exception e) {
             sendError(
                     response,

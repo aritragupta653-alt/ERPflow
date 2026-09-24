@@ -1,8 +1,8 @@
-
 package com.erpflow.service;
 
 import com.erpflow.dao.ShipmentDAO;
 import com.erpflow.model.Shipment;
+import com.erpflow.model.enums.ShipmentStatus;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,8 +25,8 @@ public class ShipmentService {
             throw new IllegalArgumentException("Shipment date is required");
         }
 
-        if (shipment.getStatus() == null || shipment.getStatus().isBlank()) {
-            shipment.setStatus("CREATED");
+        if (shipment.getStatus() == null) {
+            shipment.setStatus(ShipmentStatus.CREATED);
         }
 
         if (shipment.getShippingMethod() == null ||
@@ -51,8 +51,8 @@ public class ShipmentService {
     // GET ALL
     // =========================
 
-    public List<Shipment> getAllShipments() {
-        return shipmentDAO.findAll();
+    public List<Shipment> getAllShipments(String status) {
+        return shipmentDAO.findAll(status);
     }
 
     // =========================
@@ -98,8 +98,7 @@ public class ShipmentService {
             updatedShipment.setShipmentDate(existing.getShipmentDate());
         }
 
-        if (updatedShipment.getStatus() == null ||
-                updatedShipment.getStatus().isBlank()) {
+        if (updatedShipment.getStatus() == null) {
             updatedShipment.setStatus(existing.getStatus());
         }
 
@@ -172,13 +171,13 @@ public class ShipmentService {
             throw new IllegalArgumentException("Shipment not found");
         }
 
-        if ("DELIVERED".equalsIgnoreCase(shipment.getStatus())) {
+        if (shipment.getStatus() == ShipmentStatus.DELIVERED) {
             throw new IllegalArgumentException(
                     "Shipment is already marked as delivered"
             );
         }
 
-        shipment.setStatus("DELIVERED");
+        shipment.setStatus(ShipmentStatus.DELIVERED);
         shipment.setActualDeliveryDate(LocalDate.now());
 
         shipmentDAO.update(shipment);
@@ -241,14 +240,11 @@ public class ShipmentService {
             throw new IllegalArgumentException("Shipment not found");
         }
 
-        if ("DELIVERED".equalsIgnoreCase(shipment.getStatus())) {
-    throw new IllegalStateException(
-        "Packages cannot be changed after delivery."
-    );
-}
-
-shipmentDAO.replacePackages(shipmentId, packageIds);
-        
+        if (shipment.getStatus() == ShipmentStatus.DELIVERED) {
+            throw new IllegalStateException(
+                    "Packages cannot be changed after delivery."
+            );
+        }
 
         // Package existence, duplicate IDs, and cross-shipment assignment
         // checks are performed by ShipmentDAO.replacePackages().

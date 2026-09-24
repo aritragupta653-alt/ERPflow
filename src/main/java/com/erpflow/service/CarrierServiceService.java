@@ -4,6 +4,7 @@ import com.erpflow.dao.CarrierDAO;
 import com.erpflow.dao.CarrierServiceDAO;
 import com.erpflow.model.Carrier;
 import com.erpflow.model.CarrierService;
+import com.erpflow.model.enums.CarrierStatus;
 
 import java.util.List;
 
@@ -38,6 +39,10 @@ public class CarrierServiceService {
 
     public void createCarrier(Carrier carrier) {
 
+        if (carrier == null) {
+            throw new RuntimeException("Carrier is required");
+        }
+
         if (carrier.getName() == null ||
                 carrier.getName().isBlank()) {
 
@@ -50,17 +55,18 @@ public class CarrierServiceService {
             throw new RuntimeException("Carrier code is required");
         }
 
-        if (carrier.getStatus() == null ||
-                carrier.getStatus().isBlank()) {
-
-            carrier.setStatus("ACTIVE");
+        if (carrier.getStatus() == null) {
+            carrier.setStatus(CarrierStatus.ACTIVE);
         }
 
         carrierDAO.save(carrier);
     }
 
-    public void createCarrierService(
-            CarrierService service) {
+    public void createCarrierService(CarrierService service) {
+
+        if (service == null) {
+            throw new RuntimeException("Carrier service is required");
+        }
 
         if (service.getCarrier() == null ||
                 service.getCarrier().getId() <= 0) {
@@ -71,8 +77,7 @@ public class CarrierServiceService {
         if (service.getName() == null ||
                 service.getName().isBlank()) {
 
-            throw new RuntimeException(
-                    "Service name is required");
+            throw new RuntimeException("Service name is required");
         }
 
         if (service.getEstimatedDays() <= 0) {

@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import com.erpflow.model.enums.ItemStatus;
 
 public class PackageItemDAO {
 
@@ -132,7 +133,7 @@ public class PackageItemDAO {
                     item.setPurchasePrice(rs.getBigDecimal("purchase_price"));
                     item.setSellingPrice(rs.getBigDecimal("selling_price"));
                     item.setReorderLevel(rs.getInt("reorder_level"));
-                    item.setStatus(rs.getString("status"));
+                    item.setStatus(ItemStatus.valueOf(rs.getString("status")));
 
                     packageItem.setItem(item);
                     packageItem.setPackageEntity(packageEntity);

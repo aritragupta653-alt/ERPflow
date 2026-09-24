@@ -1,7 +1,9 @@
+
 package com.erpflow.service;
 
 import com.erpflow.dao.ItemDAO;
 import com.erpflow.model.Item;
+import com.erpflow.model.enums.ItemStatus;
 
 import java.util.List;
 
@@ -41,7 +43,6 @@ public class ItemService {
             item.setTrackInventory(false);
         }
     }
-
 
     // =========================================================
     // VALIDATE COMMON ITEM FIELDS
@@ -97,7 +98,6 @@ public class ItemService {
         validateItemType(item);
     }
 
-
     // =========================================================
     // CREATE ITEM
     // =========================================================
@@ -106,25 +106,41 @@ public class ItemService {
 
         validateItem(item);
 
-        if (item.getStatus() == null ||
-                item.getStatus().isBlank()) {
-
-            item.setStatus("ACTIVE");
+        if (item.getStatus() == null) {
+            item.setStatus(ItemStatus.ACTIVE);
         }
 
         itemDAO.save(item);
     }
 
-
     // =========================================================
     // GET ALL ITEMS
     // =========================================================
 
-    public List<Item> getAllItems() {
+   public List<Item> getAllItems() {
+    return itemDAO.findAll("ALL");
+}
 
-        return itemDAO.findAll();
+public List<Item> getItemsByStatus(String status) {
+
+    if (status == null || status.isBlank()) {
+        status = "ALL";
     }
 
+    status = status.trim().toUpperCase();
+
+    if (!status.equals("ALL")) {
+        try {
+            ItemStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException(
+                    "Invalid item status. Use ACTIVE, INACTIVE, or ALL"
+            );
+        }
+    }
+
+    return itemDAO.findAll(status);
+}
 
     // =========================================================
     // GET ITEM BY ID
@@ -134,7 +150,6 @@ public class ItemService {
 
         return itemDAO.findById(id);
     }
-
 
     // =========================================================
     // UPDATE ITEM
@@ -160,7 +175,6 @@ public class ItemService {
 
         itemDAO.update(item);
     }
-
 
     // =========================================================
     // DELETE ITEM

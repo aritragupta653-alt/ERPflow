@@ -15,11 +15,14 @@ import com.erpflow.model.PackageItem;
 import com.erpflow.model.SalesOrder;
 import com.erpflow.model.SalesOrderItem;
 import com.erpflow.model.Shipment;
+import com.erpflow.model.enums.ShipmentStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.erpflow.model.enums.CartonSize;
+
 
 public class AutoPackShipService {
 
@@ -27,9 +30,9 @@ public class AutoPackShipService {
     // DEFAULT PACKING AND DISPATCH VALUES
     // =====================================================
 
-    private static final double DEFAULT_LENGTH = 30.0;
-    private static final double DEFAULT_WIDTH = 20.0;
-    private static final double DEFAULT_HEIGHT = 15.0;
+    private static final double DEFAULT_LENGTH = 0;
+    private static final double DEFAULT_WIDTH = 0;
+    private static final double DEFAULT_HEIGHT = 0;
 
     // Assumed weight when item-level shipping weight is unavailable.
     private static final double DEFAULT_WEIGHT_PER_UNIT = 1.0;
@@ -63,6 +66,8 @@ public class AutoPackShipService {
 
     private final CarrierServiceDAO carrierServiceDAO =
             new CarrierServiceDAO();
+    private final CartonSelectionService cartonSelectionService =
+        new CartonSelectionService();
 
 
     // =====================================================
@@ -100,8 +105,8 @@ public class AutoPackShipService {
             );
         }
 
-        String normalizedStatus =
-                deliveryStatus.trim().toUpperCase();
+        String normalizedStatus = deliveryStatus.trim().toUpperCase();
+        ShipmentStatus status = ShipmentStatus.valueOf(normalizedStatus);
 
         /*
          * The shipment creation process ships inventory
@@ -112,13 +117,12 @@ public class AutoPackShipService {
          * DELIVERED is not accepted here because delivery
          * confirmation should be a separate operation.
          */
-        if (!normalizedStatus.equals("CREATED")
-                && !normalizedStatus.equals("IN_TRANSIT")) {
+       /*if ( !normalizedStatus.equals("IN_TRANSIT") || !normalizedStatus.equals("CREATED") || !normalizedStatus.equals("DELIVERED")) {
 
             throw new RuntimeException(
-                    "Delivery status must be CREATED or IN_TRANSIT"
+                    "Delivery status must be CREATED or IN_TRANSIT OR DELIVERED"
             );
-        }
+        }*/
 
 
         // -------------------------------------------------
@@ -127,6 +131,7 @@ public class AutoPackShipService {
 
         SalesOrder salesOrder =
                 salesOrderDAO.findById(salesOrderId);
+        
 
         if (salesOrder == null) {
             throw new RuntimeException(
@@ -134,9 +139,9 @@ public class AutoPackShipService {
             );
         }
 
-        if (salesOrder.getStatus() == null ||
+        if (salesOrder.getStatus().name() == null ||
                 !"CREATED".equalsIgnoreCase(
-                        salesOrder.getStatus())) {
+                        salesOrder.getStatus().name())) {
 
             throw new RuntimeException(
                     "Only CREATED Sales Orders can use Pack & Ship"
@@ -167,12 +172,35 @@ public class AutoPackShipService {
 
         List<SalesOrderItem> orderLines =
                 salesOrderItemDAO.findBySalesOrder(salesOrder);
+        
 
         if (orderLines == null || orderLines.isEmpty()) {
             throw new RuntimeException(
                     "Sales Order contains no items"
             );
         }
+        //calculate volume for package dimensions
+        double requiredVolume = 0;
+
+for (SalesOrderItem orderLine : orderLines) {
+
+    Item item = orderLine.getItem();
+
+    if (!"GOODS".equalsIgnoreCase(item.getItemType())
+            || !item.isTrackInventory()) {
+        continue;
+    }
+    
+    double itemVolume =
+            item.getLength()
+                    * item.getWidth()
+                    * item.getHeight();
+
+    requiredVolume += itemVolume * orderLine.getQuantity();
+}
+CartonSize selectedCarton =
+        cartonSelectionService.selectCarton(requiredVolume);
+
 
 
         // -------------------------------------------------
@@ -200,8 +228,7 @@ public class AutoPackShipService {
              * Only inventory-tracked goods are physically
              * packed. Service and non-tracked items are skipped.
              */
-            if (!"GOODS".equalsIgnoreCase(item.getItemType())
-                    || !item.isTrackInventory()) {
+            if (!"GOODS".equalsIgnoreCase(item.getItemType())) {
 
                 continue;
             }
@@ -259,9 +286,9 @@ public class AutoPackShipService {
                         salesOrder,
                         packageItems,
                         estimatedWeight,
-                        DEFAULT_LENGTH,
-                        DEFAULT_WIDTH,
-                        DEFAULT_HEIGHT
+                        selectedCarton.getLength(),
+                        selectedCarton.getWidth(),
+                        selectedCarton.getHeight()
                 );
 
 
@@ -276,7 +303,7 @@ public class AutoPackShipService {
                 shipmentDate.atStartOfDay()
         );
 
-        shipment.setStatus(normalizedStatus);
+        shipment.setStatus(status);
 
         shipment.setShippingMethod(
                 selectedService.getName()
@@ -360,7 +387,7 @@ public class AutoPackShipService {
                 continue;
             }
 
-            String carrierStatus = carrier.getStatus();
+            String carrierStatus = carrier.getStatus().name();
 
             if (carrierStatus != null &&
                     "INACTIVE".equalsIgnoreCase(carrierStatus)) {

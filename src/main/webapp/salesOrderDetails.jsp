@@ -364,15 +364,12 @@
             <select id="deliveryStatus" name="deliveryStatus" required>
                 <option value="CREATED">Created</option>
                 <option value="IN_TRANSIT">In Transit</option>
+                <option value="DELIVERED">Delivered</option>
             </select>
         </div>
     </div>
 
-    <div style="margin-top: 20px; text-align: right;">
-        <button type="button" id="packShipButton" class="btn btn-primary">
-            Pack &amp; Ship
-        </button>
-    </div>
+    
 </div>
 
         <!-- SHIPPING SECTION -->

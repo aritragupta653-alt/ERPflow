@@ -1,5 +1,7 @@
+
 package com.erpflow.model;
 
+import com.erpflow.model.enums.SalesOrderStatus;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -8,17 +10,12 @@ public class SalesOrder {
     private int id;
     private Customer customer;
     private LocalDateTime orderDate;
-    private String status;
+    private SalesOrderStatus status;
 
     private BigDecimal taxRate;
     private BigDecimal subtotal;
     private BigDecimal taxAmount;
     private BigDecimal totalAmount;
-
-
-    // =========================
-    // ID
-    // =========================
 
     public int getId() {
         return id;
@@ -28,11 +25,6 @@ public class SalesOrder {
         this.id = id;
     }
 
-
-    // =========================
-    // CUSTOMER
-    // =========================
-
     public Customer getCustomer() {
         return customer;
     }
@@ -40,11 +32,6 @@ public class SalesOrder {
     public void setCustomer(Customer customer) {
         this.customer = customer;
     }
-
-
-    // =========================
-    // ORDER DATE
-    // =========================
 
     public LocalDateTime getOrderDate() {
         return orderDate;
@@ -54,23 +41,13 @@ public class SalesOrder {
         this.orderDate = orderDate;
     }
 
-
-    // =========================
-    // STATUS
-    // =========================
-
-    public String getStatus() {
+    public SalesOrderStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(SalesOrderStatus status) {
         this.status = status;
     }
-
-
-    // =========================
-    // TAX RATE
-    // =========================
 
     public BigDecimal getTaxRate() {
         return taxRate;
@@ -80,11 +57,6 @@ public class SalesOrder {
         this.taxRate = taxRate;
     }
 
-
-    // =========================
-    // SUBTOTAL
-    // =========================
-
     public BigDecimal getSubtotal() {
         return subtotal;
     }
@@ -93,11 +65,6 @@ public class SalesOrder {
         this.subtotal = subtotal;
     }
 
-
-    // =========================
-    // TAX AMOUNT
-    // =========================
-
     public BigDecimal getTaxAmount() {
         return taxAmount;
     }
@@ -105,11 +72,6 @@ public class SalesOrder {
     public void setTaxAmount(BigDecimal taxAmount) {
         this.taxAmount = taxAmount;
     }
-
-
-    // =========================
-    // TOTAL AMOUNT
-    // =========================
 
     public BigDecimal getTotalAmount() {
         return totalAmount;

@@ -11,6 +11,9 @@ import com.erpflow.model.PackageItem;
 import com.erpflow.model.SalesOrder;
 import com.erpflow.model.SalesOrderItem;
 
+import com.erpflow.model.enums.PackageStatus;
+import com.erpflow.model.enums.SalesOrderStatus;
+
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -40,11 +43,11 @@ public class PackageService {
 
         validateDimensions(weight, length, width, height);
 
-        String orderStatus = salesOrder.getStatus();
+        SalesOrderStatus orderStatus = salesOrder.getStatus();
 
-        if ("SHIPPED".equalsIgnoreCase(orderStatus)
-                || "DELIVERED".equalsIgnoreCase(orderStatus)
-                || "CANCELLED".equalsIgnoreCase(orderStatus)) {
+        if (orderStatus == SalesOrderStatus.SHIPPED
+                || orderStatus == SalesOrderStatus.COMPLETED
+                || orderStatus == SalesOrderStatus.CANCELLED) {
             throw new RuntimeException(
                     "Cannot create a package for this Sales Order status"
             );
@@ -65,7 +68,7 @@ public class PackageService {
 
         Package packageEntity = new Package();
         packageEntity.setSalesOrder(salesOrder);
-        packageEntity.setStatus("PACKING");
+        packageEntity.setStatus(PackageStatus.PACKING);
         packageEntity.setPackageDate(LocalDateTime.now());
         packageEntity.setWeight(weight);
         packageEntity.setLength(length);
@@ -84,7 +87,7 @@ public class PackageService {
             packageItemDAO.save(packageItem);
         }
 
-        packageEntity.setStatus("PACKED");
+        packageEntity.setStatus(PackageStatus.PACKED);
         packageDAO.update(packageEntity);
 
         return packageEntity;
@@ -114,7 +117,7 @@ public class PackageService {
             throw new RuntimeException("Package not found");
         }
 
-        if (!"PACKED".equalsIgnoreCase(existingPackage.getStatus())) {
+        if (existingPackage.getStatus() != PackageStatus.PACKED) {
             throw new RuntimeException(
                     "Only packages with PACKED status can be edited"
             );
@@ -128,11 +131,11 @@ public class PackageService {
             );
         }
 
-        String orderStatus = salesOrder.getStatus();
+        SalesOrderStatus orderStatus = salesOrder.getStatus();
 
-        if ("SHIPPED".equalsIgnoreCase(orderStatus)
-                || "DELIVERED".equalsIgnoreCase(orderStatus)
-                || "CANCELLED".equalsIgnoreCase(orderStatus)) {
+        if (orderStatus == SalesOrderStatus.SHIPPED
+                || orderStatus == SalesOrderStatus.COMPLETED
+                || orderStatus == SalesOrderStatus.CANCELLED) {
             throw new RuntimeException(
                     "Cannot edit a package for this Sales Order status"
             );
@@ -448,7 +451,7 @@ public class PackageService {
 
         for (Package pkg : packages) {
 
-            if ("CANCELLED".equalsIgnoreCase(pkg.getStatus())) {
+            if (pkg.getStatus() == PackageStatus.CANCELLED) {
                 continue;
             }
 
@@ -479,4 +482,7 @@ public class PackageService {
 
         return result;
     }
+    public List<Package> getAllPackages(String status) {
+    return packageDAO.findAll(status);
+}
 }

@@ -36,6 +36,20 @@
 
     <div id="messageBox"></div>
 
+<div class="section-header">
+    <h2>All Shipments</h2>
+
+    <div class="search-box">
+        <select id="statusFilter">
+            <option value="ALL">All Statuses</option>
+            <option value="CREATED">Created</option>
+            <option value="IN_TRANSIT">In Transit</option>
+            <option value="SHIPPED">Shipped</option>
+            <option value="DELIVERED">Delivered</option>
+        </select>
+    </div>
+</div>
+
 
     <table>
 

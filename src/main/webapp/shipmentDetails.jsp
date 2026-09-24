@@ -301,6 +301,9 @@
                             <option value="CREATED">Created</option>
                             <option value="SHIPPED">Shipped</option>
                             <option value="DELIVERED">Delivered</option>
+                            <option value="IN_TRANSIT">In Transit</option>
+
+
                         </select>
                     </div>
 

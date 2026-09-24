@@ -1,7 +1,9 @@
+
 package com.erpflow.service;
 
 import com.erpflow.dao.CustomerDAO;
 import com.erpflow.model.Customer;
+import com.erpflow.model.enums.CustomerStatus;
 
 import java.util.List;
 
@@ -10,12 +12,9 @@ public class CustomerService {
     private final CustomerDAO customerDAO =
             new CustomerDAO();
 
-
-    public void createCustomer(
-            Customer customer) {
+    public void createCustomer(Customer customer) {
 
         if (customer == null) {
-
             throw new RuntimeException(
                     "Customer cannot be null"
             );
@@ -54,43 +53,34 @@ public class CustomerService {
         }
 
         if (customer.getStatus() == null) {
-
-            customer.setStatus("ACTIVE");
+            customer.setStatus(CustomerStatus.ACTIVE);
         }
 
         customerDAO.save(customer);
     }
-
 
     public List<Customer> getAllCustomers() {
 
         return customerDAO.findAll();
     }
 
-
     public Customer getCustomerById(int id) {
 
         return customerDAO.findById(id);
     }
 
-
-    public void updateCustomer(
-            Customer customer) {
+    public void updateCustomer(Customer customer) {
 
         if (customer == null) {
-
             throw new RuntimeException(
                     "Customer cannot be null"
             );
         }
 
         Customer existing =
-                customerDAO.findById(
-                        customer.getId()
-                );
+                customerDAO.findById(customer.getId());
 
         if (existing == null) {
-
             throw new RuntimeException(
                     "Customer not found"
             );
@@ -99,14 +89,12 @@ public class CustomerService {
         customerDAO.update(customer);
     }
 
-
     public void deleteCustomer(int id) {
 
         Customer existing =
                 customerDAO.findById(id);
 
         if (existing == null) {
-
             throw new RuntimeException(
                     "Customer not found"
             );

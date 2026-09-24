@@ -1,4 +1,3 @@
-
 package com.erpflow.controller;
 
 import com.erpflow.model.Item;
@@ -11,7 +10,6 @@ import com.erpflow.service.SalesOrderService;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -37,6 +35,15 @@ public class PackageServlet extends HttpServlet {
 
     // =====================================================
     // GET
+    //
+    // GET /api/packages
+    //     Returns package summaries only.
+    //
+    // GET /api/packages?salesOrderId={id}
+    //     Returns package summaries for one Sales Order.
+    //
+    // GET /api/packages/{id}
+    //     Returns one package with its items.
     // =====================================================
 
     @Override
@@ -49,6 +56,12 @@ public class PackageServlet extends HttpServlet {
         try {
             String path = request.getPathInfo();
             String salesOrderIdParam = request.getParameter("salesOrderId");
+            String status = request.getParameter("status");
+
+            // -------------------------------------------------
+            // GET packages belonging to a Sales Order.
+            // Summary only: do not fetch PackageItems here.
+            // -------------------------------------------------
 
             if (salesOrderIdParam != null && !salesOrderIdParam.isBlank()) {
                 int salesOrderId = parsePositiveId(salesOrderIdParam);
@@ -63,15 +76,22 @@ public class PackageServlet extends HttpServlet {
 
                 objectMapper.writeValue(
                         response.getWriter(),
-                        packagesWithItems(
+                        packageSummaries(
                                 packageService.getPackagesBySalesOrder(salesOrderId)
                         )
                 );
+
                 return;
             }
 
+            // -------------------------------------------------
+            // GET one package with its items.
+            // This endpoint is used by the View/details page.
+            // -------------------------------------------------
+
             if (hasPathId(path)) {
                 int packageId = parsePathId(path);
+
                 Package pkg = packageService.getPackageById(packageId);
 
                 if (pkg == null) {
@@ -86,19 +106,29 @@ public class PackageServlet extends HttpServlet {
                                 "items", packageService.getPackageItems(pkg)
                         )
                 );
+
                 return;
             }
 
+            // -------------------------------------------------
+            // GET all packages.
+            // Summary only: do not fetch PackageItems here.
+            // -------------------------------------------------
+
             objectMapper.writeValue(
                     response.getWriter(),
-                    packagesWithItems(packageService.getAllPackages())
+                    packageSummaries(packageService.getAllPackages(status))
             );
 
         } catch (NumberFormatException e) {
             sendError(response, 400, "Invalid ID");
         } catch (Exception e) {
             e.printStackTrace();
-            sendError(response, 500, safeMessage(e, "Failed to retrieve packages"));
+            sendError(
+                    response,
+                    500,
+                    safeMessage(e, "Failed to retrieve packages")
+            );
         }
     }
 
@@ -127,6 +157,7 @@ public class PackageServlet extends HttpServlet {
             }
 
             int salesOrderId = root.get("salesOrderId").asInt();
+
             SalesOrder salesOrder =
                     salesOrderService.getSalesOrderById(salesOrderId);
 
@@ -200,7 +231,8 @@ public class PackageServlet extends HttpServlet {
 
             int packageId = parsePathId(path);
 
-            Package existingPackage = packageService.getPackageById(packageId);
+            Package existingPackage =
+                    packageService.getPackageById(packageId);
 
             if (existingPackage == null) {
                 sendError(response, 404, "Package not found");
@@ -214,7 +246,7 @@ public class PackageServlet extends HttpServlet {
                 return;
             }
 
-            // Editing must not change the Sales Order associated with a package.
+            // A package cannot be reassigned to another Sales Order.
             if (root.has("salesOrderId")) {
                 JsonNode orderIdNode = root.get("salesOrderId");
 
@@ -224,6 +256,7 @@ public class PackageServlet extends HttpServlet {
                 }
 
                 int submittedOrderId = orderIdNode.asInt();
+
                 int existingOrderId = existingPackage.getSalesOrder() == null
                         ? -1
                         : existingPackage.getSalesOrder().getId();
@@ -284,6 +317,7 @@ public class PackageServlet extends HttpServlet {
     // =====================================================
 
     private List<PackageItem> parseItems(JsonNode itemsNode) {
+
         if (itemsNode == null || !itemsNode.isArray() || itemsNode.isEmpty()) {
             throw new IllegalArgumentException(
                     "Package must contain at least one item"
@@ -293,6 +327,7 @@ public class PackageServlet extends HttpServlet {
         List<PackageItem> packageItems = new ArrayList<>();
 
         for (JsonNode itemNode : itemsNode) {
+
             if (itemNode == null || !itemNode.isObject()) {
                 throw new IllegalArgumentException(
                         "Each package item must be a JSON object"
@@ -302,6 +337,7 @@ public class PackageServlet extends HttpServlet {
             if (!isPositiveInteger(itemNode.get("itemId"))
                     || !isPositiveInteger(itemNode.get("salesOrderItemId"))
                     || !isPositiveInteger(itemNode.get("quantity"))) {
+
                 throw new IllegalArgumentException(
                         "Each package item requires positive integer itemId, "
                                 + "salesOrderItemId and quantity"
@@ -332,10 +368,15 @@ public class PackageServlet extends HttpServlet {
     }
 
     // =====================================================
-    // PACKAGES WITH ITEMS
+    // PACKAGE SUMMARY RESPONSE
+    //
+    // Intentionally does not call getPackageItems().
+    // The serialized Package object is returned without
+    // adding an "items" array.
     // =====================================================
 
-    private List<ObjectNode> packagesWithItems(List<Package> packages) {
+    private List<ObjectNode> packageSummaries(List<Package> packages) {
+
         List<ObjectNode> result = new ArrayList<>();
 
         if (packages == null) {
@@ -344,11 +385,6 @@ public class PackageServlet extends HttpServlet {
 
         for (Package pkg : packages) {
             ObjectNode packageNode = objectMapper.valueToTree(pkg);
-
-            ArrayNode itemsNode =
-                    objectMapper.valueToTree(packageService.getPackageItems(pkg));
-
-            packageNode.set("items", itemsNode);
             result.add(packageNode);
         }
 

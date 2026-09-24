@@ -3,11 +3,13 @@ package com.erpflow.dao;
 
 import com.erpflow.model.PurchaseOrder;
 import com.erpflow.model.Supplier;
+import com.erpflow.model.enums.PurchaseOrderStatus;
 import com.erpflow.util.DBConnection;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import com.erpflow.model.enums.PurchaseOrderStatus;
 
 public class PurchaseOrderDAO {
 
@@ -25,7 +27,7 @@ public class PurchaseOrderDAO {
                 )
         ) {
             statement.setInt(1, purchaseOrder.getSupplier().getId());
-            statement.setString(2, purchaseOrder.getStatus());
+            statement.setString(2, purchaseOrder.getStatus().name());
             statement.setTimestamp(
                     3,
                     Timestamp.valueOf(purchaseOrder.getOrderDate())
@@ -118,7 +120,7 @@ public class PurchaseOrderDAO {
                 PreparedStatement statement = connection.prepareStatement(sql)
         ) {
             statement.setInt(1, purchaseOrder.getSupplier().getId());
-            statement.setString(2, purchaseOrder.getStatus());
+            statement.setString(2, purchaseOrder.getStatus().name());
             statement.setTimestamp(
                     3,
                     Timestamp.valueOf(purchaseOrder.getOrderDate())
@@ -145,7 +147,11 @@ public class PurchaseOrderDAO {
         PurchaseOrder purchaseOrder = new PurchaseOrder();
 
         purchaseOrder.setId(rs.getInt("id"));
-        purchaseOrder.setStatus(rs.getString("status"));
+
+        String status = rs.getString("status");
+        if (status != null) {
+            purchaseOrder.setStatus(PurchaseOrderStatus.valueOf(status));
+        }
 
         Timestamp orderTimestamp = rs.getTimestamp("orderDate");
         if (orderTimestamp != null) {

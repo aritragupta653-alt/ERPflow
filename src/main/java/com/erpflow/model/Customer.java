@@ -1,28 +1,16 @@
+
 package com.erpflow.model;
 
-import jakarta.persistence.*;
-
-@Entity
+import com.erpflow.model.enums.CustomerStatus;
 
 public class Customer {
 
-    
-    
     private int id;
-
-    
     private String name;
-
-    
     private String email;
-
     private String phone;
-
-
     private String address;
-
-    
-    private String status;
+    private CustomerStatus status;
 
     public int getId() {
         return id;
@@ -64,11 +52,11 @@ public class Customer {
         this.address = address;
     }
 
-    public String getStatus() {
+    public CustomerStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(CustomerStatus status) {
         this.status = status;
     }
 }

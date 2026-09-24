@@ -1,4 +1,3 @@
-
 package com.erpflow.service;
 
 import com.erpflow.dao.PurchaseOrderDAO;
@@ -6,6 +5,7 @@ import com.erpflow.dao.PurchaseOrderItemDAO;
 import com.erpflow.model.Item;
 import com.erpflow.model.PurchaseOrder;
 import com.erpflow.model.PurchaseOrderItem;
+import com.erpflow.model.enums.PurchaseOrderStatus;
 
 import java.util.List;
 
@@ -39,7 +39,7 @@ public class PurchaseOrderService {
             orderItem.setReceivedQuantity(0);
         }
 
-        purchaseOrder.setStatus("CREATED");
+        purchaseOrder.setStatus(PurchaseOrderStatus.CREATED);
         purchaseOrderDAO.save(purchaseOrder);
 
         for (PurchaseOrderItem orderItem : items) {
@@ -71,8 +71,10 @@ public class PurchaseOrderService {
             throw new RuntimeException("Purchase order not found");
         }
 
-        if (!"CREATED".equalsIgnoreCase(existing.getStatus())) {
-            throw new RuntimeException("Only purchase orders that have not been received can be edited");
+        if (existing.getStatus() != PurchaseOrderStatus.CREATED) {
+            throw new RuntimeException(
+                    "Only purchase orders that have not been received can be edited"
+            );
         }
 
         if (updatedOrder == null || updatedOrder.getSupplier() == null) {
@@ -117,6 +119,7 @@ public class PurchaseOrderService {
         List<PurchaseOrderItem> lines = purchaseOrderItemDAO.findByPurchaseOrder(order);
 
         boolean hasReceivableGoods = false;
+
         for (PurchaseOrderItem line : lines) {
             Item item = line.getItem();
 
@@ -128,7 +131,9 @@ public class PurchaseOrderService {
         }
 
         if (!hasReceivableGoods) {
-            throw new RuntimeException("No outstanding inventory quantities remain to receive");
+            throw new RuntimeException(
+                    "No outstanding inventory quantities remain to receive"
+            );
         }
 
         // Compatibility method: receive all remaining inventory-tracked goods.
@@ -143,6 +148,7 @@ public class PurchaseOrderService {
 
             if (remaining > 0) {
                 inventoryService.stockIn(item, remaining);
+
                 purchaseOrderItemDAO.updateReceivedQuantity(
                         line.getId(),
                         line.getRecievedQuantity() + remaining
@@ -153,7 +159,10 @@ public class PurchaseOrderService {
         refreshStatus(order, lines);
     }
 
-    public void receivePurchaseOrder(int purchaseOrderId, List<ReceiveLine> receivedLines) {
+    public void receivePurchaseOrder(
+            int purchaseOrderId,
+            List<ReceiveLine> receivedLines) {
+
         PurchaseOrder order = purchaseOrderDAO.findById(purchaseOrderId);
 
         if (order == null) {
@@ -164,8 +173,10 @@ public class PurchaseOrderService {
             throw new RuntimeException("Enter at least one quantity to receive");
         }
 
-        List<PurchaseOrderItem> orderLines = purchaseOrderItemDAO.findByPurchaseOrder(order);
+        List<PurchaseOrderItem> orderLines =
+                purchaseOrderItemDAO.findByPurchaseOrder(order);
 
+        // Validate all requested lines before changing inventory.
         for (ReceiveLine receiveLine : receivedLines) {
             PurchaseOrderItem matched = null;
 
@@ -177,22 +188,30 @@ public class PurchaseOrderService {
             }
 
             if (matched == null) {
-                throw new RuntimeException("Purchase order item not found: " + receiveLine.purchaseOrderItemId);
+                throw new RuntimeException(
+                        "Purchase order item not found: "
+                                + receiveLine.purchaseOrderItemId
+                );
             }
 
             Item item = matched.getItem();
 
             if (item == null || !item.isTrackInventory()) {
-                throw new RuntimeException("Only inventory-tracked goods can be received");
+                throw new RuntimeException(
+                        "Only inventory-tracked goods can be received"
+                );
             }
 
             if (receiveLine.quantity <= 0) {
-                throw new RuntimeException("Receive quantity must be greater than zero");
+                throw new RuntimeException(
+                        "Receive quantity must be greater than zero"
+                );
             }
 
             if (receiveLine.quantity > matched.getRemainingQuantity()) {
                 throw new RuntimeException(
-                        "Receive quantity exceeds outstanding quantity for " + item.getName()
+                        "Receive quantity exceeds outstanding quantity for "
+                                + item.getName()
                 );
             }
         }
@@ -201,14 +220,20 @@ public class PurchaseOrderService {
         for (ReceiveLine receiveLine : receivedLines) {
             for (PurchaseOrderItem line : orderLines) {
                 if (line.getId() == receiveLine.purchaseOrderItemId) {
-                    inventoryService.stockIn(line.getItem(), receiveLine.quantity);
+                    inventoryService.stockIn(
+                            line.getItem(),
+                            receiveLine.quantity
+                    );
+
+                    int updatedReceivedQuantity =
+                            line.getRecievedQuantity() + receiveLine.quantity;
 
                     purchaseOrderItemDAO.updateReceivedQuantity(
                             line.getId(),
-                            line.getRecievedQuantity() + receiveLine.quantity
+                            updatedReceivedQuantity
                     );
 
-                    line.setReceivedQuantity(line.getRecievedQuantity() + receiveLine.quantity);
+                    line.setReceivedQuantity(updatedReceivedQuantity);
                     break;
                 }
             }
@@ -217,7 +242,10 @@ public class PurchaseOrderService {
         refreshStatus(order, orderLines);
     }
 
-    private void refreshStatus(PurchaseOrder order, List<PurchaseOrderItem> lines) {
+    private void refreshStatus(
+            PurchaseOrder order,
+            List<PurchaseOrderItem> lines) {
+
         boolean anyReceived = false;
         boolean allReceived = true;
 
@@ -236,11 +264,11 @@ public class PurchaseOrderService {
         }
 
         if (allReceived) {
-            order.setStatus("RECEIVED");
+            order.setStatus(PurchaseOrderStatus.RECEIVED);
         } else if (anyReceived) {
-            order.setStatus("PARTIALLY_RECEIVED");
+            order.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
         } else {
-            order.setStatus("CREATED");
+            order.setStatus(PurchaseOrderStatus.CREATED);
         }
 
         purchaseOrderDAO.update(order);
@@ -252,11 +280,16 @@ public class PurchaseOrderService {
         }
 
         if (item.getItem().isTrackInventory() && item.getQuantity() <= 0) {
-            throw new RuntimeException("Quantity must be greater than zero for inventory-tracked goods");
+            throw new RuntimeException(
+                    "Quantity must be greater than zero for inventory-tracked goods"
+            );
         }
 
-        if (item.getPurchasePrice() == null || item.getPurchasePrice().signum() < 0) {
-            throw new RuntimeException("Purchase price must be zero or greater");
+        if (item.getPurchasePrice() == null
+                || item.getPurchasePrice().signum() < 0) {
+            throw new RuntimeException(
+                    "Purchase price must be zero or greater"
+            );
         }
     }
 

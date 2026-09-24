@@ -1,6 +1,15 @@
 const apiUrl = "/erpflow/api/shipments";
 
-document.addEventListener("DOMContentLoaded", loadShipments);
+document.addEventListener("DOMContentLoaded", ()=>{
+
+
+    loadShipments();
+
+document.getElementById("statusFilter")
+    ?.addEventListener("change", loadShipments);
+    
+    
+});
 
 
 async function loadShipments() {
@@ -8,10 +17,19 @@ async function loadShipments() {
     const tableBody =
         document.getElementById("shipmentsTableBody");
 
+const selectedStatus =
+    document.getElementById("statusFilter")?.value || "ALL";
+
+
+
     try {
+        const url = selectedStatus === "ALL"
+    ? apiUrl
+    : `${apiUrl}?status=${encodeURIComponent(selectedStatus)}`;
+
 
         const response =
-            await fetch(apiUrl);
+            await fetch(url);
 
         if (!response.ok) {
             throw new Error("Failed to load shipments");

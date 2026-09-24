@@ -1,36 +1,27 @@
+
 package com.erpflow.model;
 
-import jakarta.persistence.*;
+import com.erpflow.model.enums.ItemStatus;
 import java.math.BigDecimal;
 
-@Entity
-@Table(name = "items")
 public class Item {
 
     private int id;
-
     private String name;
-
     private String sku;
-
     private String description;
-
     private BigDecimal purchasePrice;
-
     private BigDecimal sellingPrice;
-
     private Integer reorderLevel;
-
-    private String status;
-
+    private ItemStatus status;
     private String itemType = "GOODS";
     private boolean trackInventory = true;
+    private double length;
+    private double width;
+    private double height;
 
-    // Required by Hibernate
     public Item() {
     }
-
-    // Getters and Setters
 
     public int getId() {
         return id;
@@ -87,27 +78,51 @@ public class Item {
     public void setReorderLevel(Integer reorderLevel) {
         this.reorderLevel = reorderLevel;
     }
-    public String getStatus() {
-    return status;
-}
 
-public void setStatus(String status) {
-    this.status = status;
-}
+    public ItemStatus getStatus() {
+        return status;
+    }
 
-public String getItemType() {
-    return itemType;
-}
+    public void setStatus(ItemStatus status) {
+        this.status = status;
+    }
 
-public void setItemType(String itemType) {
-    this.itemType = itemType;
-}
+    public String getItemType() {
+        return itemType;
+    }
 
-public boolean isTrackInventory() {
-    return trackInventory;
-}
+    public void setItemType(String itemType) {
+        this.itemType = itemType;
+    }
 
-public void setTrackInventory(boolean trackInventory) {
-    this.trackInventory = trackInventory;
-}
+    public boolean isTrackInventory() {
+        return trackInventory;
+    }
+
+    public void setTrackInventory(boolean trackInventory) {
+        this.trackInventory = trackInventory;
+    }
+    public double getLength() {
+    return length;
+    }
+
+    public void setLength(double length) {
+    this.length = length;
+    }
+
+    public double getWidth() {
+    return width;
+    }
+
+    public void setWidth(double width) {
+    this.width = width;
+    }
+
+    public double getHeight() {
+    return height;
+    }
+
+    public void setHeight(double height) {
+    this.height = height;
+    }
 }

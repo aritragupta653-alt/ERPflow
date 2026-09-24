@@ -1,7 +1,10 @@
+
 package com.erpflow.dao;
 
 import com.erpflow.model.Customer;
 import com.erpflow.model.SalesOrder;
+import com.erpflow.model.enums.CustomerStatus;
+import com.erpflow.model.enums.SalesOrderStatus;
 import com.erpflow.util.DBConnection;
 
 import java.sql.*;
@@ -9,7 +12,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SalesOrderDAO {
-
 
     // =========================================================
     // SAVE
@@ -31,11 +33,8 @@ public class SalesOrderDAO {
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """;
 
-
         try (
-                Connection connection =
-                        DBConnection.getConnection();
-
+                Connection connection = DBConnection.getConnection();
                 PreparedStatement statement =
                         connection.prepareStatement(
                                 sql,
@@ -45,14 +44,12 @@ public class SalesOrderDAO {
 
             statement.setTimestamp(
                     1,
-                    Timestamp.valueOf(
-                            salesOrder.getOrderDate()
-                    )
+                    Timestamp.valueOf(salesOrder.getOrderDate())
             );
 
             statement.setString(
                     2,
-                    salesOrder.getStatus()
+                    salesOrder.getStatus().name()
             );
 
             statement.setInt(
@@ -60,41 +57,17 @@ public class SalesOrderDAO {
                     salesOrder.getCustomer().getId()
             );
 
-            statement.setBigDecimal(
-                    4,
-                    salesOrder.getTaxRate()
-            );
-
-            statement.setBigDecimal(
-                    5,
-                    salesOrder.getSubtotal()
-            );
-
-            statement.setBigDecimal(
-                    6,
-                    salesOrder.getTaxAmount()
-            );
-
-            statement.setBigDecimal(
-                    7,
-                    salesOrder.getTotalAmount()
-            );
-
+            statement.setBigDecimal(4, salesOrder.getTaxRate());
+            statement.setBigDecimal(5, salesOrder.getSubtotal());
+            statement.setBigDecimal(6, salesOrder.getTaxAmount());
+            statement.setBigDecimal(7, salesOrder.getTotalAmount());
 
             statement.executeUpdate();
 
-
-            try (
-                    ResultSet rs =
-                            statement.getGeneratedKeys()
-            ) {
+            try (ResultSet rs = statement.getGeneratedKeys()) {
 
                 if (rs.next()) {
-
-                    salesOrder.setId(
-                            rs.getInt(1)
-                    );
-
+                    salesOrder.setId(rs.getInt(1));
                 }
             }
 
@@ -113,74 +86,66 @@ public class SalesOrderDAO {
     // =========================================================
 
     public List<SalesOrder> findAll() {
+    return findAll(null);
+}
 
-        String sql = """
-                SELECT
-                    so.id,
-                    so.orderDate,
-                    so.status,
-                    so.customer_id,
+public List<SalesOrder> findAll(String status) {
 
-                    so.tax_rate AS tax_rate,
-                    so.subtotal AS subtotal,
-                    so.tax_amount AS tax_amount,
-                    so.total_amount AS total_amount,
+    boolean filterByStatus = status != null && !status.isBlank();
 
-                    c.name AS customer_name,
-                    c.address AS customer_address,
-                    c.email AS customer_email,
-                    c.phone AS customer_phone,
-                    c.status AS customer_status
+    String sql = """
+            SELECT
+                so.id,
+                so.orderDate,
+                so.status,
+                so.customer_id,
 
-                FROM sales_orders so
+                so.tax_rate AS tax_rate,
+                so.subtotal AS subtotal,
+                so.tax_amount AS tax_amount,
+                so.total_amount AS total_amount,
 
-                JOIN customers c
-                    ON so.customer_id = c.id
+                c.name AS customer_name,
+                c.address AS customer_address,
+                c.email AS customer_email,
+                c.phone AS customer_phone,
+                c.status AS customer_status
 
-                ORDER BY so.orderDate DESC
-                """;
+            FROM sales_orders so
 
+            JOIN customers c
+                ON so.customer_id = c.id
+            """ +
+            (filterByStatus ? " WHERE so.status = ? " : "") +
+            " ORDER BY so.orderDate DESC";
 
-        List<SalesOrder> orders =
-                new ArrayList<>();
+    List<SalesOrder> orders = new ArrayList<>();
 
+    try (
+            Connection connection = DBConnection.getConnection();
+            PreparedStatement statement =
+                    connection.prepareStatement(sql)
+    ) {
 
-        try (
-                Connection connection =
-                        DBConnection.getConnection();
-
-                PreparedStatement statement =
-                        connection.prepareStatement(sql);
-
-                ResultSet rs =
-                        statement.executeQuery()
-        ) {
-
-            while (rs.next()) {
-
-                SalesOrder order =
-                        mapSalesOrder(rs);
-
-                orders.add(order);
-            }
-
-        } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Error fetching sales orders",
-                    e
-            );
+        if (filterByStatus) {
+            statement.setString(1, status);
         }
 
+        try (ResultSet rs = statement.executeQuery()) {
+            while (rs.next()) {
+                orders.add(mapSalesOrder(rs));
+            }
+        }
 
-        return orders;
+    } catch (SQLException e) {
+        throw new RuntimeException(
+                "Error fetching sales orders",
+                e
+        );
     }
 
-
-    // =========================================================
-    // FIND BY ID
-    // =========================================================
-
+    return orders;
+}
     public SalesOrder findById(int id) {
 
         String sql = """
@@ -209,27 +174,18 @@ public class SalesOrderDAO {
                 WHERE so.id = ?
                 """;
 
-
         try (
-                Connection connection =
-                        DBConnection.getConnection();
-
+                Connection connection = DBConnection.getConnection();
                 PreparedStatement statement =
                         connection.prepareStatement(sql)
         ) {
 
             statement.setInt(1, id);
 
-
-            try (
-                    ResultSet rs =
-                            statement.executeQuery()
-            ) {
+            try (ResultSet rs = statement.executeQuery()) {
 
                 if (rs.next()) {
-
                     return mapSalesOrder(rs);
-
                 }
             }
 
@@ -240,7 +196,6 @@ public class SalesOrderDAO {
                     e
             );
         }
-
 
         return null;
     }
@@ -266,25 +221,20 @@ public class SalesOrderDAO {
                 WHERE id = ?
                 """;
 
-
         try (
-                Connection connection =
-                        DBConnection.getConnection();
-
+                Connection connection = DBConnection.getConnection();
                 PreparedStatement statement =
                         connection.prepareStatement(sql)
         ) {
 
             statement.setTimestamp(
                     1,
-                    Timestamp.valueOf(
-                            salesOrder.getOrderDate()
-                    )
+                    Timestamp.valueOf(salesOrder.getOrderDate())
             );
 
             statement.setString(
                     2,
-                    salesOrder.getStatus()
+                    salesOrder.getStatus().name()
             );
 
             statement.setInt(
@@ -292,31 +242,11 @@ public class SalesOrderDAO {
                     salesOrder.getCustomer().getId()
             );
 
-            statement.setBigDecimal(
-                    4,
-                    salesOrder.getTaxRate()
-            );
-
-            statement.setBigDecimal(
-                    5,
-                    salesOrder.getSubtotal()
-            );
-
-            statement.setBigDecimal(
-                    6,
-                    salesOrder.getTaxAmount()
-            );
-
-            statement.setBigDecimal(
-                    7,
-                    salesOrder.getTotalAmount()
-            );
-
-            statement.setInt(
-                    8,
-                    salesOrder.getId()
-            );
-
+            statement.setBigDecimal(4, salesOrder.getTaxRate());
+            statement.setBigDecimal(5, salesOrder.getSubtotal());
+            statement.setBigDecimal(6, salesOrder.getTaxAmount());
+            statement.setBigDecimal(7, salesOrder.getTotalAmount());
+            statement.setInt(8, salesOrder.getId());
 
             statement.executeUpdate();
 
@@ -334,104 +264,78 @@ public class SalesOrderDAO {
     // MAP RESULT SET
     // =========================================================
 
-    private SalesOrder mapSalesOrder(
-            ResultSet rs
-    ) throws SQLException {
+    private SalesOrder mapSalesOrder(ResultSet rs) throws SQLException {
 
-        SalesOrder order =
-                new SalesOrder();
+        SalesOrder order = new SalesOrder();
 
+        order.setId(rs.getInt("id"));
 
-        order.setId(
-                rs.getInt("id")
-        );
-
-
-        Timestamp timestamp =
-                rs.getTimestamp("orderDate");
-
+        Timestamp timestamp = rs.getTimestamp("orderDate");
 
         if (timestamp != null) {
-
-            order.setOrderDate(
-                    timestamp.toLocalDateTime()
-            );
-
+            order.setOrderDate(timestamp.toLocalDateTime());
         }
 
+        String status = rs.getString("status");
 
         order.setStatus(
-                rs.getString("status")
+                status == null
+                        ? null
+                        : SalesOrderStatus.valueOf(status)
         );
-
 
         // TAX VALUES
 
-        order.setTaxRate(
-                rs.getBigDecimal("tax_rate")
-        );
-
-        order.setSubtotal(
-                rs.getBigDecimal("subtotal")
-        );
-
-        order.setTaxAmount(
-                rs.getBigDecimal("tax_amount")
-        );
-
-        order.setTotalAmount(
-                rs.getBigDecimal("total_amount")
-        );
-
+        order.setTaxRate(rs.getBigDecimal("tax_rate"));
+        order.setSubtotal(rs.getBigDecimal("subtotal"));
+        order.setTaxAmount(rs.getBigDecimal("tax_amount"));
+        order.setTotalAmount(rs.getBigDecimal("total_amount"));
 
         // CUSTOMER
 
-        Customer customer =
-                new Customer();
+        Customer customer = new Customer();
 
+        customer.setId(rs.getInt("customer_id"));
+        customer.setName(rs.getString("customer_name"));
+        customer.setAddress(rs.getString("customer_address"));
+        customer.setEmail(rs.getString("customer_email"));
+        customer.setPhone(rs.getString("customer_phone"));
 
-        customer.setId(
-                rs.getInt("customer_id")
-        );
-
-        customer.setName(
-                rs.getString("customer_name")
-        );
-
-        customer.setAddress(
-                rs.getString("customer_address")
-        );
-
-        customer.setEmail(
-                rs.getString("customer_email")
-        );
-
-        customer.setPhone(
-                rs.getString("customer_phone")
-        );
+        String customerStatus = rs.getString("customer_status");
 
         customer.setStatus(
-                rs.getString("customer_status")
+                customerStatus == null
+                        ? null
+                        : CustomerStatus.valueOf(customerStatus)
         );
 
-
         order.setCustomer(customer);
-
 
         return order;
     }
 
 
     /** Remove all persisted lines for an order before inserting its replacement lines. */
-public void deleteBySalesOrderId(int salesOrderId) {
-    String sql = "DELETE FROM sales_order_items WHERE sales_order_id = ?";
+    public void deleteBySalesOrderId(int salesOrderId) {
 
-    try (Connection connection = DBConnection.getConnection();
-         PreparedStatement statement = connection.prepareStatement(sql)) {
-        statement.setInt(1, salesOrderId);
-        statement.executeUpdate();
-    } catch (SQLException e) {
-        throw new RuntimeException("Error replacing sales order items", e);
+        String sql =
+                "DELETE FROM sales_order_items WHERE sales_order_id = ?";
+
+        try (
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement statement =
+                        connection.prepareStatement(sql)
+        ) {
+
+            statement.setInt(1, salesOrderId);
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+
+            throw new RuntimeException(
+                    "Error replacing sales order items",
+                    e
+            );
+        }
     }
-}
 }

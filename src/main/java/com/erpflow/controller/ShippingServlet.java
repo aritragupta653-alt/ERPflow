@@ -5,13 +5,12 @@ import com.erpflow.service.ShippingRateService;
 import com.erpflow.service.ShippingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,12 +24,10 @@ public class ShippingServlet extends HttpServlet {
 
     private final ShippingRateService shippingRateService =
             new ShippingRateService();
-private final ObjectMapper objectMapper =
-            new ObjectMapper()
-                    .registerModule(
-                            new JavaTimeModule()
-                    );
 
+    private final ObjectMapper objectMapper =
+            new ObjectMapper()
+                    .registerModule(new JavaTimeModule());
 
     @Override
     protected void doPost(
@@ -42,11 +39,9 @@ private final ObjectMapper objectMapper =
         response.setCharacterEncoding("UTF-8");
 
         try {
-
             String path = request.getPathInfo();
 
-            JsonNode root =
-                    objectMapper.readTree(request.getReader());
+            JsonNode root = objectMapper.readTree(request.getReader());
 
             // =====================================================
             // CALCULATE SHIPPING RATE
@@ -54,48 +49,47 @@ private final ObjectMapper objectMapper =
             // =====================================================
 
             if ("/rate".equals(path)) {
+                JsonNode packageIdsNode = root.get("packageIds");
 
-                JsonNode packageIdsNode =
-                        root.get("packageIds");
-
-                if (packageIdsNode == null ||
-                        !packageIdsNode.isArray() ||
-                        packageIdsNode.isEmpty()) {
-
+                if (packageIdsNode == null
+                        || !packageIdsNode.isArray()
+                        || packageIdsNode.isEmpty()) {
                     throw new RuntimeException(
                             "packageIds must be a non-empty array");
                 }
 
-                List<Integer> packageIds =
-                        new ArrayList<>();
+                List<Integer> packageIds = new ArrayList<>();
 
                 for (JsonNode node : packageIdsNode) {
-                    packageIds.add(node.asInt());
+                    int packageId = node.asInt();
+
+                    if (packageId <= 0) {
+                        throw new RuntimeException(
+                                "Invalid packageId: " + packageId);
+                    }
+
+                    packageIds.add(packageId);
                 }
 
                 JsonNode carrierServiceNode =
                         root.get("carrierServiceId");
 
-                if (carrierServiceNode == null ||
-                        carrierServiceNode.asInt() <= 0) {
-
+                if (carrierServiceNode == null
+                        || carrierServiceNode.asInt() <= 0) {
                     throw new RuntimeException(
                             "Valid carrierServiceId is required");
                 }
 
-                int carrierServiceId =
-                        carrierServiceNode.asInt();
+                int carrierServiceId = carrierServiceNode.asInt();
 
                 ShippingRateService.ShippingRate rate =
                         shippingRateService.calculateRate(
                                 packageIds,
-                                carrierServiceId
-                        );
+                                carrierServiceId);
 
                 objectMapper.writeValue(
                         response.getWriter(),
-                        rate
-                );
+                        rate);
 
                 return;
             }
@@ -105,7 +99,7 @@ private final ObjectMapper objectMapper =
             // POST /api/shipping
             // =====================================================
 
-            if (!"/".equals(path) && path != null) {
+            if (path != null && !"/".equals(path)) {
                 throw new RuntimeException(
                         "Invalid shipping endpoint");
             }
@@ -114,36 +108,30 @@ private final ObjectMapper objectMapper =
             // Sales Order
             // -----------------------------
 
-            JsonNode salesOrderNode =
-                    root.get("salesOrderId");
+            JsonNode salesOrderNode = root.get("salesOrderId");
 
-            if (salesOrderNode == null ||
-                    salesOrderNode.asInt() <= 0) {
-
+            if (salesOrderNode == null
+                    || salesOrderNode.asInt() <= 0) {
                 throw new RuntimeException(
                         "Valid salesOrderId is required");
             }
 
-            int salesOrderId =
-                    salesOrderNode.asInt();
+            int salesOrderId = salesOrderNode.asInt();
 
             // -----------------------------
             // Packages
             // -----------------------------
 
-            JsonNode packageIdsNode =
-                    root.get("packageIds");
+            JsonNode packageIdsNode = root.get("packageIds");
 
-            if (packageIdsNode == null ||
-                    !packageIdsNode.isArray() ||
-                    packageIdsNode.isEmpty()) {
-
+            if (packageIdsNode == null
+                    || !packageIdsNode.isArray()
+                    || packageIdsNode.isEmpty()) {
                 throw new RuntimeException(
                         "packageIds must be a non-empty array");
             }
 
-            List<Integer> packageIds =
-                    new ArrayList<>();
+            List<Integer> packageIds = new ArrayList<>();
 
             for (JsonNode node : packageIdsNode) {
                 int packageId = node.asInt();
@@ -163,70 +151,53 @@ private final ObjectMapper objectMapper =
             JsonNode carrierServiceNode =
                     root.get("carrierServiceId");
 
-            if (carrierServiceNode == null ||
-                    carrierServiceNode.asInt() <= 0) {
-
+            if (carrierServiceNode == null
+                    || carrierServiceNode.asInt() <= 0) {
                 throw new RuntimeException(
                         "Valid carrierServiceId is required");
             }
 
-            int carrierServiceId =
-                    carrierServiceNode.asInt();
+            int carrierServiceId = carrierServiceNode.asInt();
 
             // -----------------------------
             // Create Shipment object
             // -----------------------------
 
-            Shipment shipment =
-                    new Shipment();
+            Shipment shipment = new Shipment();
 
             if (root.has("shippingMethod")) {
-
                 shipment.setShippingMethod(
-                        root.get("shippingMethod").asText()
-                );
+                        root.get("shippingMethod").asText());
             }
 
             if (root.has("trackingNumber")) {
-
                 shipment.setTrackingNumber(
-                        root.get("trackingNumber").asText()
-                );
+                        root.get("trackingNumber").asText());
             }
 
             if (root.has("trackingUrl")) {
-
                 shipment.setTrackingUrl(
-                        root.get("trackingUrl").asText()
-                );
+                        root.get("trackingUrl").asText());
             }
 
             if (root.has("shippingCharge")) {
-
                 shipment.setShippingCharge(
-                        root.get("shippingCharge").asDouble()
-                );
+                        root.get("shippingCharge").asDouble());
             }
 
             if (root.has("dispatchAddress")) {
-
                 shipment.setDispatchAddress(
-                        root.get("dispatchAddress").asText()
-                );
+                        root.get("dispatchAddress").asText());
             }
 
             if (root.has("destinationAddress")) {
-
                 shipment.setDestinationAddress(
-                        root.get("destinationAddress").asText()
-                );
+                        root.get("destinationAddress").asText());
             }
 
             if (root.has("notes")) {
-
                 shipment.setNotes(
-                        root.get("notes").asText()
-                );
+                        root.get("notes").asText());
             }
 
             // =====================================================
@@ -238,30 +209,20 @@ private final ObjectMapper objectMapper =
                             salesOrderId,
                             packageIds,
                             carrierServiceId,
-                            shipment
-                    );
+                            shipment);
 
-            response.setStatus(
-                    HttpServletResponse.SC_CREATED
-            );
+            response.setStatus(HttpServletResponse.SC_CREATED);
 
             objectMapper.writeValue(
                     response.getWriter(),
-                    createdShipment
-            );
+                    createdShipment);
 
         } catch (Exception e) {
-
-            response.setStatus(
-                    HttpServletResponse.SC_BAD_REQUEST
-            );
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 
             objectMapper.writeValue(
                     response.getWriter(),
-                    new ErrorResponse(
-                            e.getMessage()
-                    )
-            );
+                    new ErrorResponse(e.getMessage()));
         }
     }
 

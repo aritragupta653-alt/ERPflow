@@ -11,6 +11,10 @@ import com.erpflow.util.DBConnection;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import com.erpflow.model.enums.PackageStatus;
+import com.erpflow.model.enums.SalesOrderStatus;
+import com.erpflow.model.enums.ShipmentStatus;
+import com.erpflow.model.enums.CarrierStatus;
 
 public class ShipmentDAO {
 
@@ -53,7 +57,7 @@ public class ShipmentDAO {
                     2,
                     Timestamp.valueOf(shipment.getShipmentDate())
             );
-            statement.setString(3, shipment.getStatus());
+            statement.setString(3, shipment.getStatus().name());
             statement.setString(4, shipment.getShippingMethod());
 
             if (shipment.getCarrier() != null) {
@@ -111,6 +115,7 @@ public class ShipmentDAO {
             }
 
         } catch (SQLException e) {
+            e.printStackTrace();
             throw new RuntimeException(
                     "Failed to save shipment",
                     e
@@ -157,7 +162,7 @@ public class ShipmentDAO {
                     )
             );
 
-            statement.setString(3, shipment.getStatus());
+            statement.setString(3, shipment.getStatus().name());
             statement.setString(4, shipment.getShippingMethod());
 
             if (shipment.getCarrier() != null) {
@@ -224,48 +229,71 @@ public class ShipmentDAO {
     // FIND ALL
     // =========================
 
-    public List<Shipment> findAll() {
+    
+public List<Shipment> findAll() {
+    return findAll("ALL");
+}
 
-        String sql = """
-                SELECT
-                    s.id,
-                    s.shipment_number,
-                    s.shipmentDate,
-                    s.status,
-                    s.shipping_method,
-                    s.tracking_number,
-                    s.tracking_url,
-                    s.shipping_charge,
-                    s.dispatch_address,
-                    s.destination_address,
-                    s.estimated_delivery_date,
-                    s.actual_delivery_date,
-                    s.notes,
-                    c.id AS carrier_id,
-                    c.name AS carrier_name,
-                    c.code AS carrier_code,
-                    
-                    c.status AS carrier_status,
-                    cs.id AS service_id,
-                    cs.name AS service_name,
-                    cs.estimated_days,
-                    cs.base_charge AS service_base_charge,
-                    cs.charge_per_kg AS service_charge_per_kg
-                FROM shipments s
-                LEFT JOIN carriers c
-                    ON s.carrier_id = c.id
-                LEFT JOIN carrier_services cs
-                    ON s.carrier_service_id = cs.id
-                ORDER BY s.shipmentDate DESC
-                """;
+public List<Shipment> findAll(String status) {
 
-        List<Shipment> shipments = new ArrayList<>();
+    String normalizedStatus =
+            (status == null || status.isBlank())
+                    ? "ALL"
+                    : status.trim().toUpperCase();
 
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql);
-             ResultSet rs = statement.executeQuery()) {
+    if (!normalizedStatus.equals("ALL")) {
+        try {
+            ShipmentStatus.valueOf(normalizedStatus);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Invalid shipment status: " + status
+            );
+        }
+    }
 
+    String sql = """
+            SELECT
+                s.id,
+                s.shipment_number,
+                s.shipmentDate,
+                s.status,
+                s.shipping_method,
+                s.tracking_number,
+                s.tracking_url,
+                s.shipping_charge,
+                s.dispatch_address,
+                s.destination_address,
+                s.estimated_delivery_date,
+                s.actual_delivery_date,
+                s.notes,
+                c.id AS carrier_id,
+                c.name AS carrier_name,
+                c.code AS carrier_code,
+                c.status AS carrier_status,
+                cs.id AS service_id,
+                cs.name AS service_name,
+                cs.estimated_days,
+                cs.base_charge AS service_base_charge,
+                cs.charge_per_kg AS service_charge_per_kg
+            FROM shipments s
+            LEFT JOIN carriers c
+                ON s.carrier_id = c.id
+            LEFT JOIN carrier_services cs
+                ON s.carrier_service_id = cs.id
+            WHERE (? = 'ALL' OR s.status = ?)
+            ORDER BY s.shipmentDate DESC
+            """;
+
+    List<Shipment> shipments = new ArrayList<>();
+
+    try (Connection connection = DBConnection.getConnection();
+         PreparedStatement statement =
+                 connection.prepareStatement(sql)) {
+
+        statement.setString(1, normalizedStatus);
+        statement.setString(2, normalizedStatus);
+
+        try (ResultSet rs = statement.executeQuery()) {
             while (rs.next()) {
 
                 Shipment shipment = mapShipment(rs);
@@ -279,16 +307,17 @@ public class ShipmentDAO {
 
                 shipments.add(shipment);
             }
-
-        } catch (SQLException e) {
-            throw new RuntimeException(
-                    "Failed to fetch shipments",
-                    e
-            );
         }
 
-        return shipments;
+    } catch (SQLException e) {
+        throw new RuntimeException(
+                "Failed to fetch shipments",
+                e
+        );
     }
+
+    return shipments;
+}
 
 
     // =========================
@@ -502,9 +531,7 @@ public class ShipmentDAO {
                         rs.getString("package_number")
                 );
 
-                pkg.setStatus(
-                        rs.getString("status")
-                );
+                pkg.setStatus(PackageStatus.valueOf(rs.getString("status")));
 
                 Timestamp timestamp =
                         rs.getTimestamp("packageDate");
@@ -551,8 +578,9 @@ public class ShipmentDAO {
                     
 
                     salesOrder.setStatus(
-                            rs.getString("sales_order_status")
-                    );
+    SalesOrderStatus.valueOf(rs.getString("sales_order_status"))
+);
+
 
 
                     // =========================
@@ -618,9 +646,7 @@ public class ShipmentDAO {
             );
         }
 
-        shipment.setStatus(
-                rs.getString("status")
-        );
+        shipment.setStatus(ShipmentStatus.valueOf(rs.getString("status")));
 
         shipment.setShippingMethod(
                 rs.getString("shipping_method")
@@ -686,7 +712,7 @@ public class ShipmentDAO {
                     rs.getString("carrier_code")
             );
             carrier.setStatus(
-        rs.getString("carrier_status")
+    CarrierStatus.valueOf(rs.getString("carrier_status"))
 );
 
             shipment.setCarrier(carrier);

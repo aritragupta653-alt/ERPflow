@@ -17,12 +17,9 @@ import java.util.List;
 @WebServlet("/api/items/*")
 public class ItemServlet extends HttpServlet {
 
-    private final ItemService itemService =
-            new ItemService();
+    private final ItemService itemService = new ItemService();
 
-    private final ObjectMapper objectMapper =
-            new ObjectMapper();
-
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     protected void doGet(
@@ -32,35 +29,35 @@ public class ItemServlet extends HttpServlet {
 
         setJsonResponse(response);
 
-        String pathInfo =
-                request.getPathInfo();
+        String pathInfo = request.getPathInfo();
 
         // GET /api/items
-        if (pathInfo == null ||
-                pathInfo.equals("/")) {
+        if (pathInfo == null || pathInfo.equals("/")) {
 
-            List<Item> items =
-                    itemService.getAllItems();
+            String status = request.getParameter("status");
 
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    items
-            );
+    try {
+        List<Item> items = itemService.getItemsByStatus(status);
 
-            return;
+        objectMapper.writeValue(response.getWriter(), items);
+
+    } catch (RuntimeException e) {
+        sendError(
+                response,
+                HttpServletResponse.SC_BAD_REQUEST,
+                e.getMessage()
+        );
+    }
+
+    return;
         }
-
 
         // GET /api/items/{id}
         try {
 
-            int id =
-                    Integer.parseInt(
-                            pathInfo.substring(1)
-                    );
+            int id = Integer.parseInt(pathInfo.substring(1));
 
-            Item item =
-                    itemService.getItemById(id);
+            Item item = itemService.getItemById(id);
 
             if (item == null) {
 
@@ -73,10 +70,7 @@ public class ItemServlet extends HttpServlet {
                 return;
             }
 
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    item
-            );
+            objectMapper.writeValue(response.getWriter(), item);
 
         } catch (NumberFormatException e) {
 
@@ -87,7 +81,6 @@ public class ItemServlet extends HttpServlet {
             );
         }
     }
-
 
     @Override
     protected void doPost(
@@ -99,22 +92,16 @@ public class ItemServlet extends HttpServlet {
 
         try {
 
-            Item item =
-                    objectMapper.readValue(
-                            request.getReader(),
-                            Item.class
-                    );
+            Item item = objectMapper.readValue(
+                    request.getReader(),
+                    Item.class
+            );
 
             itemService.createItem(item);
 
-            response.setStatus(
-                    HttpServletResponse.SC_CREATED
-            );
+            response.setStatus(HttpServletResponse.SC_CREATED);
 
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    item
-            );
+            objectMapper.writeValue(response.getWriter(), item);
 
         } catch (RuntimeException e) {
 
@@ -126,7 +113,6 @@ public class ItemServlet extends HttpServlet {
         }
     }
 
-
     @Override
     protected void doPut(
             HttpServletRequest request,
@@ -135,11 +121,9 @@ public class ItemServlet extends HttpServlet {
 
         setJsonResponse(response);
 
-        String pathInfo =
-                request.getPathInfo();
+        String pathInfo = request.getPathInfo();
 
-        if (pathInfo == null ||
-                pathInfo.equals("/")) {
+        if (pathInfo == null || pathInfo.equals("/")) {
 
             sendError(
                     response,
@@ -150,28 +134,20 @@ public class ItemServlet extends HttpServlet {
             return;
         }
 
-
         try {
 
-            int id =
-                    Integer.parseInt(
-                            pathInfo.substring(1)
-                    );
+            int id = Integer.parseInt(pathInfo.substring(1));
 
-            Item item =
-                    objectMapper.readValue(
-                            request.getReader(),
-                            Item.class
-                    );
+            Item item = objectMapper.readValue(
+                    request.getReader(),
+                    Item.class
+            );
 
             item.setId(id);
 
             itemService.updateItem(item);
 
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    item
-            );
+            objectMapper.writeValue(response.getWriter(), item);
 
         } catch (NumberFormatException e) {
 
@@ -191,7 +167,6 @@ public class ItemServlet extends HttpServlet {
         }
     }
 
-
     @Override
     protected void doDelete(
             HttpServletRequest request,
@@ -200,11 +175,9 @@ public class ItemServlet extends HttpServlet {
 
         setJsonResponse(response);
 
-        String pathInfo =
-                request.getPathInfo();
+        String pathInfo = request.getPathInfo();
 
-        if (pathInfo == null ||
-                pathInfo.equals("/")) {
+        if (pathInfo == null || pathInfo.equals("/")) {
 
             sendError(
                     response,
@@ -215,19 +188,13 @@ public class ItemServlet extends HttpServlet {
             return;
         }
 
-
         try {
 
-            int id =
-                    Integer.parseInt(
-                            pathInfo.substring(1)
-                    );
+            int id = Integer.parseInt(pathInfo.substring(1));
 
             itemService.deleteItem(id);
 
-            response.setStatus(
-                    HttpServletResponse.SC_NO_CONTENT
-            );
+            response.setStatus(HttpServletResponse.SC_NO_CONTENT);
 
         } catch (NumberFormatException e) {
 
@@ -247,19 +214,11 @@ public class ItemServlet extends HttpServlet {
         }
     }
 
+    private void setJsonResponse(HttpServletResponse response) {
 
-    private void setJsonResponse(
-            HttpServletResponse response) {
-
-        response.setContentType(
-                "application/json"
-        );
-
-        response.setCharacterEncoding(
-                "UTF-8"
-        );
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
     }
-
 
     private void sendError(
             HttpServletResponse response,
@@ -274,7 +233,6 @@ public class ItemServlet extends HttpServlet {
                 new ErrorResponse(message)
         );
     }
-
 
     private static class ErrorResponse {
 

@@ -3,9 +3,12 @@ package com.erpflow.service;
 
 import com.erpflow.dao.SalesOrderDAO;
 import com.erpflow.dao.SalesOrderItemDAO;
+
 import com.erpflow.model.Item;
 import com.erpflow.model.SalesOrder;
 import com.erpflow.model.SalesOrderItem;
+
+import com.erpflow.model.enums.SalesOrderStatus;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -28,15 +31,13 @@ public class SalesOrderService {
     private final InventoryService inventoryService =
             new InventoryService();
 
-
     // =========================================================
     // CREATE SALES ORDER
     // =========================================================
 
     public void createSalesOrder(
             SalesOrder salesOrder,
-            List<SalesOrderItem> salesOrderItems
-    ) {
+            List<SalesOrderItem> salesOrderItems) {
 
         validateAndCalculate(
                 salesOrder,
@@ -66,7 +67,6 @@ public class SalesOrderService {
         }
     }
 
-
     // =========================================================
     // UPDATE SALES ORDER
     //
@@ -79,8 +79,7 @@ public class SalesOrderService {
     public void updateSalesOrder(
             int salesOrderId,
             SalesOrder updatedOrder,
-            List<SalesOrderItem> updatedItems
-    ) {
+            List<SalesOrderItem> updatedItems) {
 
         SalesOrder existingOrder =
                 salesOrderDAO.findById(salesOrderId);
@@ -91,7 +90,7 @@ public class SalesOrderService {
             );
         }
 
-        if (!"CREATED".equalsIgnoreCase(existingOrder.getStatus())) {
+        if (existingOrder.getStatus() != SalesOrderStatus.CREATED) {
             throw new RuntimeException(
                     "Only CREATED sales orders can be edited"
             );
@@ -289,15 +288,13 @@ public class SalesOrderService {
         }
     }
 
-
     // =========================================================
     // VALIDATE ITEMS AND CALCULATE TOTALS
     // =========================================================
 
     private void validateAndCalculate(
             SalesOrder salesOrder,
-            List<SalesOrderItem> salesOrderItems
-    ) {
+            List<SalesOrderItem> salesOrderItems) {
 
         if (salesOrder == null) {
             throw new RuntimeException(
@@ -396,7 +393,6 @@ public class SalesOrderService {
         salesOrder.setTotalAmount(totalAmount);
     }
 
-
     // =========================================================
     // GET ALL SALES ORDERS
     // =========================================================
@@ -404,7 +400,10 @@ public class SalesOrderService {
     public List<SalesOrder> getAllSalesOrders() {
         return salesOrderDAO.findAll();
     }
-
+    //GET SALES ORDER BY STATUS
+    public List<SalesOrder> getSalesOrdersByStatus(String status) {
+    return salesOrderDAO.findAll(status);
+}
 
     // =========================================================
     // GET SALES ORDER BY ID
@@ -414,14 +413,13 @@ public class SalesOrderService {
         return salesOrderDAO.findById(id);
     }
 
-
     // =========================================================
     // GET SALES ORDER ITEMS
     // =========================================================
 
     public List<SalesOrderItem> getSalesOrderItems(
-            SalesOrder salesOrder
-    ) {
+            SalesOrder salesOrder) {
+
         return salesOrderItemDAO.findBySalesOrder(salesOrder);
     }
 }

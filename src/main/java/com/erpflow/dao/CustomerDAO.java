@@ -1,6 +1,8 @@
+
 package com.erpflow.dao;
 
 import com.erpflow.model.Customer;
+import com.erpflow.model.enums.CustomerStatus;
 import com.erpflow.util.DBConnection;
 
 import java.sql.*;
@@ -17,41 +19,29 @@ public class CustomerDAO {
                 VALUES (?, ?, ?, ?, ?)
                 """;
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(
-                             sql,
-                             Statement.RETURN_GENERATED_KEYS
-                     )) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(
+                     sql, Statement.RETURN_GENERATED_KEYS)) {
 
             statement.setString(1, customer.getName());
             statement.setString(2, customer.getEmail());
             statement.setString(3, customer.getPhone());
             statement.setString(4, customer.getAddress());
-            statement.setString(5, customer.getStatus());
+            statement.setString(5, customer.getStatus() == null
+                    ? null : customer.getStatus().name());
 
             statement.executeUpdate();
 
-            try (ResultSet resultSet =
-                         statement.getGeneratedKeys()) {
-
+            try (ResultSet resultSet = statement.getGeneratedKeys()) {
                 if (resultSet.next()) {
-                    customer.setId(
-                            resultSet.getInt(1)
-                    );
+                    customer.setId(resultSet.getInt(1));
                 }
             }
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Error saving customer",
-                    e
-            );
+            throw new RuntimeException("Error saving customer", e);
         }
     }
-
 
     public List<Customer> findAll() {
 
@@ -63,34 +53,22 @@ public class CustomerDAO {
                 ORDER BY id
                 """;
 
-        List<Customer> customers =
-                new ArrayList<>();
+        List<Customer> customers = new ArrayList<>();
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql);
-             ResultSet resultSet =
-                     statement.executeQuery()) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet resultSet = statement.executeQuery()) {
 
             while (resultSet.next()) {
-
-                customers.add(
-                        mapRowToCustomer(resultSet)
-                );
+                customers.add(mapRowToCustomer(resultSet));
             }
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Error fetching customers",
-                    e
-            );
+            throw new RuntimeException("Error fetching customers", e);
         }
 
         return customers;
     }
-
 
     public Customer findById(int id) {
 
@@ -101,35 +79,23 @@ public class CustomerDAO {
                 WHERE id = ?
                 """;
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, id);
 
-            try (ResultSet resultSet =
-                         statement.executeQuery()) {
-
+            try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
-
-                    return mapRowToCustomer(
-                            resultSet
-                    );
+                    return mapRowToCustomer(resultSet);
                 }
             }
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Error fetching customer",
-                    e
-            );
+            throw new RuntimeException("Error fetching customer", e);
         }
 
         return null;
     }
-
 
     public void update(Customer customer) {
 
@@ -142,10 +108,8 @@ public class CustomerDAO {
                 WHERE id = ?
                 """;
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setString(1, customer.getName());
             statement.setString(2, customer.getEmail());
@@ -156,14 +120,9 @@ public class CustomerDAO {
             statement.executeUpdate();
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Error updating customer",
-                    e
-            );
+            throw new RuntimeException("Error updating customer", e);
         }
     }
-
 
     public void delete(int id) {
 
@@ -173,55 +132,31 @@ public class CustomerDAO {
                 WHERE id = ?
                 """;
 
-        try (Connection connection =
-                     DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, id);
-
             statement.executeUpdate();
 
         } catch (SQLException e) {
-
-            throw new RuntimeException(
-                    "Error deleting customer",
-                    e
-            );
+            throw new RuntimeException("Error deleting customer", e);
         }
     }
 
-
-    private Customer mapRowToCustomer(
-            ResultSet resultSet)
+    private Customer mapRowToCustomer(ResultSet resultSet)
             throws SQLException {
 
-        Customer customer =
-                new Customer();
+        Customer customer = new Customer();
 
-        customer.setId(
-                resultSet.getInt("id")
-        );
+        customer.setId(resultSet.getInt("id"));
+        customer.setName(resultSet.getString("name"));
+        customer.setEmail(resultSet.getString("email"));
+        customer.setPhone(resultSet.getString("phone"));
+        customer.setAddress(resultSet.getString("address"));
 
-        customer.setName(
-                resultSet.getString("name")
-        );
-
-        customer.setEmail(
-                resultSet.getString("email")
-        );
-
-        customer.setPhone(
-                resultSet.getString("phone")
-        );
-
-        customer.setAddress(
-                resultSet.getString("address")
-        );
-
-        customer.setStatus(
-                resultSet.getString("status")
-        );
+        String status = resultSet.getString("status");
+        customer.setStatus(status == null
+                ? null : CustomerStatus.valueOf(status));
 
         return customer;
     }

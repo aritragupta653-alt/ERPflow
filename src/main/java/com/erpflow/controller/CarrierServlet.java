@@ -22,6 +22,10 @@ public class CarrierServlet extends HttpServlet {
     private final ObjectMapper objectMapper =
             new ObjectMapper();
 
+    // =====================================================
+    // GET
+    // =====================================================
+
     @Override
     protected void doGet(
             HttpServletRequest request,
@@ -32,76 +36,64 @@ public class CarrierServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         try {
-
             String path = request.getPathInfo();
 
+            // GET /api/carriers
             if (path == null || path.equals("/")) {
-
-                List<Carrier> carriers =
-                        service.getAllCarriers();
+                List<Carrier> carriers = service.getAllCarriers();
 
                 objectMapper.writeValue(
                         response.getWriter(),
-                        carriers
-                );
+                        carriers);
 
                 return;
             }
 
-            String[] parts =
-                    path.substring(1).split("/");
+            String[] parts = path.substring(1).split("/");
 
-            int carrierId =
-                    Integer.parseInt(parts[0]);
+            int carrierId = Integer.parseInt(parts[0]);
 
             // GET /api/carriers/{id}/services
-            if (parts.length == 2 &&
-                    parts[1].equals("services")) {
-
+            if (parts.length == 2 && parts[1].equals("services")) {
                 List<CarrierService> services =
                         service.getServicesByCarrier(carrierId);
 
                 objectMapper.writeValue(
                         response.getWriter(),
-                        services
-                );
+                        services);
 
                 return;
             }
 
             // GET /api/carriers/{id}
-            Carrier carrier =
-                    service.getCarrierById(carrierId);
+            Carrier carrier = service.getCarrierById(carrierId);
 
             if (carrier == null) {
-
-                response.setStatus(
-                        HttpServletResponse.SC_NOT_FOUND);
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
 
                 objectMapper.writeValue(
                         response.getWriter(),
-                        new ErrorResponse("Carrier not found")
-                );
+                        new ErrorResponse("Carrier not found"));
 
                 return;
             }
 
             objectMapper.writeValue(
                     response.getWriter(),
-                    carrier
-            );
+                    carrier);
 
         } catch (Exception e) {
-
-            response.setStatus(
-                    HttpServletResponse.SC_BAD_REQUEST);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 
             objectMapper.writeValue(
                     response.getWriter(),
-                    new ErrorResponse(e.getMessage())
-            );
+                    new ErrorResponse(e.getMessage()));
         }
     }
+
+    // =====================================================
+    // POST
+    // =====================================================
 
     @Override
     protected void doPost(
@@ -113,69 +105,59 @@ public class CarrierServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         try {
-
             String path = request.getPathInfo();
 
-            if (path != null &&
-                    path.matches("/\\d+/services")) {
-
+            // POST /api/carriers/{id}/services
+            if (path != null && path.matches("/\\d+/services")) {
                 int carrierId = Integer.parseInt(
-                        path.split("/")[1]
-                );
+                        path.split("/")[1]);
 
                 CarrierService carrierService =
                         objectMapper.readValue(
                                 request.getReader(),
-                                CarrierService.class
-                        );
+                                CarrierService.class);
 
                 Carrier carrier = new Carrier();
                 carrier.setId(carrierId);
 
                 carrierService.setCarrier(carrier);
 
-                service.createCarrierService(
-                        carrierService
-                );
+                service.createCarrierService(carrierService);
 
-                response.setStatus(
-                        HttpServletResponse.SC_CREATED);
+                response.setStatus(HttpServletResponse.SC_CREATED);
 
                 objectMapper.writeValue(
                         response.getWriter(),
-                        carrierService
-                );
+                        carrierService);
 
                 return;
             }
 
-            Carrier carrier =
-                    objectMapper.readValue(
-                            request.getReader(),
-                            Carrier.class
-                    );
+            // POST /api/carriers
+            Carrier carrier = objectMapper.readValue(
+                    request.getReader(),
+                    Carrier.class);
 
             service.createCarrier(carrier);
 
-            response.setStatus(
-                    HttpServletResponse.SC_CREATED);
+            response.setStatus(HttpServletResponse.SC_CREATED);
 
             objectMapper.writeValue(
                     response.getWriter(),
-                    carrier
-            );
+                    carrier);
 
         } catch (Exception e) {
-
-            response.setStatus(
-                    HttpServletResponse.SC_BAD_REQUEST);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
 
             objectMapper.writeValue(
                     response.getWriter(),
-                    new ErrorResponse(e.getMessage())
-            );
+                    new ErrorResponse(e.getMessage()));
         }
     }
+
+    // =====================================================
+    // ERROR RESPONSE
+    // =====================================================
 
     public static class ErrorResponse {
 

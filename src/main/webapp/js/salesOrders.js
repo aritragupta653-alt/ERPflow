@@ -7,7 +7,7 @@
 
 const apiBaseUrl = "/erpflow/api/sales-orders";
 const customersApiUrl = "/erpflow/api/customers";
-const itemsApiUrl = "/erpflow/api/items";
+const itemsApiUrl = "/erpflow/api/items?status=ACTIVE";
 
 // The ID of the sales order currently being edited.
 // Null means the form is in Create mode.
@@ -48,6 +48,12 @@ function setupEventListeners() {
 
     const searchInput =
         document.getElementById("searchInput");
+    
+    const statusFilter = document.getElementById("statusFilter");
+    if (statusFilter) {
+    statusFilter.addEventListener("change", loadSalesOrders);
+}
+
 
     if (addItemButton) {
         addItemButton.addEventListener("click", addItemRow);
@@ -219,7 +225,6 @@ function addItemRow(itemData = null) {
         </td>
 
         <td class="quantity-cell">
-            <label class="quantity-label">Quantity</label>
 
             <input
                 type="number"
@@ -292,7 +297,19 @@ function addItemRow(itemData = null) {
             row.querySelector('input[name="sellingPrice"]');
 
         if (quantityInput) {
-            quantityInput.value = String(itemData.quantity ?? 1);
+            const selectedItem = (window.erpflowItems || []).find(
+                item => String(item.id) === String(selectedItemId)
+            );
+
+            const isService =
+                String(selectedItem?.itemType || "").toUpperCase() === "SERVICE";
+
+            quantityInput.value = isService
+                ? "1"
+                : String(itemData.quantity ?? 1);
+
+            quantityInput.readOnly = isService;
+            quantityInput.required = !isService;
         }
 
         if (priceInput) {
@@ -382,15 +399,16 @@ function populateItemDetails(row, itemId) {
         String(item.itemType || "").toUpperCase() === "SERVICE";
 
     if (quantityInput && quantityCell) {
+        // Keep the quantity field visible for both item types.
+        quantityCell.style.display = "";
+
         if (isService) {
             quantityInput.value = "1";
             quantityInput.readOnly = true;
             quantityInput.required = false;
-            quantityCell.style.display = "none";
         } else {
             quantityInput.readOnly = false;
             quantityInput.required = true;
-            quantityCell.style.display = "";
         }
     }
 
@@ -888,7 +906,14 @@ function resetSalesOrderForm() {
 
 async function loadSalesOrders() {
     try {
-        const response = await fetch(apiBaseUrl);
+        const statusFilter = document.getElementById("statusFilter");
+        const selectedStatus = statusFilter?.value || "ALL";
+
+        const requestUrl = selectedStatus === "ALL"
+            ? apiBaseUrl
+            : `${apiBaseUrl}?status=${encodeURIComponent(selectedStatus)}`;
+
+        const response = await fetch(requestUrl);
 
         if (!response.ok) {
             throw new Error("Failed to load sales orders.");
@@ -898,7 +923,7 @@ async function loadSalesOrders() {
 
         window.erpflowSalesOrders = Array.isArray(orders) ? orders : [];
 
-        displaySalesOrders(window.erpflowSalesOrders);
+        filterSalesOrders();
 
     } catch (error) {
         console.error("Error loading sales orders:", error);
@@ -909,7 +934,6 @@ async function loadSalesOrders() {
         );
     }
 }
-
 // =========================================================
 // DISPLAY SALES ORDERS
 // =========================================================
@@ -979,9 +1003,8 @@ function displaySalesOrders(orders) {
                     View
                 </a>
 
-                ${
-                    canEdit
-                        ? `
+                ${canEdit
+                ? `
                             <button
                                 type="button"
                                 class="action-button edit-button"
@@ -990,7 +1013,7 @@ function displaySalesOrders(orders) {
                                 Edit
                             </button>
                         `
-                        : `
+                : `
                             <span
                                 class="action-button disabled-action"
                                 title="Only CREATED orders can be edited"
@@ -998,7 +1021,7 @@ function displaySalesOrders(orders) {
                                 Edit
                             </span>
                         `
-                }
+            }
             </td>
         `;
 

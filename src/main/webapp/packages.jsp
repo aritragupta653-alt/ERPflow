@@ -21,6 +21,22 @@
             + Create Package
         </button>
     </div>
+    <div class="section-header">
+    <div>
+        <h2>Sales Orders</h2>
+    </div>
+
+    <div class="search-box">
+    <select id="statusFilter">
+    <option value="ALL">All Statuses</option>
+    <option value="PACKING">Packing</option>
+    <option value="PACKED">Packed</option>
+    <option value="SHIPPED">Shipped</option>
+    <option value="CANCELLED">Cancelled</option>
+</select>
+
+    </div>
+</div>
 
     <!-- Packages Table -->
     <div class="card">

@@ -7,6 +7,7 @@ import com.erpflow.util.DBConnection;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import com.erpflow.model.enums.ItemStatus;
 
 public class InventoryDAO {
 
@@ -280,9 +281,7 @@ public class InventoryDAO {
                 )
         );
 
-        item.setStatus(
-                resultSet.getString("status")
-        );
+        item.setStatus(ItemStatus.valueOf(resultSet.getString("status")));
 
         Inventory inventory =
                 new Inventory();

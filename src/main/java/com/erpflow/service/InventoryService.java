@@ -96,7 +96,7 @@ public class InventoryService {
         Inventory inventory =
                 inventoryDAO.findByItemId(item.getId());
 
-        if (inventory == null) {
+        if (inventory == null && item.getItemType().equals("GOODS")) {
 
             throw new RuntimeException(
                     "No inventory available for this item"
@@ -157,7 +157,7 @@ public void shipReservedStock(
                     item.getId()
             );
 
-    if (inventory == null) {
+    if ( inventory == null && item.getItemType().equals("GOODS")) {
 
         throw new RuntimeException(
                 "No inventory available for this item"
@@ -246,7 +246,7 @@ public void shipReservedStock(
         Inventory inventory =
                 inventoryDAO.findByItemId(item.getId());
 
-        if (inventory == null) {
+        if (inventory == null && item.getItemType().equals("GOODS")) {
 
             throw new RuntimeException(
                     "No inventory available for this item"
@@ -288,7 +288,7 @@ public void shipReservedStock(
         Inventory inventory =
                 inventoryDAO.findByItemId(item.getId());
 
-        if (inventory == null) {
+        if (inventory == null && item.getItemType().equals("GOODS")) {
 
             throw new RuntimeException(
                     "No inventory available for this item"

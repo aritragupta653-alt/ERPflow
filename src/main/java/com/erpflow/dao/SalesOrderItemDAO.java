@@ -5,6 +5,7 @@ import com.erpflow.model.Item;
 import com.erpflow.model.SalesOrder;
 import com.erpflow.model.SalesOrderItem;
 import com.erpflow.util.DBConnection;
+import com.erpflow.model.enums.ItemStatus;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -181,9 +182,7 @@ public class SalesOrderItemDAO {
                             rs.getString("sku")
                     );
 
-                    item.setStatus(
-                            rs.getString("status")
-                    );
+                    item.setStatus(ItemStatus.valueOf(rs.getString("status")));
 
                     item.setItemType(
                             rs.getString("item_type")

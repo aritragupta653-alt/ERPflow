@@ -1,4 +1,3 @@
-
 package com.erpflow.controller;
 
 import com.erpflow.model.Customer;
@@ -26,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.erpflow.model.enums.SalesOrderStatus;
 
 @WebServlet("/api/sales-orders/*")
 public class SalesOrderServlet extends HttpServlet {
@@ -65,11 +65,16 @@ public class SalesOrderServlet extends HttpServlet {
                         "items".equalsIgnoreCase(parts[2])) {
 
                     int id = Integer.parseInt(parts[1]);
+
                     SalesOrder order =
                             salesOrderService.getSalesOrderById(id);
 
                     if (order == null) {
-                        sendError(response, 404, "Sales order not found");
+                        sendError(
+                                response,
+                                HttpServletResponse.SC_NOT_FOUND,
+                                "Sales order not found"
+                        );
                         return;
                     }
 
@@ -95,11 +100,16 @@ public class SalesOrderServlet extends HttpServlet {
                 // GET /api/sales-orders/{id}
                 if (parts.length == 2) {
                     int id = Integer.parseInt(parts[1]);
+
                     SalesOrder order =
                             salesOrderService.getSalesOrderById(id);
 
                     if (order == null) {
-                        sendError(response, 404, "Sales order not found");
+                        sendError(
+                                response,
+                                HttpServletResponse.SC_NOT_FOUND,
+                                "Sales order not found"
+                        );
                         return;
                     }
 
@@ -123,16 +133,53 @@ public class SalesOrderServlet extends HttpServlet {
             }
 
             // GET /api/sales-orders
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    salesOrderService.getAllSalesOrders()
-            );
+            // GET /api/sales-orders?status=CREATED
+String status = request.getParameter("status");
+
+if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
+
+    objectMapper.writeValue(
+            response.getWriter(),
+            salesOrderService.getAllSalesOrders()
+    );
+
+} else {
+
+    SalesOrderStatus orderStatus;
+
+    try {
+        orderStatus = SalesOrderStatus.valueOf(
+                status.trim().toUpperCase()
+        );
+    } catch (IllegalArgumentException e) {
+        sendError(
+                response,
+                HttpServletResponse.SC_BAD_REQUEST,
+                "Invalid sales order status"
+        );
+        return;
+    }
+
+    objectMapper.writeValue(
+            response.getWriter(),
+            salesOrderService.getSalesOrdersByStatus(orderStatus.name())
+    );
+}
 
         } catch (NumberFormatException e) {
-            sendError(response, 400, "Invalid sales order ID");
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid sales order ID"
+            );
+
         } catch (Exception e) {
             e.printStackTrace();
-            sendError(response, 500, e.getMessage());
+            sendError(
+                    response,
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    e.getMessage()
+            );
         }
     }
 
@@ -157,7 +204,7 @@ public class SalesOrderServlet extends HttpServlet {
             Customer customer = getCustomer(root);
             order.setCustomer(customer);
             order.setOrderDate(LocalDateTime.now());
-            order.setStatus("CREATED");
+            order.setStatus(SalesOrderStatus.valueOf("CREATED"));
             order.setTaxRate(getTaxRate(root));
 
             List<SalesOrderItem> items = parseItems(root);
@@ -178,7 +225,11 @@ public class SalesOrderServlet extends HttpServlet {
 
         } catch (Exception e) {
             e.printStackTrace();
-            sendError(response, 400, e.getMessage());
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    e.getMessage()
+            );
         }
     }
 
@@ -200,7 +251,12 @@ public class SalesOrderServlet extends HttpServlet {
 
             if (path == null || path.equals("/") ||
                     path.split("/").length != 2) {
-                sendError(response, 400, "Sales order ID is required");
+
+                sendError(
+                        response,
+                        HttpServletResponse.SC_BAD_REQUEST,
+                        "Sales order ID is required"
+                );
                 return;
             }
 
@@ -210,14 +266,18 @@ public class SalesOrderServlet extends HttpServlet {
                     salesOrderService.getSalesOrderById(salesOrderId);
 
             if (existingOrder == null) {
-                sendError(response, 404, "Sales order not found");
+                sendError(
+                        response,
+                        HttpServletResponse.SC_NOT_FOUND,
+                        "Sales order not found"
+                );
                 return;
             }
 
-            if (!"CREATED".equalsIgnoreCase(existingOrder.getStatus())) {
+            if (!"CREATED".equalsIgnoreCase(existingOrder.getStatus().name())) {
                 sendError(
                         response,
-                        400,
+                        HttpServletResponse.SC_BAD_REQUEST,
                         "Only CREATED sales orders can be edited"
                 );
                 return;
@@ -253,10 +313,19 @@ public class SalesOrderServlet extends HttpServlet {
             objectMapper.writeValue(response.getWriter(), result);
 
         } catch (NumberFormatException e) {
-            sendError(response, 400, "Invalid sales order ID");
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    "Invalid sales order ID"
+            );
+
         } catch (Exception e) {
             e.printStackTrace();
-            sendError(response, 400, e.getMessage());
+            sendError(
+                    response,
+                    HttpServletResponse.SC_BAD_REQUEST,
+                    e.getMessage()
+            );
         }
     }
 
@@ -270,12 +339,14 @@ public class SalesOrderServlet extends HttpServlet {
 
         if (customerNode == null || customerNode.isNull() ||
                 !customerNode.canConvertToInt()) {
+
             throw new RuntimeException("Customer is required");
         }
 
         int customerId = customerNode.asInt();
 
-        Customer customer = customerService.getCustomerById(customerId);
+        Customer customer =
+                customerService.getCustomerById(customerId);
 
         if (customer == null) {
             throw new RuntimeException("Customer not found");
@@ -304,6 +375,7 @@ public class SalesOrderServlet extends HttpServlet {
 
         if (taxRate.compareTo(BigDecimal.ZERO) < 0 ||
                 taxRate.compareTo(new BigDecimal("100")) > 0) {
+
             throw new RuntimeException(
                     "Tax rate must be between 0 and 100"
             );
@@ -322,6 +394,7 @@ public class SalesOrderServlet extends HttpServlet {
 
         if (itemsNode == null || !itemsNode.isArray() ||
                 itemsNode.isEmpty()) {
+
             throw new RuntimeException(
                     "Sales Order must contain at least one item"
             );
@@ -337,11 +410,13 @@ public class SalesOrderServlet extends HttpServlet {
 
             if (itemIdNode == null || itemIdNode.isNull() ||
                     !itemIdNode.canConvertToInt()) {
+
                 throw new RuntimeException("Valid itemId is required");
             }
 
             if (priceNode == null || priceNode.isNull() ||
                     !priceNode.isNumber()) {
+
                 throw new RuntimeException(
                         "Selling price is required and must be a number"
                 );
@@ -359,9 +434,11 @@ public class SalesOrderServlet extends HttpServlet {
 
             if ("SERVICE".equalsIgnoreCase(item.getItemType())) {
                 quantity = 1;
+
             } else {
                 if (quantityNode == null || quantityNode.isNull() ||
                         !quantityNode.canConvertToInt()) {
+
                     throw new RuntimeException(
                             "Quantity is required for goods"
                     );

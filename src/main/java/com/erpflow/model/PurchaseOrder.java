@@ -1,12 +1,14 @@
+
 package com.erpflow.model;
 
+import com.erpflow.model.enums.PurchaseOrderStatus;
 import java.time.LocalDateTime;
 
 public class PurchaseOrder {
 
     private int id;
     private Supplier supplier;
-    private String status;
+    private PurchaseOrderStatus status;
     private LocalDateTime orderDate;
 
     public int getId() {
@@ -25,11 +27,11 @@ public class PurchaseOrder {
         this.supplier = supplier;
     }
 
-    public String getStatus() {
+    public PurchaseOrderStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(PurchaseOrderStatus status) {
         this.status = status;
     }
 

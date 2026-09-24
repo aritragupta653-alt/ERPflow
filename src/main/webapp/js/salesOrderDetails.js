@@ -606,7 +606,7 @@ async function createShipment() {
         document.getElementById("shipmentNotes")?.value.trim() || "";
 
     const createButton = document.getElementById("createShipmentButton");
-
+    
     const shipment = {
         salesOrderId: Number(salesOrderId),
         packageIds,
@@ -687,8 +687,8 @@ async function packAndShip() {
     const deliveryStatusInput = document.getElementById("deliveryStatus");
     const packShipButton = document.getElementById("packShipButton");
 
-    const shipmentDate = shipmentDateInput?.value || "";
-    const deliveryStatus = deliveryStatusInput?.value || "";
+    const shipmentDate = shipmentDateInput.value ;
+    const deliveryStatus = deliveryStatusInput.value ;
 
     if (!shipmentDate) {
         showMessage("Please select a shipment date.", "error");

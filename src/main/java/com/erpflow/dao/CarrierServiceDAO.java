@@ -7,6 +7,7 @@ import com.erpflow.util.DBConnection;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import com.erpflow.model.enums.CarrierStatus;
 
 public class CarrierServiceDAO {
 
@@ -79,7 +80,7 @@ public class CarrierServiceDAO {
                     carrier.setId(rs.getInt("carrier_id"));
                     carrier.setName(rs.getString("carrier_name"));
                     carrier.setCode(rs.getString("carrier_code"));
-                    carrier.setStatus(rs.getString("carrier_status"));
+                    carrier.setStatus(CarrierStatus.valueOf(rs.getString("carrier_status")));
 
                     CarrierService service = new CarrierService();
 
@@ -138,7 +139,7 @@ public class CarrierServiceDAO {
                     carrier.setId(rs.getInt("carrier_id"));
                     carrier.setName(rs.getString("carrier_name"));
                     carrier.setCode(rs.getString("carrier_code"));
-                    carrier.setStatus(rs.getString("carrier_status"));
+                    carrier.setStatus(CarrierStatus.valueOf(rs.getString("carrier_status")));
 
                     CarrierService service = new CarrierService();
 

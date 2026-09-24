@@ -1,5 +1,7 @@
+
 package com.erpflow.model;
 
+import com.erpflow.model.enums.ShipmentStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -8,35 +10,20 @@ import java.util.List;
 public class Shipment {
 
     private int id;
-
     private String shipmentNumber;
-
     private LocalDateTime shipmentDate;
-
-    private String status;
-
+    private ShipmentStatus status;
     private String shippingMethod;
-
     private Carrier carrier;
-
     private CarrierService carrierService;
-
     private String trackingNumber;
-
     private String trackingUrl;
-
     private double shippingCharge;
-
     private String dispatchAddress;
-
     private String destinationAddress;
-
     private LocalDate estimatedDeliveryDate;
-
     private LocalDate actualDeliveryDate;
-
     private String notes;
-
     private List<Package> packages = new ArrayList<>();
 
     public int getId() {
@@ -63,11 +50,11 @@ public class Shipment {
         this.shipmentDate = shipmentDate;
     }
 
-    public String getStatus() {
+    public ShipmentStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(ShipmentStatus status) {
         this.status = status;
     }
 

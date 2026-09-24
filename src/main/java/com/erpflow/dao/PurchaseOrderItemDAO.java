@@ -10,6 +10,9 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.erpflow.model.enums.ItemStatus;
+
+
 public class PurchaseOrderItemDAO {
 
     public void save(PurchaseOrderItem orderItem) {
@@ -71,7 +74,7 @@ public class PurchaseOrderItemDAO {
                     item.setReorderLevel(rs.getInt("reorder_level"));
                     item.setSellingPrice(rs.getBigDecimal("selling_price"));
                     item.setSku(rs.getString("sku"));
-                    item.setStatus(rs.getString("status"));
+                    item.setStatus(ItemStatus.valueOf(rs.getString("status")));
 
                     orderItem.setItem(item);
                     result.add(orderItem);

@@ -12,7 +12,8 @@ let selectedOrderItems = [];
 document.addEventListener("DOMContentLoaded", () => {
     loadPackages();
     loadSalesOrders();
-
+    document.getElementById("statusFilter")
+    ?.addEventListener("change", loadPackages);
     const form = document.getElementById("createPackageForm");
 
     if (form) {
@@ -36,7 +37,14 @@ async function loadPackages() {
     if (!tableBody) return;
 
     try {
-        const response = await fetch(packagesApiUrl);
+       const selectedStatus =
+    document.getElementById("statusFilter")?.value || "ALL";
+
+const url = selectedStatus === "ALL"
+    ? packagesApiUrl
+    : `${packagesApiUrl}?status=${encodeURIComponent(selectedStatus)}`;
+
+const response = await fetch(url);
 
         if (!response.ok) {
             throw new Error("Failed to load packages.");

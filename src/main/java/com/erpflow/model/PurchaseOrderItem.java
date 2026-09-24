@@ -4,8 +4,7 @@ package com.erpflow.model;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 
-@Entity
-@Table(name = "purchase_order_items")
+
 public class PurchaseOrderItem {
 
     private int id;

@@ -1,9 +1,11 @@
+
 package com.erpflow.dao;
 
 import com.erpflow.model.Customer;
-import com.erpflow.model.Item;
 import com.erpflow.model.Package;
 import com.erpflow.model.SalesOrder;
+import com.erpflow.model.enums.PackageStatus;
+import com.erpflow.model.enums.SalesOrderStatus;
 import com.erpflow.util.DBConnection;
 
 import java.sql.*;
@@ -54,7 +56,7 @@ public class PackageDAO {
 
             statement.setString(
                     3,
-                    packageEntity.getStatus()
+                    packageEntity.getStatus().name()
             );
 
             statement.setDouble(
@@ -84,14 +86,10 @@ public class PackageDAO {
 
             statement.executeUpdate();
 
-            try (ResultSet keys =
-                         statement.getGeneratedKeys()) {
+            try (ResultSet keys = statement.getGeneratedKeys()) {
 
                 if (keys.next()) {
-
-                    packageEntity.setId(
-                            keys.getInt(1)
-                    );
+                    packageEntity.setId(keys.getInt(1));
                 }
             }
 
@@ -142,7 +140,7 @@ public class PackageDAO {
 
             statement.setString(
                     3,
-                    packageEntity.getStatus()
+                    packageEntity.getStatus().name()
             );
 
             statement.setDouble(
@@ -215,21 +213,15 @@ public class PackageDAO {
                 ORDER BY p.packageDate DESC
                 """;
 
-        List<Package> packages =
-                new ArrayList<>();
+        List<Package> packages = new ArrayList<>();
 
-        try (Connection connection =
-                     DBConnection.getConnection();
+        try (Connection connection = DBConnection.getConnection();
              PreparedStatement statement =
                      connection.prepareStatement(sql);
-             ResultSet rs =
-                     statement.executeQuery()) {
+             ResultSet rs = statement.executeQuery()) {
 
             while (rs.next()) {
-
-                packages.add(
-                        mapPackage(rs)
-                );
+                packages.add(mapPackage(rs));
             }
 
         } catch (SQLException e) {
@@ -242,6 +234,70 @@ public class PackageDAO {
 
         return packages;
     }
+    
+public List<Package> findAll(String status) {
+
+    if (status == null || status.isBlank()
+            || "ALL".equalsIgnoreCase(status.trim())) {
+        return findAll();
+    }
+
+    String normalizedStatus = status.trim().toUpperCase();
+
+    // Validate the status against the PackageStatus enum
+    try {
+        PackageStatus.valueOf(normalizedStatus);
+    } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException(
+                "Invalid package status: " + normalizedStatus
+        );
+    }
+
+    String sql = """
+            SELECT
+                p.id,
+                p.package_number,
+                p.packageDate,
+                p.status,
+                p.weight,
+                p.length,
+                p.width,
+                p.height,
+                so.id AS sales_order_id,
+                so.status AS sales_order_status,
+                c.id AS customer_id,
+                c.name AS customer_name
+            FROM packages p
+            JOIN sales_orders so
+                ON p.sales_order_id = so.id
+            JOIN customers c
+                ON so.customer_id = c.id
+            WHERE p.status = ?
+            ORDER BY p.packageDate DESC
+            """;
+
+    List<Package> packages = new ArrayList<>();
+
+    try (Connection connection = DBConnection.getConnection();
+         PreparedStatement statement =
+                 connection.prepareStatement(sql)) {
+
+        statement.setString(1, normalizedStatus);
+
+        try (ResultSet rs = statement.executeQuery()) {
+            while (rs.next()) {
+                packages.add(mapPackage(rs));
+            }
+        }
+
+    } catch (SQLException e) {
+        throw new RuntimeException(
+                "Failed to find packages by status", e
+        );
+    }
+
+    return packages;
+}
 
 
     // =========================
@@ -272,18 +328,15 @@ public class PackageDAO {
                 WHERE p.id = ?
                 """;
 
-        try (Connection connection =
-                     DBConnection.getConnection();
+        try (Connection connection = DBConnection.getConnection();
              PreparedStatement statement =
                      connection.prepareStatement(sql)) {
 
             statement.setInt(1, id);
 
-            try (ResultSet rs =
-                         statement.executeQuery()) {
+            try (ResultSet rs = statement.executeQuery()) {
 
                 if (rs.next()) {
-
                     return mapPackage(rs);
                 }
             }
@@ -304,8 +357,7 @@ public class PackageDAO {
     // FIND BY SALES ORDER
     // =========================
 
-    public List<Package> findBySalesOrder(
-            int salesOrderId) {
+    public List<Package> findBySalesOrder(int salesOrderId) {
 
         String sql = """
                 SELECT
@@ -330,27 +382,18 @@ public class PackageDAO {
                 ORDER BY p.packageDate DESC
                 """;
 
-        List<Package> packages =
-                new ArrayList<>();
+        List<Package> packages = new ArrayList<>();
 
-        try (Connection connection =
-                     DBConnection.getConnection();
+        try (Connection connection = DBConnection.getConnection();
              PreparedStatement statement =
                      connection.prepareStatement(sql)) {
 
-            statement.setInt(
-                    1,
-                    salesOrderId
-            );
+            statement.setInt(1, salesOrderId);
 
-            try (ResultSet rs =
-                         statement.executeQuery()) {
+            try (ResultSet rs = statement.executeQuery()) {
 
                 while (rs.next()) {
-
-                    packages.add(
-                            mapPackage(rs)
-                    );
+                    packages.add(mapPackage(rs));
                 }
             }
 
@@ -370,84 +413,67 @@ public class PackageDAO {
     // MAP PACKAGE
     // =========================
 
-    private Package mapPackage(
-            ResultSet rs) throws SQLException {
+    private Package mapPackage(ResultSet rs) throws SQLException {
 
         Package pkg = new Package();
 
-        pkg.setId(
-                rs.getInt("id")
-        );
+        pkg.setId(rs.getInt("id"));
 
         pkg.setPackageNumber(
                 rs.getString("package_number")
         );
 
-        Timestamp packageDate =
-                rs.getTimestamp("packageDate");
+        Timestamp packageDate = rs.getTimestamp("packageDate");
 
         if (packageDate != null) {
-
             pkg.setPackageDate(
                     packageDate.toLocalDateTime()
             );
         }
 
+        String packageStatus = rs.getString("status");
+
         pkg.setStatus(
-                rs.getString("status")
+                packageStatus == null
+                        ? null
+                        : PackageStatus.valueOf(packageStatus)
         );
 
-        pkg.setWeight(
-                rs.getDouble("weight")
-        );
-
-        pkg.setLength(
-                rs.getDouble("length")
-        );
-
-        pkg.setWidth(
-                rs.getDouble("width")
-        );
-
-        pkg.setHeight(
-                rs.getDouble("height")
-        );
+        pkg.setWeight(rs.getDouble("weight"));
+        pkg.setLength(rs.getDouble("length"));
+        pkg.setWidth(rs.getDouble("width"));
+        pkg.setHeight(rs.getDouble("height"));
 
 
         // Sales Order
 
-        SalesOrder salesOrder =
-                new SalesOrder();
+        SalesOrder salesOrder = new SalesOrder();
 
-        salesOrder.setId(
-                rs.getInt("sales_order_id")
-        );
+        salesOrder.setId(rs.getInt("sales_order_id"));
+
+        String salesOrderStatus =
+                rs.getString("sales_order_status");
 
         salesOrder.setStatus(
-                rs.getString("sales_order_status")
+                salesOrderStatus == null
+                        ? null
+                        : SalesOrderStatus.valueOf(salesOrderStatus)
         );
 
 
         // Customer
 
-        Customer customer =
-                new Customer();
+        Customer customer = new Customer();
 
-        customer.setId(
-                rs.getInt("customer_id")
-        );
+        customer.setId(rs.getInt("customer_id"));
 
         customer.setName(
                 rs.getString("customer_name")
         );
 
-        salesOrder.setCustomer(
-                customer
-        );
+        salesOrder.setCustomer(customer);
 
-        pkg.setSalesOrder(
-                salesOrder
-        );
+        pkg.setSalesOrder(salesOrder);
 
         return pkg;
     }

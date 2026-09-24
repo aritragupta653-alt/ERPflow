@@ -1,4 +1,3 @@
-
 package com.erpflow.controller;
 
 import com.erpflow.model.Item;
@@ -8,9 +7,11 @@ import com.erpflow.model.Supplier;
 import com.erpflow.service.ItemService;
 import com.erpflow.service.PurchaseOrderService;
 import com.erpflow.service.SupplierService;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,7 +20,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import com.erpflow.model.enums.PurchaseOrderStatus;
 
 @WebServlet("/api/purchase-orders/*")
 public class PurchaseOrderServlet extends HttpServlet {
@@ -47,10 +52,12 @@ public class PurchaseOrderServlet extends HttpServlet {
         try {
             String path = request.getPathInfo();
 
+            // GET /api/purchase-orders
             if (path == null || path.equals("/")) {
                 List<Map<String, Object>> result = new ArrayList<>();
 
-                for (PurchaseOrder order : purchaseOrderService.getAllPurchaseOrders()) {
+                for (PurchaseOrder order :
+                        purchaseOrderService.getAllPurchaseOrders()) {
                     result.add(convertOrder(order));
                 }
 
@@ -58,9 +65,11 @@ public class PurchaseOrderServlet extends HttpServlet {
                 return;
             }
 
+            // GET /api/purchase-orders/{id}
             int id = parseOrderId(path);
 
-            PurchaseOrder order = purchaseOrderService.getPurchaseOrderById(id);
+            PurchaseOrder order =
+                    purchaseOrderService.getPurchaseOrderById(id);
 
             if (order == null) {
                 sendError(response, 404, "Purchase order not found");
@@ -101,6 +110,7 @@ public class PurchaseOrderServlet extends HttpServlet {
 
         } catch (NumberFormatException e) {
             sendError(response, 400, "Invalid purchase order ID");
+
         } catch (RuntimeException e) {
             e.printStackTrace();
             sendError(response, 400, e.getMessage());
@@ -123,12 +133,12 @@ public class PurchaseOrderServlet extends HttpServlet {
                 int id = Integer.parseInt(path.split("/")[1]);
 
                 Map<String, Object> body = readBody(request);
-
                 Object linesObject = body.get("items");
 
                 if (linesObject == null) {
-                    // Backwards-compatible behavior: receive all remaining goods.
+                    // Receive all remaining goods.
                     purchaseOrderService.receivePurchaseOrder(id);
+
                 } else {
                     List<Map<String, Object>> receiveItems =
                             objectMapper.convertValue(
@@ -136,7 +146,8 @@ public class PurchaseOrderServlet extends HttpServlet {
                                     new TypeReference<List<Map<String, Object>>>() {}
                             );
 
-                    List<PurchaseOrderService.ReceiveLine> lines = new ArrayList<>();
+                    List<PurchaseOrderService.ReceiveLine> lines =
+                            new ArrayList<>();
 
                     for (Map<String, Object> data : receiveItems) {
                         Number lineId = number(data.get("purchaseOrderItemId"));
@@ -167,8 +178,8 @@ public class PurchaseOrderServlet extends HttpServlet {
 
             // POST /api/purchase-orders
             Map<String, Object> body = readBody(request);
-            PurchaseOrder order = createOrderFromBody(body);
 
+            PurchaseOrder order = createOrderFromBody(body);
             List<PurchaseOrderItem> lines = createLinesFromBody(body);
 
             purchaseOrderService.createPurchaseOrder(order, lines);
@@ -178,6 +189,7 @@ public class PurchaseOrderServlet extends HttpServlet {
 
         } catch (NumberFormatException e) {
             sendError(response, 400, "Invalid ID or quantity");
+
         } catch (RuntimeException e) {
             e.printStackTrace();
             sendError(response, 400, e.getMessage());
@@ -196,7 +208,11 @@ public class PurchaseOrderServlet extends HttpServlet {
             String path = request.getPathInfo();
 
             if (path == null || !path.matches("/\\d+")) {
-                sendError(response, 400, "Use PUT /api/purchase-orders/{id}");
+                sendError(
+                        response,
+                        400,
+                        "Use PUT /api/purchase-orders/{id}"
+                );
                 return;
             }
 
@@ -207,7 +223,11 @@ public class PurchaseOrderServlet extends HttpServlet {
             PurchaseOrder updatedOrder = createOrderFromBody(body);
             List<PurchaseOrderItem> updatedLines = createLinesFromBody(body);
 
-            purchaseOrderService.editPurchaseOrder(id, updatedOrder, updatedLines);
+            purchaseOrderService.editPurchaseOrder(
+                    id,
+                    updatedOrder,
+                    updatedLines
+            );
 
             Map<String, Object> result = new HashMap<>();
             result.put("message", "Purchase order updated successfully");
@@ -217,20 +237,25 @@ public class PurchaseOrderServlet extends HttpServlet {
 
         } catch (NumberFormatException e) {
             sendError(response, 400, "Invalid purchase order ID");
+
         } catch (RuntimeException e) {
             e.printStackTrace();
             sendError(response, 400, e.getMessage());
         }
     }
 
-    private PurchaseOrder createOrderFromBody(Map<String, Object> body) {
+    private PurchaseOrder createOrderFromBody(
+            Map<String, Object> body
+    ) {
+
         Number supplierNumber = number(body.get("supplierId"));
 
         if (supplierNumber == null) {
             throw new RuntimeException("Supplier ID is required");
         }
 
-        Supplier supplier = supplierService.getSupplierById(supplierNumber.intValue());
+        Supplier supplier =
+                supplierService.getSupplierById(supplierNumber.intValue());
 
         if (supplier == null) {
             throw new RuntimeException("Supplier not found");
@@ -238,13 +263,16 @@ public class PurchaseOrderServlet extends HttpServlet {
 
         PurchaseOrder order = new PurchaseOrder();
         order.setSupplier(supplier);
-        order.setStatus("CREATED");
+        order.setStatus(PurchaseOrderStatus.valueOf("CREATED"));
         order.setOrderDate(LocalDateTime.now());
 
         return order;
     }
 
-    private List<PurchaseOrderItem> createLinesFromBody(Map<String, Object> body) {
+    private List<PurchaseOrderItem> createLinesFromBody(
+            Map<String, Object> body
+    ) {
+
         Object itemsObject = body.get("items");
 
         if (itemsObject == null) {
@@ -287,13 +315,15 @@ public class PurchaseOrderServlet extends HttpServlet {
                 }
 
                 quantity = quantityNumber.intValue();
+
             } else {
-                // quantity is NOT NULL in the current table; use a placeholder
-                // for services, whose quantity is not used for inventory.
+                // Quantity is NOT NULL in the current table.
+                // Use a placeholder for services.
                 quantity = 1;
             }
 
             Object priceObject = data.get("purchasePrice");
+
             BigDecimal price = priceObject == null
                     ? item.getPurchasePrice()
                     : new BigDecimal(priceObject.toString());
@@ -315,6 +345,7 @@ public class PurchaseOrderServlet extends HttpServlet {
     }
 
     private Map<String, Object> convertOrder(PurchaseOrder order) {
+
         Map<String, Object> result = new HashMap<>();
 
         result.put("id", order.getId());
@@ -338,7 +369,10 @@ public class PurchaseOrderServlet extends HttpServlet {
         return result;
     }
 
-    private Map<String, Object> readBody(HttpServletRequest request) throws IOException {
+    private Map<String, Object> readBody(
+            HttpServletRequest request
+    ) throws IOException {
+
         return objectMapper.readValue(
                 request.getReader(),
                 new TypeReference<Map<String, Object>>() {}
@@ -350,7 +384,10 @@ public class PurchaseOrderServlet extends HttpServlet {
     }
 
     private int parseOrderId(String path) {
-        String value = path.startsWith("/") ? path.substring(1) : path;
+        String value = path.startsWith("/")
+                ? path.substring(1)
+                : path;
+
         return Integer.parseInt(value);
     }
 

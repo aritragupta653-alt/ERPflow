@@ -12,6 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
     setupEditForm();
     setupSearch();
     setupModal();
+    document.getElementById("statusFilter")
+    ?.addEventListener("change", loadItems);
 });
 
 
@@ -41,7 +43,12 @@ function getItemType(item) {
 
 async function loadItems() {
     try {
-        const response = await fetch(contextPath + "/api/items");
+        const status = document.getElementById("statusFilter")?.value || "ALL";
+
+        const url = contextPath + "/api/items" +
+            (status === "ALL" ? "" : "?status=" + encodeURIComponent(status));
+
+        const response = await fetch(url);
 
         if (!response.ok) {
             throw new Error("Failed to load items");
@@ -220,6 +227,10 @@ function setupAddItemForm() {
             purchasePrice: Number(getValue("purchasePrice")),
             sellingPrice: Number(getValue("sellingPrice")),
             reorderLevel: Number(getValue("reorderLevel")),
+            length: Number(getValue("length")),
+            width: Number(getValue("width")),
+            height: Number(getValue("height"))
+            ,
             itemType: itemType,
             trackInventory: itemType === "SERVICE" ? false : trackInventory
         };
@@ -277,6 +288,9 @@ function openEditModal(item) {
     document.getElementById("editPurchasePrice").value = item.purchasePrice ?? "";
     document.getElementById("editSellingPrice").value = item.sellingPrice ?? "";
     document.getElementById("editReorderLevel").value = item.reorderLevel ?? "";
+    document.getElementById("editLength").value = item.length ?? 0;
+    document.getElementById("editWidth").value = item.width ?? 0;
+    document.getElementById("editHeight").value = item.height ?? 0;
 
     const itemType = getItemType(item);
     const editItemType = document.getElementById("editItemType");

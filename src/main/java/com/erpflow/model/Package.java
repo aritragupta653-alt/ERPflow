@@ -1,5 +1,7 @@
+
 package com.erpflow.model;
 
+import com.erpflow.model.enums.PackageStatus;
 import java.time.LocalDateTime;
 
 public class Package {
@@ -7,10 +9,9 @@ public class Package {
     private int id;
     private String packageNumber;
     private SalesOrder salesOrder;
-    private String status;
+    private PackageStatus status;
     private LocalDateTime packageDate;
     private double weight;
-
     private double length;
     private double width;
     private double height;
@@ -39,11 +40,11 @@ public class Package {
         this.salesOrder = salesOrder;
     }
 
-    public String getStatus() {
+    public PackageStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(PackageStatus status) {
         this.status = status;
     }
 
