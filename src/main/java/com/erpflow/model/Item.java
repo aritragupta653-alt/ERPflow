@@ -21,6 +21,7 @@ public class Item {
     private double height;
     private int inHandQuantity;
     private int committedQuantity;
+    private Integer maxStockQuantity;
 
     public Item() {
     }
@@ -144,5 +145,13 @@ public void setCommittedQuantity(int committedQuantity) {
 }
 public int getAvailableQuantity() {
     return inHandQuantity - committedQuantity;
+}
+
+public Integer getMaxStockQuantity() {
+    return maxStockQuantity;
+}
+
+public void setMaxStockQuantity(Integer maxStockQuantity) {
+    this.maxStockQuantity = maxStockQuantity;
 }
 }

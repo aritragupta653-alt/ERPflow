@@ -20,6 +20,9 @@ public class InventoryService {
 private final InventoryTransactionService inventoryTransactionService =
         new InventoryTransactionService();
 
+        private final InventoryAlertService inventoryAlertService =
+        new InventoryAlertService();
+
 
     
 
@@ -63,6 +66,11 @@ private final InventoryTransactionService inventoryTransactionService =
     transaction.setTransactionDate(LocalDateTime.now());
 
     inventoryTransactionService.addTransaction(transaction);
+    Item updatedItem = itemDAO.findById(item.getId());
+
+    if (updatedItem != null) {
+        inventoryAlertService.checkAlerts(updatedItem);
+    }
 }
 
     // Stock Out
@@ -112,6 +120,11 @@ private final InventoryTransactionService inventoryTransactionService =
     transaction.setTransactionDate(LocalDateTime.now());
 
     inventoryTransactionService.addTransaction(transaction);
+    Item updatedItem = itemDAO.findById(item.getId());
+
+    if (updatedItem != null) {
+        inventoryAlertService.checkAlerts(updatedItem);
+    }
 }
     // SHIP RESERVED STOCK
 
@@ -179,6 +192,11 @@ public void shipReservedStock(Item item, int quantity) {
     transaction.setTransactionDate(LocalDateTime.now());
 
     inventoryTransactionService.addTransaction(transaction);
+    Item updatedItem = itemDAO.findById(item.getId());
+
+    if (updatedItem != null) {
+        inventoryAlertService.checkAlerts(updatedItem);
+    }
 }
 
 
@@ -225,6 +243,11 @@ public void reserveStock(Item item, int quantity) {
     );
 
     itemDAO.update(existingItem);
+    Item updatedItem = itemDAO.findById(item.getId());
+
+    if (updatedItem != null) {
+        inventoryAlertService.checkAlerts(updatedItem);
+    }
 }
     // Release Committed Stock
 
@@ -265,6 +288,11 @@ public void releaseStock(Item item, int quantity) {
     );
 
     itemDAO.update(existingItem);
+    Item updatedItem = itemDAO.findById(item.getId());
+
+    if (updatedItem != null) {
+        inventoryAlertService.checkAlerts(updatedItem);
+    }
 }
 
     // Get Available Stock

@@ -1,4 +1,4 @@
-/*package com.erpflow.controller;
+package com.erpflow.controller;
 
 import com.erpflow.model.Inventory;
 import com.erpflow.model.Item;
@@ -30,74 +30,8 @@ public class InventoryServlet extends HttpServlet {
             new ObjectMapper();
 
 
-    @Override
-    protected void doGet(
-            HttpServletRequest request,
-            HttpServletResponse response)
-            throws ServletException, IOException {
-
-        setJsonResponse(response);
-
-        String pathInfo =
-                request.getPathInfo();
-
-
-        // GET /api/inventory
-        if (pathInfo == null ||
-                pathInfo.equals("/")) {
-
-            List<Inventory> inventories =
-                    inventoryService.getAllInventory();
-
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    inventories
-            );
-
-            return;
-        }
-
-
-        // GET /api/inventory/{itemId}
-        try {
-
-            int itemId =
-                    Integer.parseInt(
-                            pathInfo.substring(1)
-                    );
-
-            Inventory inventory =
-                    inventoryService
-                            .getInventoryByItemId(
-                                    itemId
-                            );
-
-            if (inventory == null) {
-
-                sendError(
-                        response,
-                        HttpServletResponse.SC_NOT_FOUND,
-                        "Inventory not found"
-                );
-
-                return;
-            }
-
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    inventory
-            );
-
-        } catch (NumberFormatException e) {
-
-            sendError(
-                    response,
-                    HttpServletResponse.SC_BAD_REQUEST,
-                    "Invalid item ID"
-            );
-        }
-    }
-
+  
+                
 
     @Override
     protected void doPost(
@@ -321,4 +255,4 @@ objectMapper.writeValue(
             return error;
         }
     }
-}*/
+}
