@@ -4,340 +4,292 @@ import com.erpflow.dao.InventoryDAO;
 import com.erpflow.model.Inventory;
 import com.erpflow.model.InventoryTransaction;
 import com.erpflow.model.Item;
-
+import com.erpflow.dao.ItemDAO;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.erpflow.dao.ItemDAO;
 
 public class InventoryService {
 
     private final InventoryDAO inventoryDAO = new InventoryDAO();
 
-    private final InventoryTransactionService inventoryTransactionService =
-            new InventoryTransactionService();
+   
+   private final ItemDAO itemDAO = new ItemDAO();
 
 
-    public void addInventory(Inventory inventory) {
-        inventoryDAO.save(inventory);
-    }
+private final InventoryTransactionService inventoryTransactionService =
+        new InventoryTransactionService();
 
 
-    public Inventory getInventoryByItemId(int itemId) {
-        return inventoryDAO.findByItemId(itemId);
-    }
-
-
-    public List<Inventory> getAllInventory() {
-        return inventoryDAO.findAll();
-    }
+    
 
 
     // Stock In
 
     public void stockIn(Item item, int quantity) {
-        if (!item.isTrackInventory()) {
-    throw new RuntimeException(
-        "Inventory operations are not allowed for this item"
-    );
-}
 
-        Inventory inventory =
-                inventoryDAO.findByItemId(item.getId());
+    if (item == null) {
+        throw new RuntimeException("Item is required");
+    }
 
-        if (inventory == null) {
-
-            inventory = new Inventory();
-
-            inventory.setItem(item);
-
-            inventory.setQuantity(quantity);
-
-            inventory.setCommittedQuantity(0);
-
-            inventoryDAO.save(inventory);
-
-        } else {
-
-            inventory.setQuantity(
-                    inventory.getQuantity() + quantity
-            );
-
-            inventoryDAO.update(inventory);
-        }
-
-
-        InventoryTransaction transaction =
-                new InventoryTransaction();
-
-        transaction.setItem(item);
-
-        transaction.setType("STOCK_IN");
-
-        transaction.setQuantity(quantity);
-
-        transaction.setTransactionDate(
-                LocalDateTime.now()
-        );
-
-        inventoryTransactionService.addTransaction(
-                transaction
+    if (!item.isTrackInventory()) {
+        throw new RuntimeException(
+                "Inventory operations are not allowed for this item"
         );
     }
 
+    if (quantity <= 0) {
+        throw new RuntimeException(
+                "Quantity must be greater than zero"
+        );
+    }
+
+    Item existingItem = itemDAO.findById(item.getId());
+
+    if (existingItem == null) {
+        throw new RuntimeException("Item not found");
+    }
+
+    existingItem.setInHandQuantity(
+            existingItem.getInHandQuantity() + quantity
+    );
+
+    itemDAO.update(existingItem);
+
+    InventoryTransaction transaction = new InventoryTransaction();
+    transaction.setItem(existingItem);
+    transaction.setType("STOCK_IN");
+    transaction.setQuantity(quantity);
+    transaction.setTransactionDate(LocalDateTime.now());
+
+    inventoryTransactionService.addTransaction(transaction);
+}
 
     // Stock Out
 
     public void stockOut(Item item, int quantity) {
-        if (!item.isTrackInventory()) {
-    throw new RuntimeException(
-        "Inventory operations are not allowed for this item"
-    );
-}
 
-        Inventory inventory =
-                inventoryDAO.findByItemId(item.getId());
+    if (item == null) {
+        throw new RuntimeException("Item is required");
+    }
 
-        if (inventory == null && item.getItemType().equals("GOODS")) {
-
-            throw new RuntimeException(
-                    "No inventory available for this item"
-            );
-        }
-
-
-        int availableStock =
-                inventory.getQuantity()
-                        - inventory.getCommittedQuantity();
-
-
-        if (availableStock < quantity) {
-
-            throw new RuntimeException(
-                    "Insufficient available stock"
-            );
-        }
-
-
-        inventory.setQuantity(
-                inventory.getQuantity() - quantity
-        );
-
-        inventoryDAO.update(inventory);
-
-
-        InventoryTransaction transaction =
-                new InventoryTransaction();
-
-        transaction.setItem(item);
-
-        transaction.setType("STOCK_OUT");
-
-        transaction.setQuantity(quantity);
-
-        transaction.setTransactionDate(
-                LocalDateTime.now()
-        );
-
-        inventoryTransactionService.addTransaction(
-                transaction
+    if (!item.isTrackInventory()) {
+        throw new RuntimeException(
+                "Inventory operations are not allowed for this item"
         );
     }
+
+    if (quantity <= 0) {
+        throw new RuntimeException(
+                "Quantity must be greater than zero"
+        );
+    }
+
+    Item existingItem = itemDAO.findById(item.getId());
+
+    if (existingItem == null) {
+        throw new RuntimeException("Item not found");
+    }
+
+    int availableStock =
+            existingItem.getInHandQuantity()
+                    - existingItem.getCommittedQuantity();
+
+    if (availableStock < quantity) {
+        throw new RuntimeException("Insufficient available stock");
+    }
+
+    existingItem.setInHandQuantity(
+            existingItem.getInHandQuantity() - quantity
+    );
+
+    itemDAO.update(existingItem);
+
+    InventoryTransaction transaction = new InventoryTransaction();
+    transaction.setItem(existingItem);
+    transaction.setType("STOCK_OUT");
+    transaction.setQuantity(quantity);
+    transaction.setTransactionDate(LocalDateTime.now());
+
+    inventoryTransactionService.addTransaction(transaction);
+}
     // SHIP RESERVED STOCK
 
-public void shipReservedStock(
-        Item item,
-        int quantity) {
-                if (!item.isTrackInventory()) {
-    throw new RuntimeException(
-        "Inventory operations are not allowed for this item"
-    );
-}
+// Ship Reserved Stock
 
-    Inventory inventory =
-            inventoryDAO.findByItemId(
-                    item.getId()
-            );
+public void shipReservedStock(Item item, int quantity) {
 
-    if ( inventory == null && item.getItemType().equals("GOODS")) {
+    if (item == null) {
+        throw new RuntimeException("Item is required");
+    }
 
+    if (!item.isTrackInventory()) {
         throw new RuntimeException(
-                "No inventory available for this item"
+                "Inventory operations are not allowed for this item"
         );
     }
 
+    if (quantity <= 0) {
+        throw new RuntimeException(
+                "Quantity must be greater than zero"
+        );
+    }
 
-    // The stock being shipped must
-    // already be committed
+    Item existingItem = itemDAO.findById(item.getId());
 
-    if (inventory.getCommittedQuantity()
-            < quantity) {
+    if (existingItem == null) {
+        throw new RuntimeException("Item not found");
+    }
 
+    // The stock being shipped must already be committed
+
+    if (existingItem.getCommittedQuantity() < quantity) {
         throw new RuntimeException(
                 "Insufficient committed stock"
         );
     }
 
-
     // Physical stock goes down
 
-    if (inventory.getQuantity()
-            < quantity) {
-
+    if (existingItem.getInHandQuantity() < quantity) {
         throw new RuntimeException(
                 "Insufficient physical stock"
         );
     }
 
-
-    inventory.setQuantity(
-            inventory.getQuantity()
-                    - quantity
+    existingItem.setInHandQuantity(
+            existingItem.getInHandQuantity() - quantity
     );
 
+    // Committed stock is released because it has now been shipped
 
-    // Committed stock is released
-    // because it has now been shipped
-
-    inventory.setCommittedQuantity(
-            inventory.getCommittedQuantity()
-                    - quantity
+    existingItem.setCommittedQuantity(
+            existingItem.getCommittedQuantity() - quantity
     );
 
-
-    inventoryDAO.update(
-            inventory
-    );
-
+    itemDAO.update(existingItem);
 
     // Record physical stock movement
 
-    InventoryTransaction transaction =
-            new InventoryTransaction();
+    InventoryTransaction transaction = new InventoryTransaction();
 
-    transaction.setItem(item);
+    transaction.setItem(existingItem);
+    transaction.setType("STOCK_OUT");
+    transaction.setQuantity(quantity);
+    transaction.setTransactionDate(LocalDateTime.now());
 
-    transaction.setType(
-            "STOCK_OUT"
-    );
-
-    transaction.setQuantity(
-            quantity
-    );
-
-    transaction.setTransactionDate(
-            java.time.LocalDateTime.now()
-    );
-
-
-    inventoryTransactionService.addTransaction(
-            transaction
-    );
+    inventoryTransactionService.addTransaction(transaction);
 }
 
 
     // Reserve Stock
 
-    public void reserveStock(Item item, int quantity) {
-        if (!item.isTrackInventory()) {
-    throw new RuntimeException(
-        "Inventory operations are not allowed for this item"
-    );
-}
+   // Reserve Stock
 
-        Inventory inventory =
-                inventoryDAO.findByItemId(item.getId());
+public void reserveStock(Item item, int quantity) {
 
-        if (inventory == null && item.getItemType().equals("GOODS")) {
-
-            throw new RuntimeException(
-                    "No inventory available for this item"
-            );
-        }
-
-
-        int availableStock =
-                inventory.getQuantity()
-                        - inventory.getCommittedQuantity();
-
-
-        if (availableStock < quantity) {
-
-            throw new RuntimeException(
-                    "Insufficient available stock"
-            );
-        }
-
-
-        inventory.setCommittedQuantity(
-                inventory.getCommittedQuantity()
-                        + quantity
-        );
-
-        inventoryDAO.update(inventory);
+    if (item == null) {
+        throw new RuntimeException("Item is required");
     }
 
+    if (!item.isTrackInventory()) {
+        throw new RuntimeException(
+                "Inventory operations are not allowed for this item"
+        );
+    }
+
+    if (quantity <= 0) {
+        throw new RuntimeException(
+                "Quantity must be greater than zero"
+        );
+    }
+
+    Item existingItem = itemDAO.findById(item.getId());
+
+    if (existingItem == null) {
+        throw new RuntimeException("Item not found");
+    }
+
+    int availableStock =
+            existingItem.getInHandQuantity()
+                    - existingItem.getCommittedQuantity();
+
+    if (availableStock < quantity) {
+        throw new RuntimeException(
+                "Insufficient available stock"
+        );
+    }
+
+    existingItem.setCommittedQuantity(
+            existingItem.getCommittedQuantity() + quantity
+    );
+
+    itemDAO.update(existingItem);
+}
+    // Release Committed Stock
 
     // Release Committed Stock
 
-    public void releaseStock(Item item, int quantity) {
-        if (!item.isTrackInventory()) {
-    throw new RuntimeException(
-        "Inventory operations are not allowed for this item"
-    );
-}
+public void releaseStock(Item item, int quantity) {
 
-        Inventory inventory =
-                inventoryDAO.findByItemId(item.getId());
-
-        if (inventory == null && item.getItemType().equals("GOODS")) {
-
-            throw new RuntimeException(
-                    "No inventory available for this item"
-            );
-        }
-
-
-        if (inventory.getCommittedQuantity() < quantity) {
-
-            throw new RuntimeException(
-                    "Cannot release more stock than committed"
-            );
-        }
-
-
-        inventory.setCommittedQuantity(
-                inventory.getCommittedQuantity()
-                        - quantity
-        );
-
-        inventoryDAO.update(inventory);
+    if (item == null) {
+        throw new RuntimeException("Item is required");
     }
 
+    if (!item.isTrackInventory()) {
+        throw new RuntimeException(
+                "Inventory operations are not allowed for this item"
+        );
+    }
+
+    if (quantity <= 0) {
+        throw new RuntimeException(
+                "Quantity must be greater than zero"
+        );
+    }
+
+    Item existingItem = itemDAO.findById(item.getId());
+
+    if (existingItem == null) {
+        throw new RuntimeException("Item not found");
+    }
+
+    if (existingItem.getCommittedQuantity() < quantity) {
+        throw new RuntimeException(
+                "Cannot release more stock than committed"
+        );
+    }
+
+    existingItem.setCommittedQuantity(
+            existingItem.getCommittedQuantity() - quantity
+    );
+
+    itemDAO.update(existingItem);
+}
 
     // Get Available Stock
 
-    public int getAvailableStock(Item item) {
-        if (!item.isTrackInventory()) {
-    throw new RuntimeException(
-        "Inventory operations are not allowed for this item"
-    );
+    // Get Available Stock
+
+public int getAvailableStock(Item item) {
+
+    if (item == null) {
+        throw new RuntimeException("Item is required");
+    }
+
+    if (!item.isTrackInventory()) {
+        throw new RuntimeException(
+                "Inventory operations are not allowed for this item"
+        );
+    }
+
+    Item existingItem = itemDAO.findById(item.getId());
+
+    if (existingItem == null) {
+        return 0;
+    }
+
+    return existingItem.getInHandQuantity()
+            - existingItem.getCommittedQuantity();
 }
-
-        Inventory inventory =
-                inventoryDAO.findByItemId(item.getId());
-
-        if (inventory == null) {
-            return 0;
-        }
-
-
-        return inventory.getQuantity()
-                - inventory.getCommittedQuantity();
-    }
-
-
-    // Delete Inventory
-
-    public void deleteInventoryByItemId(int itemId) {
-        inventoryDAO.deleteByItemId(itemId);
-    }
 }

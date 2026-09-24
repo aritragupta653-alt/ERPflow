@@ -1,4 +1,4 @@
-package com.erpflow.controller;
+/*package com.erpflow.controller;
 
 import com.erpflow.model.Inventory;
 import com.erpflow.model.Item;
@@ -258,20 +258,17 @@ public class InventoryServlet extends HttpServlet {
             }
 
 
-            Inventory inventory =
-                    inventoryService
-                            .getInventoryByItemId(
-                                    itemId
-                            );
+            Item updatedItem =
+        itemService.getItemById(itemId);
 
-            response.setStatus(
-                    HttpServletResponse.SC_OK
-            );
+response.setStatus(
+        HttpServletResponse.SC_OK
+);
 
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    inventory
-            );
+objectMapper.writeValue(
+        response.getWriter(),
+        updatedItem
+);
 
         } catch (RuntimeException e) {
 
@@ -324,4 +321,4 @@ public class InventoryServlet extends HttpServlet {
             return error;
         }
     }
-}
+}*/

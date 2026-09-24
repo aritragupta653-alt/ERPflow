@@ -19,6 +19,8 @@ public class Item {
     private double length;
     private double width;
     private double height;
+    private int inHandQuantity;
+    private int committedQuantity;
 
     public Item() {
     }
@@ -125,4 +127,22 @@ public class Item {
     public void setHeight(double height) {
     this.height = height;
     }
+    public int getInHandQuantity() {
+    return inHandQuantity;
+}
+
+public void setInHandQuantity(int inHandQuantity) {
+    this.inHandQuantity = inHandQuantity;
+}
+
+public int getCommittedQuantity() {
+    return committedQuantity;
+}
+
+public void setCommittedQuantity(int committedQuantity) {
+    this.committedQuantity = committedQuantity;
+}
+public int getAvailableQuantity() {
+    return inHandQuantity - committedQuantity;
+}
 }

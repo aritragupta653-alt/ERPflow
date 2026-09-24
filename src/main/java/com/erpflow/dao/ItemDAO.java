@@ -13,12 +13,14 @@ public class ItemDAO {
 
     public void save(Item item) {
 
-        String sql = """
-                INSERT INTO items
-                (name, sku, description, purchase_price,
-                 selling_price, reorder_level, status, item_type, track_inventory, length , width , height)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)
-                """;
+       String sql = """
+        INSERT INTO items
+        (name, sku, description, purchase_price,
+         selling_price, reorder_level, status, item_type,
+         track_inventory, length, width, height,
+         in_hand_quantity, committed_quantity)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """;
 
         try (Connection connection = DBConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(
@@ -37,6 +39,8 @@ public class ItemDAO {
             statement.setDouble(10, item.getLength());
             statement.setDouble(11, item.getWidth());
             statement.setDouble(12, item.getHeight());
+            statement.setInt(13, item.getInHandQuantity());
+            statement.setInt(14, item.getCommittedQuantity());      
 
             statement.executeUpdate();
 
@@ -58,7 +62,7 @@ public class ItemDAO {
                    purchase_price, selling_price,
                    reorder_level, status,
                    item_type, track_inventory,
-                   length, width, height
+                   length, width, height , in_hand_quantity, committed_quantity
             FROM items
             WHERE (? = 'ALL' OR status = ?)
             ORDER BY item_id
@@ -97,7 +101,7 @@ public List<Item> findAll() {
                 SELECT item_id, name, sku, description,
                        purchase_price, selling_price,
                        reorder_level, status,
-                       item_type, track_inventory , length , height , width
+                       item_type, track_inventory , length , height , width , in_hand_quantity, committed_quantity
                 FROM items
                 WHERE item_id = ?
                 """;
@@ -131,10 +135,12 @@ public List<Item> findAll() {
                     selling_price = ?,
                     reorder_level = ?,
                     item_type = ?,
-                    track_inventory = ?
+                    track_inventory = ?,
                     length = ?,
                     width = ?,
-                    height = ?
+                    height = ?,
+                    in_hand_quantity = ?,
+                    committed_quantity = ?
                 WHERE item_id = ?
                 """;
 
@@ -153,6 +159,9 @@ public List<Item> findAll() {
             statement.setDouble(10,item.getWidth());
             statement.setDouble(11,item.getHeight());
             statement.setInt(12, item.getId());
+            statement.setInt(12, item.getInHandQuantity());
+            statement.setInt(13, item.getCommittedQuantity());
+            statement.setInt(14, item.getId());
 
             statement.executeUpdate();
 
@@ -200,6 +209,8 @@ public List<Item> findAll() {
         item.setLength(resultSet.getDouble("length"));
         item.setWidth(resultSet.getDouble("width"));
         item.setHeight(resultSet.getDouble("height"));
+        item.setInHandQuantity(resultSet.getInt("in_hand_quantity"));
+        item.setCommittedQuantity(resultSet.getInt("committed_quantity"));
 
         return item;
     }
