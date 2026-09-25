@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+
 @WebServlet("/api/packages/*")
 public class PackageServlet extends HttpServlet {
 
@@ -30,20 +31,19 @@ public class PackageServlet extends HttpServlet {
     private final SalesOrderService salesOrderService = new SalesOrderService();
     private final ItemService itemService = new ItemService();
 
-    private final ObjectMapper objectMapper =
-            new ObjectMapper().registerModule(new JavaTimeModule());
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     // =====================================================
     // GET
     //
     // GET /api/packages
-    //     Returns package summaries only.
+    // Returns package summaries only.
     //
     // GET /api/packages?salesOrderId={id}
-    //     Returns package summaries for one Sales Order.
+    // Returns package summaries for one Sales Order.
     //
     // GET /api/packages/{id}
-    //     Returns one package with its items.
+    // Returns one package with its items.
     // =====================================================
 
     @Override
@@ -66,20 +66,32 @@ public class PackageServlet extends HttpServlet {
             if (salesOrderIdParam != null && !salesOrderIdParam.isBlank()) {
                 int salesOrderId = parsePositiveId(salesOrderIdParam);
 
-                SalesOrder salesOrder =
-                        salesOrderService.getSalesOrderById(salesOrderId);
+                SalesOrder salesOrder = salesOrderService.getSalesOrderById(salesOrderId);
 
                 if (salesOrder == null) {
                     sendError(response, 404, "Sales Order not found");
                     return;
                 }
 
+                List<Package> orderPackages = packageService.getPackagesBySalesOrder(salesOrderId);
+
+                List<ObjectNode> result = new ArrayList<>();
+
+                for (Package pkg : orderPackages) {
+
+                    ObjectNode packageNode = objectMapper.valueToTree(pkg);
+
+                    packageNode.set(
+                            "items",
+                            objectMapper.valueToTree(
+                                    packageService.getPackageItems(pkg)));
+
+                    result.add(packageNode);
+                }
+
                 objectMapper.writeValue(
                         response.getWriter(),
-                        packageSummaries(
-                                packageService.getPackagesBySalesOrder(salesOrderId)
-                        )
-                );
+                        result);
 
                 return;
             }
@@ -103,9 +115,7 @@ public class PackageServlet extends HttpServlet {
                         response.getWriter(),
                         Map.of(
                                 "package", pkg,
-                                "items", packageService.getPackageItems(pkg)
-                        )
-                );
+                                "items", packageService.getPackageItems(pkg)));
 
                 return;
             }
@@ -117,8 +127,7 @@ public class PackageServlet extends HttpServlet {
 
             objectMapper.writeValue(
                     response.getWriter(),
-                    packageSummaries(packageService.getAllPackages(status))
-            );
+                    packageSummaries(packageService.getAllPackages(status)));
 
         } catch (NumberFormatException e) {
             sendError(response, 400, "Invalid ID");
@@ -127,8 +136,7 @@ public class PackageServlet extends HttpServlet {
             sendError(
                     response,
                     500,
-                    safeMessage(e, "Failed to retrieve packages")
-            );
+                    safeMessage(e, "Failed to retrieve packages"));
         }
     }
 
@@ -158,8 +166,7 @@ public class PackageServlet extends HttpServlet {
 
             int salesOrderId = root.get("salesOrderId").asInt();
 
-            SalesOrder salesOrder =
-                    salesOrderService.getSalesOrderById(salesOrderId);
+            SalesOrder salesOrder = salesOrderService.getSalesOrderById(salesOrderId);
 
             if (salesOrder == null) {
                 sendError(response, 404, "Sales Order not found");
@@ -170,8 +177,7 @@ public class PackageServlet extends HttpServlet {
                 sendError(
                         response,
                         400,
-                        "Valid positive weight, length, width and height are required"
-                );
+                        "Valid positive weight, length, width and height are required");
                 return;
             }
 
@@ -183,8 +189,7 @@ public class PackageServlet extends HttpServlet {
                     root.get("weight").asDouble(),
                     root.get("length").asDouble(),
                     root.get("width").asDouble(),
-                    root.get("height").asDouble()
-            );
+                    root.get("height").asDouble());
 
             response.setStatus(HttpServletResponse.SC_CREATED);
 
@@ -194,9 +199,7 @@ public class PackageServlet extends HttpServlet {
                             "message", "Package created successfully",
                             "packageId", pkg.getId(),
                             "packageNumber", pkg.getPackageNumber(),
-                            "status", pkg.getStatus()
-                    )
-            );
+                            "status", pkg.getStatus()));
 
         } catch (IllegalArgumentException e) {
             sendError(response, 400, e.getMessage());
@@ -231,8 +234,7 @@ public class PackageServlet extends HttpServlet {
 
             int packageId = parsePathId(path);
 
-            Package existingPackage =
-                    packageService.getPackageById(packageId);
+            Package existingPackage = packageService.getPackageById(packageId);
 
             if (existingPackage == null) {
                 sendError(response, 404, "Package not found");
@@ -265,8 +267,7 @@ public class PackageServlet extends HttpServlet {
                     sendError(
                             response,
                             400,
-                            "A package cannot be reassigned to another Sales Order"
-                    );
+                            "A package cannot be reassigned to another Sales Order");
                     return;
                 }
             }
@@ -275,8 +276,7 @@ public class PackageServlet extends HttpServlet {
                 sendError(
                         response,
                         400,
-                        "Valid positive weight, length, width and height are required"
-                );
+                        "Valid positive weight, length, width and height are required");
                 return;
             }
 
@@ -288,8 +288,7 @@ public class PackageServlet extends HttpServlet {
                     root.get("weight").asDouble(),
                     root.get("length").asDouble(),
                     root.get("width").asDouble(),
-                    root.get("height").asDouble()
-            );
+                    root.get("height").asDouble());
 
             objectMapper.writeValue(
                     response.getWriter(),
@@ -297,9 +296,7 @@ public class PackageServlet extends HttpServlet {
                             "message", "Package updated successfully",
                             "packageId", updatedPackage.getId(),
                             "packageNumber", updatedPackage.getPackageNumber(),
-                            "status", updatedPackage.getStatus()
-                    )
-            );
+                            "status", updatedPackage.getStatus()));
 
         } catch (IllegalArgumentException e) {
             sendError(response, 400, e.getMessage());
@@ -320,8 +317,7 @@ public class PackageServlet extends HttpServlet {
 
         if (itemsNode == null || !itemsNode.isArray() || itemsNode.isEmpty()) {
             throw new IllegalArgumentException(
-                    "Package must contain at least one item"
-            );
+                    "Package must contain at least one item");
         }
 
         List<PackageItem> packageItems = new ArrayList<>();
@@ -330,8 +326,7 @@ public class PackageServlet extends HttpServlet {
 
             if (itemNode == null || !itemNode.isObject()) {
                 throw new IllegalArgumentException(
-                        "Each package item must be a JSON object"
-                );
+                        "Each package item must be a JSON object");
             }
 
             if (!isPositiveInteger(itemNode.get("itemId"))
@@ -340,8 +335,7 @@ public class PackageServlet extends HttpServlet {
 
                 throw new IllegalArgumentException(
                         "Each package item requires positive integer itemId, "
-                                + "salesOrderItemId and quantity"
-                );
+                                + "salesOrderItemId and quantity");
             }
 
             int itemId = itemNode.get("itemId").asInt();
@@ -352,8 +346,7 @@ public class PackageServlet extends HttpServlet {
 
             if (item == null) {
                 throw new IllegalArgumentException(
-                        "Item not found: " + itemId
-                );
+                        "Item not found: " + itemId);
             }
 
             PackageItem packageItem = new PackageItem();
@@ -467,8 +460,7 @@ public class PackageServlet extends HttpServlet {
                 "error",
                 message == null || message.isBlank()
                         ? "Unknown error"
-                        : message
-        );
+                        : message);
 
         objectMapper.writeValue(response.getWriter(), error);
     }
