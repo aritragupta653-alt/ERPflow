@@ -28,10 +28,11 @@ public class CustomerServlet extends HttpServlet {
         setJsonResponse(response);
 
         String pathInfo = request.getPathInfo();
+        String status = request.getParameter("status");
 
         // GET /api/customers
         if (pathInfo == null || pathInfo.equals("/")) {
-            List<Customer> customers = customerService.getAllCustomers();
+            List<Customer> customers = customerService.getAllCustomers(status);
             objectMapper.writeValue(response.getWriter(), customers);
             return;
         }

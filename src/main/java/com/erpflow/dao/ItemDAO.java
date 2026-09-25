@@ -11,16 +11,21 @@ import java.util.List;
 
 public class ItemDAO {
 
+    // =========================================================
+    // SAVE ITEM
+    // =========================================================
+
     public void save(Item item) {
 
-       String sql = """
-        INSERT INTO items
-        (name, sku, description, purchase_price,
-         selling_price, reorder_level, status, item_type,
-         track_inventory, length, width, height,
-         in_hand_quantity, committed_quantity)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ,? )
-        """;
+        String sql = """
+                INSERT INTO items
+                (name, sku, description, purchase_price,
+                 selling_price, reorder_level, status, item_type,
+                 track_inventory, length, width, height,
+                 in_hand_quantity, committed_quantity,
+                 max_stock_quantity, weight)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """;
 
         try (Connection connection = DBConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(
@@ -32,16 +37,28 @@ public class ItemDAO {
             statement.setBigDecimal(4, item.getPurchasePrice());
             statement.setBigDecimal(5, item.getSellingPrice());
             statement.setInt(6, item.getReorderLevel());
+
             statement.setString(7, item.getStatus() == null
-                    ? null : item.getStatus().name());
+                    ? null
+                    : item.getStatus().name());
+
             statement.setString(8, item.getItemType());
             statement.setBoolean(9, item.isTrackInventory());
+
             statement.setDouble(10, item.getLength());
             statement.setDouble(11, item.getWidth());
             statement.setDouble(12, item.getHeight());
+
             statement.setInt(13, item.getInHandQuantity());
-            statement.setInt(14, item.getCommittedQuantity());  
-            statement.setInt(15,item.getMaxStockQuantity())  ;  
+            statement.setInt(14, item.getCommittedQuantity());
+
+            if (item.getMaxStockQuantity() == null) {
+                statement.setNull(15, Types.INTEGER);
+            } else {
+                statement.setInt(15, item.getMaxStockQuantity());
+            }
+
+            statement.setDouble(16, item.getWeight());
 
             statement.executeUpdate();
 
@@ -56,45 +73,60 @@ public class ItemDAO {
         }
     }
 
+
+    // =========================================================
+    // FIND ALL ITEMS WITH STATUS FILTER
+    // =========================================================
+
     public List<Item> findAll(String status) {
 
-    String sql = """
-            SELECT item_id, name, sku, description,
-                   purchase_price, selling_price,
-                   reorder_level, status,
-                   item_type, track_inventory,
-                   length, width, height , in_hand_quantity, committed_quantity , max_stock_quantity
-            FROM items
-            WHERE (? = 'ALL' OR status = ?)
-            ORDER BY item_id
-            """;
+        String sql = """
+                SELECT item_id, name, sku, description,
+                       purchase_price, selling_price,
+                       reorder_level, status,
+                       item_type, track_inventory,
+                       length, width, height,
+                       in_hand_quantity, committed_quantity,
+                       max_stock_quantity, weight 
+                FROM items
+                WHERE (? = 'ALL' OR status = ?)
+                ORDER BY item_id
+                """;
 
-    List<Item> items = new ArrayList<>();
+        List<Item> items = new ArrayList<>();
 
-    try (Connection connection = DBConnection.getConnection();
-         PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
 
-        statement.setString(1, status);
-        statement.setString(2, status);
+            statement.setString(1, status);
+            statement.setString(2, status);
 
-        try (ResultSet resultSet = statement.executeQuery()) {
-            while (resultSet.next()) {
-                items.add(mapRowToItem(resultSet));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    items.add(mapRowToItem(resultSet));
+                }
             }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Error fetching items", e);
         }
 
-    } catch (SQLException e) {
-        throw new RuntimeException("Error fetching items", e);
+        return items;
     }
 
-    return items;
-}
 
-public List<Item> findAll() {
-    return findAll("ALL");
-}
+    // =========================================================
+    // FIND ALL ITEMS
+    // =========================================================
 
-    
+    public List<Item> findAll() {
+        return findAll("ALL");
+    }
+
+
+    // =========================================================
+    // FIND ITEM BY ID
+    // =========================================================
 
     public Item findById(int id) {
 
@@ -102,7 +134,10 @@ public List<Item> findAll() {
                 SELECT item_id, name, sku, description,
                        purchase_price, selling_price,
                        reorder_level, status,
-                       item_type, track_inventory , length , height , width , in_hand_quantity, committed_quantity , max_stock_quantity
+                       item_type, track_inventory,
+                       length, width, height,
+                       in_hand_quantity, committed_quantity,
+                       max_stock_quantity, weight
                 FROM items
                 WHERE item_id = ?
                 """;
@@ -125,59 +160,72 @@ public List<Item> findAll() {
         return null;
     }
 
-   
-public void update(Item item) {
 
-    String sql = """
-            UPDATE items
-            SET name = ?,
-                sku = ?,
-                description = ?,
-                purchase_price = ?,
-                selling_price = ?,
-                reorder_level = ?,
-                item_type = ?,
-                track_inventory = ?,
-                length = ?,
-                width = ?,
-                height = ?,
-                in_hand_quantity = ?,
-                committed_quantity = ?,
-                max_stock_quantity = ?
-            WHERE item_id = ?
-            """;
+    // =========================================================
+    // UPDATE ITEM
+    // =========================================================
 
-    try (Connection connection = DBConnection.getConnection();
-         PreparedStatement statement = connection.prepareStatement(sql)) {
+    public void update(Item item) {
 
-        statement.setString(1, item.getName());
-        statement.setString(2, item.getSku());
-        statement.setString(3, item.getDescription());
-        statement.setBigDecimal(4, item.getPurchasePrice());
-        statement.setBigDecimal(5, item.getSellingPrice());
-        statement.setInt(6, item.getReorderLevel());
-        statement.setString(7, item.getItemType());
-        statement.setBoolean(8, item.isTrackInventory());
-        statement.setDouble(9, item.getLength());
-        statement.setDouble(10, item.getWidth());
-        statement.setDouble(11, item.getHeight());
-        statement.setInt(12, item.getInHandQuantity());
-        statement.setInt(13, item.getCommittedQuantity());
+        String sql = """
+                UPDATE items
+                SET name = ?,
+                    sku = ?,
+                    description = ?,
+                    purchase_price = ?,
+                    selling_price = ?,
+                    reorder_level = ?,
+                    item_type = ?,
+                    track_inventory = ?,
+                    length = ?,
+                    width = ?,
+                    height = ?,
+                    in_hand_quantity = ?,
+                    committed_quantity = ?,
+                    max_stock_quantity = ?,
+                    weight = ?
+                WHERE item_id = ?
+                """;
 
-        if (item.getMaxStockQuantity() == null) {
-            statement.setNull(14, Types.INTEGER);
-        } else {
-            statement.setInt(14, item.getMaxStockQuantity());
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, item.getName());
+            statement.setString(2, item.getSku());
+            statement.setString(3, item.getDescription());
+            statement.setBigDecimal(4, item.getPurchasePrice());
+            statement.setBigDecimal(5, item.getSellingPrice());
+            statement.setInt(6, item.getReorderLevel());
+            statement.setString(7, item.getItemType());
+            statement.setBoolean(8, item.isTrackInventory());
+
+            statement.setDouble(9, item.getLength());
+            statement.setDouble(10, item.getWidth());
+            statement.setDouble(11, item.getHeight());
+
+            statement.setInt(12, item.getInHandQuantity());
+            statement.setInt(13, item.getCommittedQuantity());
+
+            if (item.getMaxStockQuantity() == null) {
+                statement.setNull(14, Types.INTEGER);
+            } else {
+                statement.setInt(14, item.getMaxStockQuantity());
+            }
+
+            statement.setDouble(15, item.getWeight());
+            statement.setInt(16, item.getId());
+
+            statement.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Error updating item", e);
         }
-
-        statement.setInt(15, item.getId());
-
-        statement.executeUpdate();
-
-    } catch (SQLException e) {
-        throw new RuntimeException("Error updating item", e);
     }
-}
+
+
+    // =========================================================
+    // DELETE ITEM (MARK INACTIVE)
+    // =========================================================
 
     public void delete(int id) {
 
@@ -198,6 +246,11 @@ public void update(Item item) {
         }
     }
 
+
+    // =========================================================
+    // MAP RESULT SET TO ITEM
+    // =========================================================
+
     private Item mapRowToItem(ResultSet resultSet) throws SQLException {
 
         Item item = new Item();
@@ -206,22 +259,31 @@ public void update(Item item) {
         item.setName(resultSet.getString("name"));
         item.setSku(resultSet.getString("sku"));
         item.setDescription(resultSet.getString("description"));
+
         item.setPurchasePrice(resultSet.getBigDecimal("purchase_price"));
         item.setSellingPrice(resultSet.getBigDecimal("selling_price"));
         item.setReorderLevel(resultSet.getInt("reorder_level"));
 
         String status = resultSet.getString("status");
-        item.setStatus(status == null ? null : ItemStatus.valueOf(status));
+
+        item.setStatus(status == null
+                ? null
+                : ItemStatus.valueOf(status));
 
         item.setItemType(resultSet.getString("item_type"));
         item.setTrackInventory(resultSet.getBoolean("track_inventory"));
+
         item.setLength(resultSet.getDouble("length"));
         item.setWidth(resultSet.getDouble("width"));
         item.setHeight(resultSet.getDouble("height"));
+        item.setWeight(resultSet.getDouble("weight"));
+
         item.setInHandQuantity(resultSet.getInt("in_hand_quantity"));
         item.setCommittedQuantity(resultSet.getInt("committed_quantity"));
-        item.setMaxStockQuantity((Integer) resultSet.getObject("max_stock_quantity")
-);
+
+        item.setMaxStockQuantity(
+                (Integer) resultSet.getObject("max_stock_quantity")
+        );
 
         return item;
     }

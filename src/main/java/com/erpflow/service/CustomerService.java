@@ -59,9 +59,13 @@ public class CustomerService {
         customerDAO.save(customer);
     }
 
+    public List<Customer> getAllCustomers(String status) {
+    return customerDAO.findAll(status);
+}
+
     public List<Customer> getAllCustomers() {
 
-        return customerDAO.findAll();
+        return customerDAO.findAll("ALL");
     }
 
     public Customer getCustomerById(int id) {
@@ -102,4 +106,5 @@ public class CustomerService {
 
         customerDAO.delete(id);
     }
+    
 }

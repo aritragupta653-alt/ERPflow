@@ -1,4 +1,5 @@
 let allCustomers = [];
+const customersApiUrl = "api/customers"
 
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -12,6 +13,8 @@ document.addEventListener("DOMContentLoaded", () => {
     setupSearch();
 
     setupModal();
+    document.getElementById("statusFilter")
+    ?.addEventListener("change", loadCustomers);
 
 });
 
@@ -23,11 +26,15 @@ document.addEventListener("DOMContentLoaded", () => {
 async function loadCustomers() {
 
     try {
+        const status = document.getElementById("statusFilter").value;
 
-        const response = await fetch(
-            contextPath + "/api/customers"
-        );
+const url = status === "ALL"
+    ? customersApiUrl
+    : `${customersApiUrl}?status=${encodeURIComponent(status)}`;
 
+
+        const response = await fetch(url);
+        
         if (!response.ok) {
             throw new Error("Failed to load customers");
         }

@@ -123,6 +123,10 @@
                                 <label for="height">Height</label>
                                 <input type="number" id="height" name="height" min="0" step="0.01" value="0" required>
                             </div>
+                            <div class="form-group">
+                                <label for="weight">Weight</label>
+                                <input type="number" id="weight" name="weight" min="0" step="0.01" value="0" required>
+                            </div>
 
                             <!-- DESCRIPTION -->
 
@@ -208,6 +212,7 @@
                                     <th>Purchase Price</th>
                                     <th>Selling Price</th>
                                     <th>Reorder Level</th>
+                                    <th>Item Type</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -301,6 +306,26 @@
                                     <option value="SERVICE">Service</option>
                                 </select>
                             </div>
+                            <div class="form-group">
+                                <label for="editLength">Length</label>
+                                <input type="number" id="editLength" min="0" step="0.01" value="0">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="editWidth">Width</label>
+                                <input type="number" id="editWidth" min="0" step="0.01" value="0">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="editHeight">Height</label>
+                                <input type="number" id="editHeight" min="0" step="0.01" value="0">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="editWeight">Weight</label>
+                                <input type="number" id="editWeight" min="0" step="0.01" value="0">
+                            </div>
+
 
                             <!-- TRACK INVENTORY -->
 

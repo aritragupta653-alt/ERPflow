@@ -43,32 +43,48 @@ public class CustomerDAO {
         }
     }
 
-    public List<Customer> findAll() {
+    public List<Customer> findAll(String status) {
+    List<Customer> customers = new ArrayList<>();
 
-        String sql = """
-                SELECT id, name, email, phone,
-                       address, status
-                FROM customers
-                WHERE status = 'ACTIVE'
-                ORDER BY id
-                """;
+    boolean filterByStatus =
+            status != null
+            && !status.isBlank()
+            && !"ALL".equalsIgnoreCase(status);
 
-        List<Customer> customers = new ArrayList<>();
+    String sql = "SELECT * FROM customers";
 
-        try (Connection connection = DBConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql);
-             ResultSet resultSet = statement.executeQuery()) {
+    if (filterByStatus) {
+        sql += " WHERE status = ?";
+    }
 
-            while (resultSet.next()) {
-                customers.add(mapRowToCustomer(resultSet));
+sql += " ORDER BY id DESC";
+    try (Connection connection = DBConnection.getConnection();
+         PreparedStatement statement = connection.prepareStatement(sql)) {
+
+        if (filterByStatus) {
+            String normalizedStatus = status.trim().toUpperCase();
+
+            if (!normalizedStatus.equals("ACTIVE")
+                    && !normalizedStatus.equals("INACTIVE")) {
+                throw new IllegalArgumentException("Invalid customer status");
             }
 
-        } catch (SQLException e) {
-            throw new RuntimeException("Error fetching customers", e);
+            statement.setString(1, normalizedStatus);
         }
 
-        return customers;
+        try (ResultSet resultSet = statement.executeQuery()) {
+            while (resultSet.next()) {
+                Customer customer = mapRowToCustomer(resultSet);
+                customers.add(customer);
+            }
+        }
+
+    } catch (SQLException e) {
+        throw new RuntimeException("Error retrieving customers", e);
     }
+
+    return customers;
+}
 
     public Customer findById(int id) {
 

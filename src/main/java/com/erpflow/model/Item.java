@@ -22,6 +22,7 @@ public class Item {
     private int inHandQuantity;
     private int committedQuantity;
     private Integer maxStockQuantity;
+    private double weight;
 
     public Item() {
     }
@@ -153,5 +154,11 @@ public Integer getMaxStockQuantity() {
 
 public void setMaxStockQuantity(Integer maxStockQuantity) {
     this.maxStockQuantity = maxStockQuantity;
+}
+public double getWeight(){
+    return this.weight;
+}
+public void setWeight(double weight){
+    this.weight = weight; 
 }
 }

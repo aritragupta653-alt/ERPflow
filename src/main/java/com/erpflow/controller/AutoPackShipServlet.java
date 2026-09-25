@@ -6,6 +6,7 @@ import com.erpflow.model.Shipment;
 import com.erpflow.service.AutoPackShipService;
 import com.erpflow.service.AutoPackShipService.AutoPackShipResult;
 
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -155,9 +156,7 @@ public class AutoPackShipServlet extends HttpServlet {
                     deliveryStatusNode.asText().trim();
 
 
-            // -------------------------------------------------
-            // Execute Pack & Ship
-            // -------------------------------------------------
+       
 
             AutoPackShipResult result =
                     autoPackShipService.packAndShip(

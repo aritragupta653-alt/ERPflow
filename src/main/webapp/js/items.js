@@ -145,6 +145,12 @@ function renderItems(items) {
         reorderBadge.textContent = item.reorderLevel ?? 0;
         reorderCell.appendChild(reorderBadge);
 
+        const typeCell = document.createElement("td");
+        const typeBadge = document.createElement("div");
+        typeBadge.className = "type-badge";
+        typeBadge.textContent = item.itemType || " " ;
+        typeCell.appendChild(typeBadge);
+
         // STATUS
         const statusCell = document.createElement("td");
         const statusBadge = document.createElement("span");
@@ -197,6 +203,7 @@ function renderItems(items) {
         row.appendChild(purchaseCell);
         row.appendChild(sellingCell);
         row.appendChild(reorderCell);
+        row.appendChild(typeCell);
         row.appendChild(statusCell);
         row.appendChild(actionCell);
 
@@ -231,6 +238,7 @@ function setupAddItemForm() {
             width: Number(getValue("width")),
             height: Number(getValue("height"))
             ,
+            weight:Number(getValue("weight")),
             itemType: itemType,
             trackInventory: itemType === "SERVICE" ? false : trackInventory
         };
@@ -291,6 +299,7 @@ function openEditModal(item) {
     document.getElementById("editLength").value = item.length ?? 0;
     document.getElementById("editWidth").value = item.width ?? 0;
     document.getElementById("editHeight").value = item.height ?? 0;
+    Document.getElementById("editWeight").value = item.weight??0;
 
     const itemType = getItemType(item);
     const editItemType = document.getElementById("editItemType");
@@ -350,6 +359,7 @@ function setupEditForm() {
             purchasePrice: Number(getValue("editPurchasePrice")),
             sellingPrice: Number(getValue("editSellingPrice")),
             reorderLevel: Number(getValue("editReorderLevel")),
+            weight: Number(getValue("editWeight")),
             itemType: itemType,
             trackInventory: itemType === "SERVICE" ? false : trackInventory
         };
