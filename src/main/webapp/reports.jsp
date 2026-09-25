@@ -1,532 +1,651 @@
-
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ERPFlow | Reports</title>
+    <!DOCTYPE html>
+    <html lang="en">
 
-    <style>
-        * {
-            box-sizing: border-box;
-        }
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>ERPFlow | Reports</title>
 
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f5f7fb;
-            color: #1f2937;
-        }
+        <style>
+            * {
+                box-sizing: border-box;
+            }
 
-        .page {
-            max-width: 1400px;
-            margin: auto;
-            padding: 28px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        h1 {
-            margin: 0 0 8px;
-            font-size: 28px;
-        }
-
-        .subtitle {
-            color: #6b7280;
-            margin: 0;
-        }
-
-        .panel {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            padding: 22px;
-            margin-bottom: 22px;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-        }
-
-        .filters {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(130px, 1fr));
-            gap: 14px;
-            align-items: end;
-        }
-
-        label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 7px;
-        }
-
-        input, select, button {
-            width: 100%;
-            padding: 11px 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 7px;
-            background: white;
-            font-size: 14px;
-        }
-
-        button {
-            cursor: pointer;
-            border: none;
-            background: #2563eb;
-            color: white;
-            font-weight: 600;
-        }
-
-        button:hover {
-            background: #1d4ed8;
-        }
-
-        .secondary {
-            background: #e5e7eb;
-            color: #111827;
-        }
-
-        .secondary:hover {
-            background: #d1d5db;
-        }
-
-        .table-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        .table-header h2 {
-            margin: 0;
-            font-size: 20px;
-        }
-
-        .table-wrap {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            white-space: nowrap;
-        }
-
-        th, td {
-            padding: 13px 15px;
-            text-align: left;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 14px;
-        }
-
-        th {
-            background: #f9fafb;
-            color: #4b5563;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: .04em;
-        }
-
-        tbody tr:hover {
-            background: #f9fafb;
-        }
-
-        .message {
-            padding: 14px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            display: none;
-        }
-
-        .error {
-            display: block;
-            color: #991b1b;
-            background: #fee2e2;
-        }
-
-        .empty {
-            padding: 30px;
-            text-align: center;
-            color: #6b7280;
-        }
-
-        .status {
-            display: inline-block;
-            padding: 5px 9px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .IN_STOCK {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .LOW_STOCK {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .OUT_OF_STOCK {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        @media (max-width: 900px) {
-            .filters {
-                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            body {
+                margin: 0;
+                font-family: Arial, sans-serif;
+                background: #f5f7fb;
+                color: #1f2937;
             }
 
             .page {
-                padding: 16px;
-            }
-        }
-
-        @media (max-width: 520px) {
-            .filters {
-                grid-template-columns: 1fr;
+                max-width: 1400px;
+                margin: auto;
+                padding: 28px;
             }
 
             .header {
-                align-items: flex-start;
-                flex-direction: column;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 24px;
             }
-        }
-    </style>
-</head>
 
-<body>
-<div class="page">
+            h1 {
+                margin: 0 0 8px;
+                font-size: 28px;
+            }
 
-    <div class="header">
-        <div>
-            <h1>Reports</h1>
-            <p class="subtitle">
-                View inventory, item sales, customer sales and order summaries.
-            </p>
+            .subtitle {
+                color: #6b7280;
+                margin: 0;
+            }
+
+            .panel {
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                padding: 22px;
+                margin-bottom: 22px;
+                box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+            }
+
+            .filters {
+                display: grid;
+                grid-template-columns: repeat(5, minmax(130px, 1fr));
+                gap: 14px;
+                align-items: end;
+            }
+
+            label {
+                display: block;
+                font-size: 13px;
+                font-weight: 600;
+                margin-bottom: 7px;
+            }
+
+            input,
+            select,
+            button {
+                width: 100%;
+                padding: 11px 12px;
+                border: 1px solid #d1d5db;
+                border-radius: 7px;
+                background: white;
+                font-size: 14px;
+            }
+
+            button {
+                cursor: pointer;
+                border: none;
+                background: #2563eb;
+                color: white;
+                font-weight: 600;
+            }
+
+            button:hover {
+                background: #1d4ed8;
+            }
+
+            .secondary {
+                background: #e5e7eb;
+                color: #111827;
+            }
+
+            .secondary:hover {
+                background: #d1d5db;
+            }
+
+            .table-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 16px;
+            }
+
+            .table-header h2 {
+                margin: 0;
+                font-size: 20px;
+            }
+
+            .table-wrap {
+                overflow-x: auto;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                white-space: nowrap;
+            }
+
+            th,
+            td {
+                padding: 13px 15px;
+                text-align: left;
+                border-bottom: 1px solid #e5e7eb;
+                font-size: 14px;
+            }
+
+            th {
+                background: #f9fafb;
+                color: #4b5563;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: .04em;
+            }
+
+            tbody tr:hover {
+                background: #f9fafb;
+            }
+
+            .message {
+                padding: 14px;
+                border-radius: 8px;
+                margin-bottom: 15px;
+                display: none;
+            }
+
+            .error {
+                display: block;
+                color: #991b1b;
+                background: #fee2e2;
+            }
+
+            .empty {
+                padding: 30px;
+                text-align: center;
+                color: #6b7280;
+            }
+
+            .status {
+                display: inline-block;
+                padding: 5px 9px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            .IN_STOCK {
+                background: #dcfce7;
+                color: #166534;
+            }
+
+            .LOW_STOCK {
+                background: #fef3c7;
+                color: #92400e;
+            }
+
+            .OUT_OF_STOCK {
+                background: #fee2e2;
+                color: #991b1b;
+            }
+
+            @media (max-width: 900px) {
+                .filters {
+                    grid-template-columns: repeat(2, minmax(130px, 1fr));
+                }
+
+                .page {
+                    padding: 16px;
+                }
+            }
+
+            @media (max-width: 520px) {
+                .filters {
+                    grid-template-columns: 1fr;
+                }
+
+                .header {
+                    align-items: flex-start;
+                    flex-direction: column;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="page">
+
+            <div class="header">
+                <div>
+                    <h1>Reports</h1>
+                    <p class="subtitle">
+                        View inventory, item sales, customer sales and order summaries.
+                    </p>
+                </div>
+            </div>
+
+            <section class="panel">
+                <div class="filters">
+
+                    <div>
+                        <label for="reportType">Report</label>
+                        <select id="reportType">
+                            <option value="inventory">Inventory Stock Summary</option>
+                            <option value="sales-by-item">Sales per Item</option>
+                            <option value="sales-by-customer">Sales per Customer</option>
+                            <option value="sales-order-summary">Sales Order Summary</option>
+                            <option value="order-fulfillment">Order Fulfillment</option>
+                            <option value="order-fulfillment-summary">Order Fulfillment Summary </option>
+                            <option value="order-fulfillment-by-item">
+                                Order Fulfillment by Item
+                            </option>
+
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="search">Search</label>
+                        <input id="search" type="text" placeholder="Search report...">
+                    </div>
+
+                    <div>
+                        <label for="from">From Date</label>
+                        <input id="from" type="date">
+                    </div>
+
+                    <div>
+                        <label for="to">To Date</label>
+                        <input id="to" type="date">
+                    </div>
+
+                    <div id="stockFilterContainer">
+
+                        <div id="stockFilter">
+                            <label for="stock">Stock Status</label>
+                            <select id="stock">
+                                <option value="all">All</option>
+                                <option value="IN_STOCK">In Stock</option>
+                                <option value="LOW_STOCK">Low Stock</option>
+                                <option value="OUT_OF_STOCK">Out of Stock</option>
+                            </select>
+                        </div>
+
+
+                        <div id="orderStatusFilter" style="display:none;">
+
+                            <label for="orderStatus">
+                                Order Status
+                            </label>
+
+                            <select id="orderStatus">
+
+                                <option value="ALL">
+                                    All
+                                </option>
+
+                                <option value="CREATED">
+                                    Created
+                                </option>
+
+                                <option value="PARTIALLY_SHIPPED">
+                                    Partially Shipped
+                                </option>
+
+                                <option value="SHIPPED">
+                                    Shipped
+                                </option>
+
+                                <option value="COMPLETED">
+                                    Completed
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                    </div>
+
+                    <div>
+                        <button id="applyButton" type="button">Apply Filters</button>
+                    </div>
+
+                    <div>
+                        <button id="resetButton" class="secondary" type="button">
+                            Reset
+                        </button>
+                    </div>
+
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="table-header">
+                    <h2 id="reportTitle">Inventory Stock Summary</h2>
+                    <span id="rowCount">0 rows</span>
+                </div>
+
+                <div id="message" class="message"></div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead id="tableHead"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
         </div>
-    </div>
 
-    <section class="panel">
-        <div class="filters">
+        <script>
+            const contextPath = '<%= request.getContextPath() %>';
 
-            <div>
-                <label for="reportType">Report</label>
-                <select id="reportType">
-                    <option value="inventory">Inventory Stock Summary</option>
-                    <option value="sales-by-item">Sales per Item</option>
-                    <option value="sales-by-customer">Sales per Customer</option>
-                    <option value="sales-order-summary">Sales Order Summary</option>
-                </select>
-            </div>
+            const reportType = document.getElementById("reportType");
+            const searchInput = document.getElementById("search");
+            const fromInput = document.getElementById("from");
+            const toInput = document.getElementById("to");
+            const stockInput = document.getElementById("stock");
+            const orderStatusInput =
+                document.getElementById("orderStatus");
 
-            <div>
-                <label for="search">Search</label>
-                <input id="search" type="text"
-                       placeholder="Search report...">
-            </div>
+            const orderStatusContainer =
+                document.getElementById("orderStatusFilter");
 
-            <div>
-                <label for="from">From Date</label>
-                <input id="from" type="date">
-            </div>
+            const stockContainer =
+                document.getElementById("stockFilterContainer");
 
-            <div>
-                <label for="to">To Date</label>
-                <input id="to" type="date">
-            </div>
+            const tableHead = document.getElementById("tableHead");
+            const tableBody = document.getElementById("tableBody");
+            const message = document.getElementById("message");
+            const rowCount = document.getElementById("rowCount");
+            const reportTitle = document.getElementById("reportTitle");
 
-            <div id="stockFilterContainer">
-                <label for="stock">Stock Status</label>
-                <select id="stock">
-                    <option value="all">All</option>
-                    <option value="IN_STOCK">In Stock</option>
-                    <option value="LOW_STOCK">Low Stock</option>
-                    <option value="OUT_OF_STOCK">Out of Stock</option>
-                </select>
-            </div>
+            const reportConfig = {
+                "inventory": {
+                    title: "Inventory Stock Summary",
+                    endpoint: "/api/reports/inventory",
+                    columns: [
+                        ["sku", "SKU"],
+                        ["name", "Item"],
+                        ["quantity", "On Hand"],
+                        ["reserved", "Reserved"],
+                        ["available", "Available"],
+                        ["reorderLevel", "Reorder Level"],
+                        ["stockIn", "Stock In"],
+                        ["stockOut", "Stock Out"],
+                        ["status", "Status"]
+                    ]
+                },
 
-            <div>
-                <button id="applyButton" type="button">Apply Filters</button>
-            </div>
+                "sales-by-item": {
+                    title: "Sales per Item",
+                    endpoint: "/api/reports/sales-by-item",
+                    columns: [
+                        ["sku", "SKU"],
+                        ["name", "Item"],
+                        ["quantitySold", "Quantity Sold"],
+                        ["orderCount", "Orders"],
+                        ["revenue", "Revenue"]
+                    ]
+                },
 
-            <div>
-                <button id="resetButton" class="secondary" type="button">
-                    Reset
-                </button>
-            </div>
+                "sales-by-customer": {
+                    title: "Sales per Customer",
+                    endpoint: "/api/reports/sales-by-customer",
+                    columns: [
+                        ["customerName", "Customer"],
+                        ["orderCount", "Orders"],
+                        ["quantitySold", "Quantity Sold"],
+                        ["revenue", "Revenue"]
+                    ]
+                },
 
-        </div>
-    </section>
+                "sales-order-summary": {
+                    title: "Sales Order Summary",
+                    endpoint: "/api/reports/sales-order-summary",
+                    columns: [
+                        ["orderId", "Order ID"],
+                        ["orderDate", "Order Date"],
+                        ["customerName", "Customer"],
+                        ["status", "Status"],
+                        ["itemQuantity", "Item Quantity"],
+                        ["subtotal", "Subtotal"]
+                    ]
+                },
+                "order-fulfillment": {
+                    title: "Order Fulfillment Report",
+                    endpoint: "/api/reports/order-fulfillment",
+                    columns: [
+                        ["orderId", "Order ID"],
+                        ["orderDate", "Order Date"],
+                        ["customerName", "Customer"],
+                        ["orderStatus", "Status"],
+                        ["itemName", "Item"],
+                        ["sku", "SKU"],
+                        ["orderedQuantity", "Ordered"],
+                        ["packedQuantity", "Packed"],
+                        ["shippedQuantity", "Shipped"],
+                        ["pendingQuantity", "To be Shipped"],
+                        ["fulfillmentPercentage", " Shipment Fulfillment %"]
+                    ]
+                },
+                "order-fulfillment-summary": {
+                    title: "Order Fulfillment Summary",
+                    endpoint: "/api/reports/order-fulfillment/summary",
+                    columns: [
+                        ["orderId", "Order ID"],
+                        ["orderDate", "Order Date"],
+                        ["customerName", "Customer"],
+                        ["orderStatus", "Status"],
+                        ["orderedQuantity", "Ordered"],
+                        ["packedQuantity", "Packed"],
+                        ["shippedQuantity", "Shipped"]
+                    ]
+                },
+                "order-fulfillment-by-item": {
+    title: "Order Fulfillment by Item",
+    endpoint: "/api/reports/order-fulfillment/by-item",
+    columns: [
+        ["itemId", "Item ID"],
+        ["itemName", "Item"],
+        ["sku", "SKU"],
+        ["orderedQuantity", "Ordered"],
+        ["packedQuantity", "Packed"],
+        ["shippedQuantity", "Shipped"],
+        ["pendingQuantity", "To be Shipped"],
+        ["fulfillmentPercentage", "Shipment Fulfillment %"]
+    ]
+}
 
-    <section class="panel">
-        <div class="table-header">
-            <h2 id="reportTitle">Inventory Stock Summary</h2>
-            <span id="rowCount">0 rows</span>
-        </div>
+            };
 
-        <div id="message" class="message"></div>
+            function showError(text) {
+                message.textContent = text;
+                message.className = "message error";
+            }
 
-        <div class="table-wrap">
-            <table>
-                <thead id="tableHead"></thead>
-                <tbody id="tableBody"></tbody>
-            </table>
-        </div>
-    </section>
+            function clearError() {
+                message.textContent = "";
+                message.className = "message";
+            }
 
-</div>
+            function escapeHtml(value) {
+                return String(value ?? "")
+                    .replaceAll("&", "&amp;")
+                    .replaceAll("<", "&lt;")
+                    .replaceAll(">", "&gt;")
+                    .replaceAll('"', "&quot;")
+                    .replaceAll("'", "&#039;");
+            }
 
-<script>
-    const contextPath = '<%= request.getContextPath() %>';
+            function formatValue(key, value) {
+                if (value === null || value === undefined) {
+                    return "—";
+                }
 
-    const reportType = document.getElementById("reportType");
-    const searchInput = document.getElementById("search");
-    const fromInput = document.getElementById("from");
-    const toInput = document.getElementById("to");
-    const stockInput = document.getElementById("stock");
+                if (key === "status" || key === "orderStatus") {
+                    const safe = escapeHtml(value);
+                    return '<span class="status ' + safe + '">' + safe + '</span>';
+                }
 
-    const stockContainer =
-        document.getElementById("stockFilterContainer");
+                if (typeof value === "number") {
+                    return Number(value).toLocaleString(undefined, {
+                        maximumFractionDigits: 2
+                    });
+                }
 
-    const tableHead = document.getElementById("tableHead");
-    const tableBody = document.getElementById("tableBody");
-    const message = document.getElementById("message");
-    const rowCount = document.getElementById("rowCount");
-    const reportTitle = document.getElementById("reportTitle");
+                return escapeHtml(value);
+            }
 
-    const reportConfig = {
-        "inventory": {
-            title: "Inventory Stock Summary",
-            endpoint: "/api/reports/inventory",
-            columns: [
-                ["sku", "SKU"],
-                ["name", "Item"],
-                ["quantity", "On Hand"],
-                ["reserved", "Reserved"],
-                ["available", "Available"],
-                ["reorderLevel", "Reorder Level"],
-                ["stockIn", "Stock In"],
-                ["stockOut", "Stock Out"],
-                ["status", "Status"]
-            ]
-        },
+            function renderTable(rows, config) {
+                tableHead.innerHTML = "";
+                tableBody.innerHTML = "";
 
-        "sales-by-item": {
-            title: "Sales per Item",
-            endpoint: "/api/reports/sales-by-item",
-            columns: [
-                ["sku", "SKU"],
-                ["name", "Item"],
-                ["quantitySold", "Quantity Sold"],
-                ["orderCount", "Orders"],
-                ["revenue", "Revenue"]
-            ]
-        },
+                const headerRow = document.createElement("tr");
 
-        "sales-by-customer": {
-            title: "Sales per Customer",
-            endpoint: "/api/reports/sales-by-customer",
-            columns: [
-                ["customerName", "Customer"],
-                ["orderCount", "Orders"],
-                ["quantitySold", "Quantity Sold"],
-                ["revenue", "Revenue"]
-            ]
-        },
+                config.columns.forEach(column => {
+                    const th = document.createElement("th");
+                    th.textContent = column[1];
+                    headerRow.appendChild(th);
+                });
 
-        "sales-order-summary": {
-            title: "Sales Order Summary",
-            endpoint: "/api/reports/sales-order-summary",
-            columns: [
-                ["orderId", "Order ID"],
-                ["orderDate", "Order Date"],
-                ["customerName", "Customer"],
-                ["status", "Status"],
-                ["itemQuantity", "Item Quantity"],
-                ["subtotal", "Subtotal"]
-            ]
-        }
-    };
+                tableHead.appendChild(headerRow);
 
-    function showError(text) {
-        message.textContent = text;
-        message.className = "message error";
-    }
+                if (!rows.length) {
+                    const tr = document.createElement("tr");
+                    const td = document.createElement("td");
 
-    function clearError() {
-        message.textContent = "";
-        message.className = "message";
-    }
+                    td.colSpan = config.columns.length;
+                    td.className = "empty";
+                    td.textContent = "No records found for the selected filters.";
 
-    function escapeHtml(value) {
-        return String(value ?? "")
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
+                    tr.appendChild(td);
+                    tableBody.appendChild(tr);
+                    rowCount.textContent = "0 rows";
+                    return;
+                }
 
-    function formatValue(key, value) {
-        if (value === null || value === undefined) {
-            return "—";
-        }
+                rows.forEach(row => {
+                    const tr = document.createElement("tr");
 
-        if (key === "status") {
-            const safe = escapeHtml(value);
-            return '<span class="status ' + safe + '">' + safe + '</span>';
-        }
+                    config.columns.forEach(column => {
+                        const td = document.createElement("td");
+                        td.innerHTML = formatValue(column[0], row[column[0]]);
+                        tr.appendChild(td);
+                    });
 
-        if (typeof value === "number") {
-            return Number(value).toLocaleString(undefined, {
-                maximumFractionDigits: 2
-            });
-        }
+                    tableBody.appendChild(tr);
+                });
 
-        return escapeHtml(value);
-    }
+                rowCount.textContent =
+                    rows.length + (rows.length === 1 ? " row" : " rows");
+            }
 
-    function renderTable(rows, config) {
-        tableHead.innerHTML = "";
-        tableBody.innerHTML = "";
+            async function loadReport() {
+                clearError();
 
-        const headerRow = document.createElement("tr");
+                const selected = reportType.value;
+                const config = reportConfig[selected];
 
-        config.columns.forEach(column => {
-            const th = document.createElement("th");
-            th.textContent = column[1];
-            headerRow.appendChild(th);
-        });
+                reportTitle.textContent = config.title;
+                stockContainer.style.display =
+                    selected === "inventory"
+                        ? "block"
+                        : "none";
 
-        tableHead.appendChild(headerRow);
+                orderStatusContainer.style.display =
+                    selected === "order-fulfillment"
+                        ? "block"
+                        : "none";
+                const params = new URLSearchParams();
 
-        if (!rows.length) {
-            const tr = document.createElement("tr");
-            const td = document.createElement("td");
+                if (searchInput.value.trim()) {
+                    params.set("search", searchInput.value.trim());
+                }
 
-            td.colSpan = config.columns.length;
-            td.className = "empty";
-            td.textContent = "No records found for the selected filters.";
+                if (fromInput.value) {
 
-            tr.appendChild(td);
-            tableBody.appendChild(tr);
-            rowCount.textContent = "0 rows";
-            return;
-        }
-
-        rows.forEach(row => {
-            const tr = document.createElement("tr");
-
-            config.columns.forEach(column => {
-                const td = document.createElement("td");
-                td.innerHTML = formatValue(column[0], row[column[0]]);
-                tr.appendChild(td);
-            });
-
-            tableBody.appendChild(tr);
-        });
-
-        rowCount.textContent =
-            rows.length + (rows.length === 1 ? " row" : " rows");
-    }
-
-    async function loadReport() {
-        clearError();
-
-        const selected = reportType.value;
-        const config = reportConfig[selected];
-
-        reportTitle.textContent = config.title;
-        stockContainer.style.display =
-            selected === "inventory" ? "block" : "none";
-
-        const params = new URLSearchParams();
-
-        if (searchInput.value.trim()) {
-            params.set("search", searchInput.value.trim());
-        }
-
-        if (fromInput.value) {
-            params.set("from", fromInput.value);
-        }
-
-        if (toInput.value) {
-            params.set("to", toInput.value);
-        }
-
-        if (selected === "inventory") {
-            params.set("stock", stockInput.value);
-        }
-
-        tableBody.innerHTML =
-            '<tr><td class="empty" colspan="' +
-            config.columns.length +
-            '">Loading report...</td></tr>';
-
-        try {
-            const response = await fetch(
-                contextPath + config.endpoint + "?" + params.toString(),
-                {
-                    method: "GET",
-                    headers: {
-                        "Accept": "application/json"
+                    if (selected === "order-fulfillment") {
+                        params.set("fromDate", fromInput.value);
+                    } else {
+                        params.set("from", fromInput.value);
                     }
                 }
-            );
 
-            const result = await response.json();
+                if (toInput.value) {
 
-            if (!response.ok) {
-                throw new Error(
-                    result.message || "Unable to load report."
-                );
+                    if (selected === "order-fulfillment") {
+                        params.set("toDate", toInput.value);
+                    } else {
+                        params.set("to", toInput.value);
+                    }
+                }
+
+                if (selected === "inventory") {
+                    params.set("stock", stockInput.value);
+                }
+                if (selected === "order-fulfillment") {
+
+                    params.set(
+                        "status",
+                        orderStatusInput.value
+                    );
+                }
+
+                tableBody.innerHTML =
+                    '<tr><td class="empty" colspan="' +
+                    config.columns.length +
+                    '">Loading report...</td></tr>';
+
+                try {
+                    const response = await fetch(
+                        contextPath + config.endpoint + "?" + params.toString(),
+                        {
+                            method: "GET",
+                            headers: {
+                                "Accept": "application/json"
+                            }
+                        }
+                    );
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            result.message || "Unable to load report."
+                        );
+                    }
+
+                    if (!Array.isArray(result)) {
+                        throw new Error("Unexpected response received from server.");
+                    }
+
+                    renderTable(result, config);
+
+                } catch (error) {
+                    tableHead.innerHTML = "";
+                    tableBody.innerHTML = "";
+                    rowCount.textContent = "—";
+                    showError(error.message || "An unexpected error occurred.");
+                }
             }
 
-            if (!Array.isArray(result)) {
-                throw new Error("Unexpected response received from server.");
-            }
+            document.getElementById("applyButton")
+                .addEventListener("click", loadReport);
 
-            renderTable(result, config);
+            document.getElementById("resetButton")
+                .addEventListener("click", () => {
+                    searchInput.value = "";
+                    fromInput.value = "";
+                    toInput.value = "";
+                    stockInput.value = "all";
+                    loadReport();
+                });
 
-        } catch (error) {
-            tableHead.innerHTML = "";
-            tableBody.innerHTML = "";
-            rowCount.textContent = "—";
-            showError(error.message || "An unexpected error occurred.");
-        }
-    }
+            reportType.addEventListener("change", loadReport);
 
-    document.getElementById("applyButton")
-        .addEventListener("click", loadReport);
+            searchInput.addEventListener("keydown", event => {
+                if (event.key === "Enter") {
+                    loadReport();
+                }
+            });
 
-    document.getElementById("resetButton")
-        .addEventListener("click", () => {
-            searchInput.value = "";
-            fromInput.value = "";
-            toInput.value = "";
-            stockInput.value = "all";
             loadReport();
-        });
+        </script>
+    </body>
 
-    reportType.addEventListener("change", loadReport);
-
-    searchInput.addEventListener("keydown", event => {
-        if (event.key === "Enter") {
-            loadReport();
-        }
-    });
-
-    loadReport();
-</script>
-</body>
-</html>
+    </html>

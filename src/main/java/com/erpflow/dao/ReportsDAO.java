@@ -109,8 +109,10 @@ public class ReportsDAO {
                           AND (? IS NULL OR t.transactionDate <= ?)
                     ), 0) AS stockOut
                 FROM items i
+                
                 LEFT JOIN inventory inv ON inv.item_id = i.item_id
-                ORDER BY i.name
+                WHERE i.track_inventory = TRUE
+                ORDER BY i.name 
                 """;
 
         List<Map<String, Object>> rows = new ArrayList<>();
