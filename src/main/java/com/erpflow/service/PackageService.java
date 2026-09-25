@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
 
 public class PackageService {
 
@@ -35,7 +36,8 @@ public class PackageService {
             double weight,
             double length,
             double width,
-            double height) {
+            double height,
+            LocalDate packageDate) {
 
         if (salesOrder == null) {
             throw new RuntimeException("Sales Order not found");
@@ -49,18 +51,14 @@ public class PackageService {
                 || orderStatus == SalesOrderStatus.COMPLETED
                 || orderStatus == SalesOrderStatus.CANCELLED) {
             throw new RuntimeException(
-                    "Cannot create a package for this Sales Order status"
-            );
+                    "Cannot create a package for this Sales Order status");
         }
 
-        Map<Integer, SalesOrderItem> orderLines =
-                getOrderLines(salesOrder);
+        Map<Integer, SalesOrderItem> orderLines = getOrderLines(salesOrder);
 
-        Map<Integer, Integer> alreadyPacked =
-                getAlreadyPackagedQuantities(salesOrder.getId());
+        Map<Integer, Integer> alreadyPacked = getAlreadyPackagedQuantities(salesOrder.getId());
 
-        Map<Integer, Integer> requested =
-                validateAndAggregateItems(packageItems, orderLines);
+        Map<Integer, Integer> requested = validateAndAggregateItems(packageItems, orderLines);
 
         validateRemainingQuantities(requested, orderLines, alreadyPacked);
 
@@ -69,7 +67,24 @@ public class PackageService {
         Package packageEntity = new Package();
         packageEntity.setSalesOrder(salesOrder);
         packageEntity.setStatus(PackageStatus.PACKING);
-        packageEntity.setPackageDate(LocalDateTime.now());
+        if (packageDate == null) {
+    throw new RuntimeException("Package date is required");
+}
+
+if (salesOrder.getOrderDate() != null &&
+        packageDate.isBefore(
+                salesOrder.getOrderDate().toLocalDate()
+        )) {
+
+    throw new RuntimeException(
+            "Package date cannot be before Sales Order date"
+    );
+}
+
+packageEntity.setPackageDate(packageDate);
+        
+
+        packageEntity.setPackageDate(packageDate);
         packageEntity.setWeight(weight);
         packageEntity.setLength(length);
         packageEntity.setWidth(width);
@@ -78,8 +93,7 @@ public class PackageService {
         packageDAO.save(packageEntity);
 
         packageEntity.setPackageNumber(
-                String.format("PKG-%06d", packageEntity.getId())
-        );
+                String.format("PKG-%06d", packageEntity.getId()));
         packageDAO.update(packageEntity);
 
         for (PackageItem packageItem : packageItems) {
@@ -119,16 +133,14 @@ public class PackageService {
 
         if (existingPackage.getStatus() != PackageStatus.PACKED) {
             throw new RuntimeException(
-                    "Only packages with PACKED status can be edited"
-            );
+                    "Only packages with PACKED status can be edited");
         }
 
         SalesOrder salesOrder = existingPackage.getSalesOrder();
 
         if (salesOrder == null) {
             throw new RuntimeException(
-                    "The package is not associated with a Sales Order"
-            );
+                    "The package is not associated with a Sales Order");
         }
 
         SalesOrderStatus orderStatus = salesOrder.getStatus();
@@ -137,29 +149,24 @@ public class PackageService {
                 || orderStatus == SalesOrderStatus.COMPLETED
                 || orderStatus == SalesOrderStatus.CANCELLED) {
             throw new RuntimeException(
-                    "Cannot edit a package for this Sales Order status"
-            );
+                    "Cannot edit a package for this Sales Order status");
         }
 
-        Map<Integer, SalesOrderItem> orderLines =
-                getOrderLines(salesOrder);
+        Map<Integer, SalesOrderItem> orderLines = getOrderLines(salesOrder);
 
         // Existing package quantities are included in the order's
         // packed totals. Remove this package's quantities before
         // validating the replacement quantities.
-        Map<Integer, Integer> packedByLine =
-                getAlreadyPackagedQuantities(salesOrder.getId());
+        Map<Integer, Integer> packedByLine = getAlreadyPackagedQuantities(salesOrder.getId());
 
-        List<PackageItem> currentItems =
-                packageItemDAO.findByPackage(existingPackage);
+        List<PackageItem> currentItems = packageItemDAO.findByPackage(existingPackage);
 
         for (PackageItem currentItem : currentItems) {
             Integer lineId = currentItem.getSalesOrderItemId();
 
             if (lineId != null) {
-                int remaining =
-                        packedByLine.getOrDefault(lineId, 0)
-                                - currentItem.getQuantity();
+                int remaining = packedByLine.getOrDefault(lineId, 0)
+                        - currentItem.getQuantity();
 
                 if (remaining <= 0) {
                     packedByLine.remove(lineId);
@@ -169,8 +176,7 @@ public class PackageService {
             }
         }
 
-        Map<Integer, Integer> requested =
-                validateAndAggregateItems(updatedItems, orderLines);
+        Map<Integer, Integer> requested = validateAndAggregateItems(updatedItems, orderLines);
 
         validateRemainingQuantities(requested, orderLines, packedByLine);
 
@@ -210,20 +216,17 @@ public class PackageService {
                 || !Double.isFinite(width)
                 || !Double.isFinite(height)) {
             throw new RuntimeException(
-                    "Package weight and dimensions must be valid numbers"
-            );
+                    "Package weight and dimensions must be valid numbers");
         }
 
         if (weight <= 0) {
             throw new RuntimeException(
-                    "Package weight must be greater than zero"
-            );
+                    "Package weight must be greater than zero");
         }
 
         if (length <= 0 || width <= 0 || height <= 0) {
             throw new RuntimeException(
-                    "Package dimensions must be greater than zero"
-            );
+                    "Package dimensions must be greater than zero");
         }
     }
 
@@ -234,8 +237,7 @@ public class PackageService {
     private Map<Integer, SalesOrderItem> getOrderLines(
             SalesOrder salesOrder) {
 
-        List<SalesOrderItem> orderItems =
-                salesOrderItemDAO.findBySalesOrder(salesOrder);
+        List<SalesOrderItem> orderItems = salesOrderItemDAO.findBySalesOrder(salesOrder);
 
         if (orderItems == null || orderItems.isEmpty()) {
             throw new RuntimeException("Sales Order contains no items");
@@ -246,8 +248,7 @@ public class PackageService {
         for (SalesOrderItem orderItem : orderItems) {
             if (orderItem == null || orderItem.getId() <= 0) {
                 throw new RuntimeException(
-                        "Sales Order contains an invalid order line"
-                );
+                        "Sales Order contains an invalid order line");
             }
 
             orderLines.put(orderItem.getId(), orderItem);
@@ -266,8 +267,7 @@ public class PackageService {
 
         if (packageItems == null || packageItems.isEmpty()) {
             throw new RuntimeException(
-                    "Package must contain at least one item"
-            );
+                    "Package must contain at least one item");
         }
 
         Map<Integer, Integer> requestedQuantities = new HashMap<>();
@@ -282,16 +282,14 @@ public class PackageService {
 
             if (lineId == null || lineId <= 0) {
                 throw new RuntimeException(
-                        "Sales order line ID is required for every package item"
-                );
+                        "Sales order line ID is required for every package item");
             }
 
             int quantity = packageItem.getQuantity();
 
             if (quantity <= 0) {
                 throw new RuntimeException(
-                        "Package quantity must be greater than zero"
-                );
+                        "Package quantity must be greater than zero");
             }
 
             SalesOrderItem orderLine = orderLines.get(lineId);
@@ -299,41 +297,35 @@ public class PackageService {
             if (orderLine == null) {
                 throw new RuntimeException(
                         "Sales order line does not belong to this Sales Order: "
-                                + lineId
-                );
+                                + lineId);
             }
 
             Item actualItem = orderLine.getItem();
 
             if (actualItem == null) {
                 throw new RuntimeException(
-                        "Item not found in the Sales Order line"
-                );
+                        "Item not found in the Sales Order line");
             }
 
             if (packageItem.getItem().getId() != actualItem.getId()) {
                 throw new RuntimeException(
-                        "Item does not match the selected Sales Order line"
-                );
+                        "Item does not match the selected Sales Order line");
             }
 
             if (!"GOODS".equalsIgnoreCase(actualItem.getItemType())
                     || !actualItem.isTrackInventory()) {
                 throw new RuntimeException(
-                        "Only inventory-tracked goods can be added to packages"
-                );
+                        "Only inventory-tracked goods can be added to packages");
             }
 
             try {
                 requestedQuantities.merge(
                         lineId,
                         quantity,
-                        Math::addExact
-                );
+                        Math::addExact);
             } catch (ArithmeticException e) {
                 throw new RuntimeException(
-                        "Package quantity total is too large"
-                );
+                        "Package quantity total is too large");
             }
         }
 
@@ -362,19 +354,16 @@ public class PackageService {
             if (orderedQuantity <= 0) {
                 throw new RuntimeException(
                         "Sales Order line has an invalid ordered quantity: "
-                                + lineId
-                );
+                                + lineId);
             }
 
             if (previouslyPacked < 0) {
                 throw new RuntimeException(
                         "Invalid existing packed quantity for order line "
-                                + lineId
-                );
+                                + lineId);
             }
 
-            long newPackedTotal =
-                    (long) previouslyPacked + requestedQuantity;
+            long newPackedTotal = (long) previouslyPacked + requestedQuantity;
 
             if (newPackedTotal > orderedQuantity) {
                 throw new RuntimeException(
@@ -382,8 +371,7 @@ public class PackageService {
                                 + "Sales Order line " + lineId
                                 + ". Ordered: " + orderedQuantity
                                 + ", already packed: " + previouslyPacked
-                                + ", requested: " + requestedQuantity
-                );
+                                + ", requested: " + requestedQuantity);
             }
         }
     }
@@ -446,8 +434,7 @@ public class PackageService {
 
         Map<Integer, Integer> result = new HashMap<>();
 
-        List<Package> packages =
-                packageDAO.findBySalesOrder(salesOrderId);
+        List<Package> packages = packageDAO.findBySalesOrder(salesOrderId);
 
         for (Package pkg : packages) {
 
@@ -455,8 +442,7 @@ public class PackageService {
                 continue;
             }
 
-            List<PackageItem> items =
-                    packageItemDAO.findByPackage(pkg);
+            List<PackageItem> items = packageItemDAO.findByPackage(pkg);
 
             for (PackageItem packageItem : items) {
 
@@ -470,19 +456,18 @@ public class PackageService {
                     result.merge(
                             lineId,
                             packageItem.getQuantity(),
-                            Math::addExact
-                    );
+                            Math::addExact);
                 } catch (ArithmeticException e) {
                     throw new RuntimeException(
-                            "Existing packed quantity total is too large"
-                    );
+                            "Existing packed quantity total is too large");
                 }
             }
         }
 
         return result;
     }
+
     public List<Package> getAllPackages(String status) {
-    return packageDAO.findAll(status);
-}
+        return packageDAO.findAll(status);
+    }
 }

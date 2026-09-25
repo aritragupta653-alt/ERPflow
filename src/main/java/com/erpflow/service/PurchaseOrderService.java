@@ -26,7 +26,22 @@ public class PurchaseOrderService {
         if (items == null || items.isEmpty()) {
             throw new RuntimeException("At least one item is required");
         }
+        if (purchaseOrder.getOrderDate() == null) {
+    throw new RuntimeException("PO date is required");
+}
 
+if (purchaseOrder.getExpectedDeliveryDate() == null) {
+    throw new RuntimeException("Expected delivery date is required");
+}
+
+if (purchaseOrder.getExpectedDeliveryDate()
+        .isBefore(purchaseOrder.getOrderDate().toLocalDate())) {
+
+    throw new RuntimeException(
+            "Expected delivery date cannot be before PO date"
+    );
+}
+        
         for (PurchaseOrderItem orderItem : items) {
             validateItem(orderItem);
 
@@ -84,6 +99,21 @@ public class PurchaseOrderService {
         if (updatedItems == null || updatedItems.isEmpty()) {
             throw new RuntimeException("At least one item is required");
         }
+        if (updatedOrder.getOrderDate() == null) {
+    throw new RuntimeException("PO date is required");
+}
+
+if (updatedOrder.getExpectedDeliveryDate() == null) {
+    throw new RuntimeException("Expected delivery date is required");
+}
+
+if (updatedOrder.getExpectedDeliveryDate()
+        .isBefore(updatedOrder.getOrderDate().toLocalDate())) {
+
+    throw new RuntimeException(
+            "Expected delivery date cannot be before PO date"
+    );
+}
 
         for (PurchaseOrderItem item : updatedItems) {
             validateItem(item);
@@ -97,6 +127,8 @@ public class PurchaseOrderService {
         }
 
         existing.setSupplier(updatedOrder.getSupplier());
+        existing.setExpectedDeliveryDate(updatedOrder.getExpectedDeliveryDate()
+);
         purchaseOrderDAO.update(existing);
 
         // No receiving has occurred for CREATED orders, so replacing their

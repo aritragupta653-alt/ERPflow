@@ -1,7 +1,9 @@
 package com.erpflow.service;
 
 import com.erpflow.dao.ShipmentDAO;
+import com.erpflow.dao.PackageDAO;
 import com.erpflow.model.Shipment;
+import com.erpflow.model.Package;
 import com.erpflow.model.enums.ShipmentStatus;
 
 import java.time.LocalDate;
@@ -10,6 +12,7 @@ import java.util.List;
 public class ShipmentService {
 
     private final ShipmentDAO shipmentDAO = new ShipmentDAO();
+    private final PackageDAO packageDAO = new PackageDAO();
 
     // =========================
     // CREATE
@@ -31,6 +34,7 @@ public class ShipmentService {
 
         if (shipment.getShippingMethod() == null ||
                 shipment.getShippingMethod().isBlank()) {
+
             shipment.setShippingMethod("MANUAL");
         }
 
@@ -104,6 +108,7 @@ public class ShipmentService {
 
         if (updatedShipment.getShippingMethod() == null ||
                 updatedShipment.getShippingMethod().isBlank()) {
+
             updatedShipment.setShippingMethod(existing.getShippingMethod());
         }
 
@@ -201,9 +206,30 @@ public class ShipmentService {
             throw new IllegalArgumentException("Shipment not found");
         }
 
+        // Get the package.
+        Package pkg = packageDAO.findById(packageId);
+
+        if (pkg == null) {
+            throw new IllegalArgumentException(
+                    "Package not found: " + packageId
+            );
+        }
+
+        // Shipment date cannot be before package date.
+        if (pkg.getPackageDate() != null &&
+                pkg.getPackageDate().isAfter(shipment.getShipmentDate())) {
+
+            throw new IllegalArgumentException(
+                    "Shipment date cannot be before package date for package "
+                            + pkg.getPackageNumber()
+            );
+        }
+
         if (shipment.getPackages() != null &&
                 shipment.getPackages().stream()
-                        .anyMatch(pkg -> pkg.getId() == packageId)) {
+                        .anyMatch(existingPackage ->
+                                existingPackage.getId() == packageId)) {
+
             throw new IllegalArgumentException(
                     "Package is already assigned to this shipment"
             );
@@ -240,10 +266,45 @@ public class ShipmentService {
             throw new IllegalArgumentException("Shipment not found");
         }
 
+        if (shipment.getShipmentDate() == null) {
+            throw new IllegalArgumentException(
+                    "Shipment date is required"
+            );
+        }
+
         if (shipment.getStatus() == ShipmentStatus.DELIVERED) {
             throw new IllegalStateException(
                     "Packages cannot be changed after delivery."
             );
+        }
+
+        // Validate every package.
+        for (Integer packageId : packageIds) {
+
+            if (packageId == null || packageId <= 0) {
+                throw new IllegalArgumentException(
+                        "Invalid package ID"
+                );
+            }
+
+            Package pkg = packageDAO.findById(packageId);
+
+            if (pkg == null) {
+                throw new IllegalArgumentException(
+                        "Package not found: " + packageId
+                );
+            }
+
+            // Package date must not be after shipment date.
+            if (pkg.getPackageDate() != null &&
+                    pkg.getPackageDate().isAfter(
+                            shipment.getShipmentDate())) {
+
+                throw new IllegalArgumentException(
+                        "Shipment date cannot be before package date for package "
+                                + pkg.getPackageNumber()
+                );
+            }
         }
 
         // Package existence, duplicate IDs, and cross-shipment assignment

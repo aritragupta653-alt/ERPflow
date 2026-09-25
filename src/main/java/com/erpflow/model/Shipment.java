@@ -11,7 +11,7 @@ public class Shipment {
 
     private int id;
     private String shipmentNumber;
-    private LocalDateTime shipmentDate;
+    private LocalDate shipmentDate;
     private ShipmentStatus status;
     private String shippingMethod;
     private Carrier carrier;
@@ -24,6 +24,7 @@ public class Shipment {
     private LocalDate estimatedDeliveryDate;
     private LocalDate actualDeliveryDate;
     private String notes;
+    
     private List<Package> packages = new ArrayList<>();
 
     public int getId() {
@@ -42,13 +43,13 @@ public class Shipment {
         this.shipmentNumber = shipmentNumber;
     }
 
-    public LocalDateTime getShipmentDate() {
-        return shipmentDate;
-    }
+   public LocalDate getShipmentDate() {
+    return shipmentDate;
+}
 
-    public void setShipmentDate(LocalDateTime shipmentDate) {
-        this.shipmentDate = shipmentDate;
-    }
+     public void setShipmentDate(LocalDate shipmentDate) {
+    this.shipmentDate = shipmentDate;
+}
 
     public ShipmentStatus getStatus() {
         return status;

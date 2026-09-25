@@ -199,6 +199,23 @@
         <form id="purchaseOrderForm">
 
             <div class="form-group">
+    <label for="expectedDeliveryDate">
+        Expected Delivery Date
+    </label>
+
+    <input
+        type="date"
+        id="expectedDeliveryDate"
+        required
+    >
+</div>
+<div>
+    <label for="orderDate">Order Date</label>
+    <input type="date" id="orderDate" required>
+</div>
+
+
+            <div class="form-group">
                 <label for="supplierSelect">Supplier</label>
 
                 <select id="supplierSelect" required>
@@ -248,6 +265,8 @@
                         <th>Order ID</th>
                         <th>Supplier</th>
                         <th>Order Date</th>
+                        <th>Expected Delivery</th>
+
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>

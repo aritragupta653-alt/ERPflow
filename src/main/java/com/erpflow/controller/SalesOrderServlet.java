@@ -11,6 +11,7 @@ import com.erpflow.service.SalesOrderService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.time.LocalDate;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -30,17 +31,13 @@ import com.erpflow.model.enums.SalesOrderStatus;
 @WebServlet("/api/sales-orders/*")
 public class SalesOrderServlet extends HttpServlet {
 
-    private final SalesOrderService salesOrderService =
-            new SalesOrderService();
+    private final SalesOrderService salesOrderService = new SalesOrderService();
 
-    private final CustomerService customerService =
-            new CustomerService();
+    private final CustomerService customerService = new CustomerService();
 
-    private final ItemService itemService =
-            new ItemService();
+    private final ItemService itemService = new ItemService();
 
-    private final ObjectMapper objectMapper =
-            new ObjectMapper().registerModule(new JavaTimeModule());
+    private final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     // =========================================================
     // GET
@@ -49,8 +46,7 @@ public class SalesOrderServlet extends HttpServlet {
     @Override
     protected void doGet(
             HttpServletRequest request,
-            HttpServletResponse response
-    ) throws ServletException, IOException {
+            HttpServletResponse response) throws ServletException, IOException {
 
         setJsonResponse(response);
 
@@ -66,22 +62,19 @@ public class SalesOrderServlet extends HttpServlet {
 
                     int id = Integer.parseInt(parts[1]);
 
-                    SalesOrder order =
-                            salesOrderService.getSalesOrderById(id);
+                    SalesOrder order = salesOrderService.getSalesOrderById(id);
 
                     if (order == null) {
                         sendError(
                                 response,
                                 HttpServletResponse.SC_NOT_FOUND,
-                                "Sales order not found"
-                        );
+                                "Sales order not found");
                         return;
                     }
 
                     List<Map<String, Object>> result = new ArrayList<>();
 
-                    for (SalesOrderItem orderItem :
-                            salesOrderService.getSalesOrderItems(order)) {
+                    for (SalesOrderItem orderItem : salesOrderService.getSalesOrderItems(order)) {
 
                         Map<String, Object> item = new HashMap<>();
                         item.put("itemId", orderItem.getItem().getId());
@@ -101,15 +94,13 @@ public class SalesOrderServlet extends HttpServlet {
                 if (parts.length == 2) {
                     int id = Integer.parseInt(parts[1]);
 
-                    SalesOrder order =
-                            salesOrderService.getSalesOrderById(id);
+                    SalesOrder order = salesOrderService.getSalesOrderById(id);
 
                     if (order == null) {
                         sendError(
                                 response,
                                 HttpServletResponse.SC_NOT_FOUND,
-                                "Sales order not found"
-                        );
+                                "Sales order not found");
                         return;
                     }
 
@@ -120,12 +111,12 @@ public class SalesOrderServlet extends HttpServlet {
                     result.put("customer", order.getCustomer());
                     result.put(
                             "items",
-                            salesOrderService.getSalesOrderItems(order)
-                    );
+                            salesOrderService.getSalesOrderItems(order));
                     result.put("taxRate", order.getTaxRate());
                     result.put("subtotal", order.getSubtotal());
                     result.put("taxAmount", order.getTaxAmount());
                     result.put("totalAmount", order.getTotalAmount());
+                    result.put("expectedDeliveryDate",order.getExpectedDeliveryDate());
 
                     objectMapper.writeValue(response.getWriter(), result);
                     return;
@@ -134,52 +125,46 @@ public class SalesOrderServlet extends HttpServlet {
 
             // GET /api/sales-orders
             // GET /api/sales-orders?status=CREATED
-String status = request.getParameter("status");
+            String status = request.getParameter("status");
 
-if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
+            if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
 
-    objectMapper.writeValue(
-            response.getWriter(),
-            salesOrderService.getAllSalesOrders()
-    );
+                objectMapper.writeValue(
+                        response.getWriter(),
+                        salesOrderService.getAllSalesOrders());
 
-} else {
+            } else {
 
-    SalesOrderStatus orderStatus;
+                SalesOrderStatus orderStatus;
 
-    try {
-        orderStatus = SalesOrderStatus.valueOf(
-                status.trim().toUpperCase()
-        );
-    } catch (IllegalArgumentException e) {
-        sendError(
-                response,
-                HttpServletResponse.SC_BAD_REQUEST,
-                "Invalid sales order status"
-        );
-        return;
-    }
+                try {
+                    orderStatus = SalesOrderStatus.valueOf(
+                            status.trim().toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    sendError(
+                            response,
+                            HttpServletResponse.SC_BAD_REQUEST,
+                            "Invalid sales order status");
+                    return;
+                }
 
-    objectMapper.writeValue(
-            response.getWriter(),
-            salesOrderService.getSalesOrdersByStatus(orderStatus.name())
-    );
-}
+                objectMapper.writeValue(
+                        response.getWriter(),
+                        salesOrderService.getSalesOrdersByStatus(orderStatus.name()));
+            }
 
         } catch (NumberFormatException e) {
             sendError(
                     response,
                     HttpServletResponse.SC_BAD_REQUEST,
-                    "Invalid sales order ID"
-            );
+                    "Invalid sales order ID");
 
         } catch (Exception e) {
             e.printStackTrace();
             sendError(
                     response,
                     HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -190,20 +175,21 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
     @Override
     protected void doPost(
             HttpServletRequest request,
-            HttpServletResponse response
-    ) throws ServletException, IOException {
+            HttpServletResponse response) throws ServletException, IOException {
 
         setJsonResponse(response);
 
         try {
-            JsonNode root =
-                    objectMapper.readTree(request.getInputStream());
+            JsonNode root = objectMapper.readTree(request.getInputStream());
 
             SalesOrder order = new SalesOrder();
 
             Customer customer = getCustomer(root);
             order.setCustomer(customer);
-            order.setOrderDate(LocalDateTime.now());
+            order.setOrderDate(
+                    getOrderDate(root));
+            order.setExpectedDeliveryDate(
+                    getExpectedDeliveryDate(root));
             order.setStatus(SalesOrderStatus.valueOf("CREATED"));
             order.setTaxRate(getTaxRate(root));
 
@@ -228,8 +214,7 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
             sendError(
                     response,
                     HttpServletResponse.SC_BAD_REQUEST,
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -241,8 +226,7 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
     @Override
     protected void doPut(
             HttpServletRequest request,
-            HttpServletResponse response
-    ) throws ServletException, IOException {
+            HttpServletResponse response) throws ServletException, IOException {
 
         setJsonResponse(response);
 
@@ -255,22 +239,19 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
                 sendError(
                         response,
                         HttpServletResponse.SC_BAD_REQUEST,
-                        "Sales order ID is required"
-                );
+                        "Sales order ID is required");
                 return;
             }
 
             int salesOrderId = Integer.parseInt(path.split("/")[1]);
 
-            SalesOrder existingOrder =
-                    salesOrderService.getSalesOrderById(salesOrderId);
+            SalesOrder existingOrder = salesOrderService.getSalesOrderById(salesOrderId);
 
             if (existingOrder == null) {
                 sendError(
                         response,
                         HttpServletResponse.SC_NOT_FOUND,
-                        "Sales order not found"
-                );
+                        "Sales order not found");
                 return;
             }
 
@@ -278,29 +259,37 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
                 sendError(
                         response,
                         HttpServletResponse.SC_BAD_REQUEST,
-                        "Only CREATED sales orders can be edited"
-                );
+                        "Only CREATED sales orders can be edited");
                 return;
             }
 
-            JsonNode root =
-                    objectMapper.readTree(request.getInputStream());
+            JsonNode root = objectMapper.readTree(request.getInputStream());
 
             SalesOrder updatedOrder = new SalesOrder();
 
             updatedOrder.setId(salesOrderId);
-            updatedOrder.setCustomer(getCustomer(root));
-            updatedOrder.setOrderDate(existingOrder.getOrderDate());
-            updatedOrder.setStatus(existingOrder.getStatus());
-            updatedOrder.setTaxRate(getTaxRate(root));
+
+            updatedOrder.setCustomer(
+                    getCustomer(root));
+
+            updatedOrder.setOrderDate(
+                    getOrderDate(root));
+
+            updatedOrder.setExpectedDeliveryDate(
+                    getExpectedDeliveryDate(root));
+
+            updatedOrder.setStatus(
+                    existingOrder.getStatus());
+
+            updatedOrder.setTaxRate(
+                    getTaxRate(root));
 
             List<SalesOrderItem> updatedItems = parseItems(root);
 
             salesOrderService.updateSalesOrder(
                     salesOrderId,
                     updatedOrder,
-                    updatedItems
-            );
+                    updatedItems);
 
             Map<String, Object> result = new HashMap<>();
             result.put("message", "Sales order updated successfully");
@@ -316,16 +305,14 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
             sendError(
                     response,
                     HttpServletResponse.SC_BAD_REQUEST,
-                    "Invalid sales order ID"
-            );
+                    "Invalid sales order ID");
 
         } catch (Exception e) {
             e.printStackTrace();
             sendError(
                     response,
                     HttpServletResponse.SC_BAD_REQUEST,
-                    e.getMessage()
-            );
+                    e.getMessage());
         }
     }
 
@@ -345,8 +332,7 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
 
         int customerId = customerNode.asInt();
 
-        Customer customer =
-                customerService.getCustomerById(customerId);
+        Customer customer = customerService.getCustomerById(customerId);
 
         if (customer == null) {
             throw new RuntimeException("Customer not found");
@@ -377,11 +363,60 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
                 taxRate.compareTo(new BigDecimal("100")) > 0) {
 
             throw new RuntimeException(
-                    "Tax rate must be between 0 and 100"
-            );
+                    "Tax rate must be between 0 and 100");
         }
 
         return taxRate;
+    }
+
+    private LocalDateTime getOrderDate(
+            JsonNode root) {
+
+        JsonNode dateNode = root.get("orderDate");
+
+        if (dateNode == null ||
+                dateNode.isNull() ||
+                !dateNode.isTextual()) {
+            throw new RuntimeException(
+                    "Order date is required");
+        }
+
+        try {
+
+            LocalDate date = LocalDate.parse(
+                    dateNode.asText());
+
+            return date.atStartOfDay();
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Order date must be in YYYY-MM-DD format");
+        }
+    }
+
+    private LocalDate getExpectedDeliveryDate(
+            JsonNode root) {
+
+        JsonNode dateNode = root.get("expectedDeliveryDate");
+
+        if (dateNode == null ||
+                dateNode.isNull() ||
+                !dateNode.isTextual()) {
+            throw new RuntimeException(
+                    "Expected delivery date is required");
+        }
+
+        try {
+
+            return LocalDate.parse(
+                    dateNode.asText());
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Expected delivery date must be in YYYY-MM-DD format");
+        }
     }
 
     // =========================================================
@@ -396,8 +431,7 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
                 itemsNode.isEmpty()) {
 
             throw new RuntimeException(
-                    "Sales Order must contain at least one item"
-            );
+                    "Sales Order must contain at least one item");
         }
 
         List<SalesOrderItem> items = new ArrayList<>();
@@ -418,8 +452,7 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
                     !priceNode.isNumber()) {
 
                 throw new RuntimeException(
-                        "Selling price is required and must be a number"
-                );
+                        "Selling price is required and must be a number");
             }
 
             int itemId = itemIdNode.asInt();
@@ -440,16 +473,14 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
                         !quantityNode.canConvertToInt()) {
 
                     throw new RuntimeException(
-                            "Quantity is required for goods"
-                    );
+                            "Quantity is required for goods");
                 }
 
                 quantity = quantityNode.asInt();
 
                 if (quantity <= 0) {
                     throw new RuntimeException(
-                            "Goods quantity must be greater than zero"
-                    );
+                            "Goods quantity must be greater than zero");
                 }
             }
 
@@ -457,8 +488,7 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
 
             if (sellingPrice.signum() < 0) {
                 throw new RuntimeException(
-                        "Selling price cannot be negative"
-                );
+                        "Selling price cannot be negative");
             }
 
             SalesOrderItem orderItem = new SalesOrderItem();
@@ -484,8 +514,7 @@ if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
     private void sendError(
             HttpServletResponse response,
             int status,
-            String message
-    ) throws IOException {
+            String message) throws IOException {
 
         response.setStatus(status);
 

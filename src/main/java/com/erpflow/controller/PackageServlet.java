@@ -19,6 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -183,13 +184,18 @@ public class PackageServlet extends HttpServlet {
 
             List<PackageItem> packageItems = parseItems(root.get("items"));
 
-            Package pkg = packageService.createPackage(
-                    salesOrder,
-                    packageItems,
-                    root.get("weight").asDouble(),
-                    root.get("length").asDouble(),
-                    root.get("width").asDouble(),
-                    root.get("height").asDouble());
+LocalDate packageDate =
+        LocalDate.parse(root.get("packageDate").asText());
+
+Package pkg = packageService.createPackage(
+        salesOrder,
+        packageItems,
+        root.get("weight").asDouble(),
+        root.get("length").asDouble(),
+        root.get("width").asDouble(),
+        root.get("height").asDouble(),
+        packageDate
+);
 
             response.setStatus(HttpServletResponse.SC_CREATED);
 

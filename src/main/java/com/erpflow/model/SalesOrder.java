@@ -3,6 +3,7 @@ package com.erpflow.model;
 
 import com.erpflow.model.enums.SalesOrderStatus;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class SalesOrder {
@@ -16,6 +17,9 @@ public class SalesOrder {
     private BigDecimal subtotal;
     private BigDecimal taxAmount;
     private BigDecimal totalAmount;
+    private LocalDate expectedDeliveryDate;
+
+
 
     public int getId() {
         return id;
@@ -79,5 +83,15 @@ public class SalesOrder {
 
     public void setTotalAmount(BigDecimal totalAmount) {
         this.totalAmount = totalAmount;
+    }
+    public LocalDate getExpectedDeliveryDate() {
+        return expectedDeliveryDate;
+    }
+
+    public void setExpectedDeliveryDate(
+            LocalDate expectedDeliveryDate
+    ) {
+        this.expectedDeliveryDate =
+                expectedDeliveryDate;
     }
 }

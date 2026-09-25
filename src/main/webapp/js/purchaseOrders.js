@@ -315,8 +315,36 @@ function setupForm() {
             return;
         }
 
+        const expectedDeliveryDate =
+            document.getElementById("expectedDeliveryDate").value;
+        const orderDate =document.getElementById("orderDate").value;
+
+        if (!expectedDeliveryDate) {
+            showMessage(
+                "Please select an expected delivery date.",
+                "error"
+            );
+            return;
+        }
+
+        const today = new Date().toISOString().split("T")[0];
+
+        if (expectedDeliveryDate < today) {
+            showMessage(
+                "Expected delivery date cannot be before today.",
+                "error"
+            );
+            return;
+        }
+        if (expectedDeliveryDate < orderDate) {
+    alert("Expected delivery date cannot be before order date.");
+    return;
+}
+
         const body = {
             supplierId: Number(supplierId),
+            orderDate,
+            expectedDeliveryDate,
             items
         };
 
@@ -383,6 +411,10 @@ function renderPurchaseOrders(orders) {
         const dateCell = document.createElement("td");
         dateCell.textContent = formatDate(order.orderDate);
 
+        const expectedDateCell = document.createElement("td");
+        expectedDateCell.textContent =
+        order.expectedDeliveryDate || "—";
+
         const statusCell = document.createElement("td");
         statusCell.textContent = order.status || "—";
 
@@ -405,7 +437,7 @@ function renderPurchaseOrders(orders) {
             actionCell.appendChild(editButton);
         }
 
-        row.append(idCell, supplierCell, dateCell, statusCell, actionCell);
+        row.append(idCell, supplierCell, dateCell, expectedDateCell, statusCell, actionCell);
         tableBody.appendChild(row);
     });
 }
@@ -442,6 +474,8 @@ async function beginEdit(orderId) {
         editingOrderId = orderId;
 
         document.getElementById("supplierSelect").value = order.supplier?.id ?? "";
+        document.getElementById("expectedDeliveryDate").value =
+    order.expectedDeliveryDate || "";
 
         const container = document.getElementById("itemContainer");
         container.innerHTML = "";

@@ -22,404 +22,377 @@ import java.util.Set;
 
 public class SalesOrderService {
 
-    private final SalesOrderDAO salesOrderDAO =
-            new SalesOrderDAO();
+        private final SalesOrderDAO salesOrderDAO = new SalesOrderDAO();
 
-    private final SalesOrderItemDAO salesOrderItemDAO =
-            new SalesOrderItemDAO();
+        private final SalesOrderItemDAO salesOrderItemDAO = new SalesOrderItemDAO();
 
-    private final InventoryService inventoryService =
-            new InventoryService();
+        private final InventoryService inventoryService = new InventoryService();
 
-    // =========================================================
-    // CREATE SALES ORDER
-    // =========================================================
+        // =========================================================
+        // CREATE SALES ORDER
+        // =========================================================
 
-    public void createSalesOrder(
-            SalesOrder salesOrder,
-            List<SalesOrderItem> salesOrderItems) {
+        public void createSalesOrder(
+                        SalesOrder salesOrder,
+                        List<SalesOrderItem> salesOrderItems) {
 
-        validateAndCalculate(
-                salesOrder,
-                salesOrderItems
-        );
+                validateAndCalculate(
+                                salesOrder,
+                                salesOrderItems);
 
-        // Reserve stock only for inventory-tracked items.
-        for (SalesOrderItem orderItem : salesOrderItems) {
+                // Reserve stock only for inventory-tracked items.
+                for (SalesOrderItem orderItem : salesOrderItems) {
 
-            Item item = orderItem.getItem();
+                        Item item = orderItem.getItem();
 
-            if (item.isTrackInventory()) {
-                inventoryService.reserveStock(
-                        item,
-                        orderItem.getQuantity()
-                );
-            }
+                        if (item.isTrackInventory()) {
+                                inventoryService.reserveStock(
+                                                item,
+                                                orderItem.getQuantity());
+                        }
+                }
+
+                salesOrderDAO.save(salesOrder);
+
+                for (SalesOrderItem orderItem : salesOrderItems) {
+
+                        orderItem.setSalesOrder(salesOrder);
+
+                        salesOrderItemDAO.save(orderItem);
+                }
         }
 
-        salesOrderDAO.save(salesOrder);
+        // =========================================================
+        // UPDATE SALES ORDER
+        //
+        // Existing matching item lines are updated in place.
+        // New lines are inserted.
+        // Removed lines are deleted individually, but only if they
+        // are not referenced by a package.
+        // =========================================================
 
-        for (SalesOrderItem orderItem : salesOrderItems) {
+        public void updateSalesOrder(
+                        int salesOrderId,
+                        SalesOrder updatedOrder,
+                        List<SalesOrderItem> updatedItems) {
 
-            orderItem.setSalesOrder(salesOrder);
+                SalesOrder existingOrder = salesOrderDAO.findById(salesOrderId);
 
-            salesOrderItemDAO.save(orderItem);
-        }
-    }
+                if (existingOrder == null) {
+                        throw new RuntimeException(
+                                        "Sales order not found");
+                }
 
-    // =========================================================
-    // UPDATE SALES ORDER
-    //
-    // Existing matching item lines are updated in place.
-    // New lines are inserted.
-    // Removed lines are deleted individually, but only if they
-    // are not referenced by a package.
-    // =========================================================
+                if (existingOrder.getStatus() != SalesOrderStatus.CREATED) {
+                        throw new RuntimeException(
+                                        "Only CREATED sales orders can be edited");
+                }
 
-    public void updateSalesOrder(
-            int salesOrderId,
-            SalesOrder updatedOrder,
-            List<SalesOrderItem> updatedItems) {
+                validateAndCalculate(
+                                updatedOrder,
+                                updatedItems);
 
-        SalesOrder existingOrder =
-                salesOrderDAO.findById(salesOrderId);
+                // Load the existing persisted order lines.
+                List<SalesOrderItem> oldItems = salesOrderItemDAO.findBySalesOrder(existingOrder);
 
-        if (existingOrder == null) {
-            throw new RuntimeException(
-                    "Sales order not found"
-            );
-        }
+                /*
+                 * Group existing lines by item ID.
+                 *
+                 * A list is used for each item ID so that this logic
+                 * remains predictable even if an order contains the same
+                 * item more than once.
+                 */
+                Map<Integer, List<SalesOrderItem>> oldItemsByItemId = new LinkedHashMap<>();
 
-        if (existingOrder.getStatus() != SalesOrderStatus.CREATED) {
-            throw new RuntimeException(
-                    "Only CREATED sales orders can be edited"
-            );
-        }
+                for (SalesOrderItem oldItem : oldItems) {
 
-        validateAndCalculate(
-                updatedOrder,
-                updatedItems
-        );
+                        int itemId = oldItem.getItem().getId();
 
-        // Load the existing persisted order lines.
-        List<SalesOrderItem> oldItems =
-                salesOrderItemDAO.findBySalesOrder(existingOrder);
+                        oldItemsByItemId
+                                        .computeIfAbsent(
+                                                        itemId,
+                                                        key -> new ArrayList<>())
+                                        .add(oldItem);
+                }
 
-        /*
-         * Group existing lines by item ID.
-         *
-         * A list is used for each item ID so that this logic
-         * remains predictable even if an order contains the same
-         * item more than once.
-         */
-        Map<Integer, List<SalesOrderItem>> oldItemsByItemId =
-                new LinkedHashMap<>();
+                /*
+                 * Match incoming lines to existing lines by item ID.
+                 *
+                 * Matched lines retain their database IDs.
+                 * Unmatched incoming lines are new lines.
+                 * Existing lines left unmatched have been removed.
+                 */
+                List<SalesOrderItem> matchedOldItems = new ArrayList<>();
 
-        for (SalesOrderItem oldItem : oldItems) {
+                List<SalesOrderItem> newItems = new ArrayList<>();
 
-            int itemId = oldItem.getItem().getId();
+                Set<Integer> retainedOldItemIds = new HashSet<>();
 
-            oldItemsByItemId
-                    .computeIfAbsent(
-                            itemId,
-                            key -> new ArrayList<>()
-                    )
-                    .add(oldItem);
-        }
+                for (SalesOrderItem incomingItem : updatedItems) {
 
-        /*
-         * Match incoming lines to existing lines by item ID.
-         *
-         * Matched lines retain their database IDs.
-         * Unmatched incoming lines are new lines.
-         * Existing lines left unmatched have been removed.
-         */
-        List<SalesOrderItem> matchedOldItems =
-                new ArrayList<>();
+                        int incomingItemId = incomingItem.getItem().getId();
 
-        List<SalesOrderItem> newItems =
-                new ArrayList<>();
+                        List<SalesOrderItem> candidates = oldItemsByItemId.get(incomingItemId);
 
-        Set<Integer> retainedOldItemIds =
-                new HashSet<>();
+                        if (candidates != null && !candidates.isEmpty()) {
 
-        for (SalesOrderItem incomingItem : updatedItems) {
+                                SalesOrderItem existingLine = candidates.remove(0);
 
-            int incomingItemId =
-                    incomingItem.getItem().getId();
+                                // Preserve the existing sales_order_items.id.
+                                incomingItem.setId(existingLine.getId());
 
-            List<SalesOrderItem> candidates =
-                    oldItemsByItemId.get(incomingItemId);
+                                incomingItem.setSalesOrder(existingOrder);
 
-            if (candidates != null && !candidates.isEmpty()) {
+                                matchedOldItems.add(existingLine);
 
-                SalesOrderItem existingLine =
-                        candidates.remove(0);
+                                retainedOldItemIds.add(existingLine.getId());
 
-                // Preserve the existing sales_order_items.id.
-                incomingItem.setId(existingLine.getId());
+                        } else {
 
-                incomingItem.setSalesOrder(existingOrder);
+                                // This item is new to the order.
+                                incomingItem.setId(0);
 
-                matchedOldItems.add(existingLine);
+                                incomingItem.setSalesOrder(updatedOrder);
 
-                retainedOldItemIds.add(existingLine.getId());
+                                newItems.add(incomingItem);
+                        }
+                }
 
-            } else {
+                // Identify old lines that were not retained.
+                List<SalesOrderItem> removedItems = new ArrayList<>();
 
-                // This item is new to the order.
-                incomingItem.setId(0);
+                for (SalesOrderItem oldItem : oldItems) {
 
-                incomingItem.setSalesOrder(updatedOrder);
+                        if (!retainedOldItemIds.contains(oldItem.getId())) {
+                                removedItems.add(oldItem);
+                        }
+                }
 
-                newItems.add(incomingItem);
-            }
-        }
+                /*
+                 * Before changing stock or the order header, check whether
+                 * any removed line is referenced by package_items.
+                 *
+                 * Such lines cannot safely be deleted by this edit flow.
+                 */
+                for (SalesOrderItem removedItem : removedItems) {
 
-        // Identify old lines that were not retained.
-        List<SalesOrderItem> removedItems =
-                new ArrayList<>();
+                        if (salesOrderItemDAO.isReferencedByPackage(
+                                        removedItem.getId())) {
 
-        for (SalesOrderItem oldItem : oldItems) {
+                                throw new RuntimeException(
+                                                "Cannot remove item "
+                                                                + removedItem.getItem().getName()
+                                                                + " because it is already referenced by a package");
+                        }
+                }
 
-            if (!retainedOldItemIds.contains(oldItem.getId())) {
-                removedItems.add(oldItem);
-            }
-        }
+                /*
+                 * Release stock reserved by the previous order.
+                 * The existing inventory service handles inventory-tracked
+                 * items only.
+                 */
+                for (SalesOrderItem oldItem : oldItems) {
 
-        /*
-         * Before changing stock or the order header, check whether
-         * any removed line is referenced by package_items.
-         *
-         * Such lines cannot safely be deleted by this edit flow.
-         */
-        for (SalesOrderItem removedItem : removedItems) {
+                        Item item = oldItem.getItem();
 
-            if (salesOrderItemDAO.isReferencedByPackage(
-                    removedItem.getId()
-            )) {
+                        if (item != null && item.isTrackInventory()) {
 
-                throw new RuntimeException(
-                        "Cannot remove item "
-                                + removedItem.getItem().getName()
-                                + " because it is already referenced by a package"
-                );
-            }
-        }
+                                inventoryService.releaseStock(
+                                                item,
+                                                oldItem.getQuantity());
+                        }
+                }
 
-        /*
-         * Release stock reserved by the previous order.
-         * The existing inventory service handles inventory-tracked
-         * items only.
-         */
-        for (SalesOrderItem oldItem : oldItems) {
+                /*
+                 * Reserve stock for the edited order lines.
+                 * This includes both matched lines and newly added lines.
+                 */
+                for (SalesOrderItem incomingItem : updatedItems) {
 
-            Item item = oldItem.getItem();
+                        Item item = incomingItem.getItem();
 
-            if (item != null && item.isTrackInventory()) {
+                        if (item.isTrackInventory()) {
 
-                inventoryService.releaseStock(
-                        item,
-                        oldItem.getQuantity()
-                );
-            }
-        }
+                                inventoryService.reserveStock(
+                                                item,
+                                                incomingItem.getQuantity());
+                        }
+                }
 
-        /*
-         * Reserve stock for the edited order lines.
-         * This includes both matched lines and newly added lines.
-         */
-        for (SalesOrderItem incomingItem : updatedItems) {
+                // Update the existing order header.
+                updatedOrder.setId(salesOrderId);
 
-            Item item = incomingItem.getItem();
+                updatedOrder.setStatus(
+                                existingOrder.getStatus());
 
-            if (item.isTrackInventory()) {
+                salesOrderDAO.update(updatedOrder);
+                /*
+                 * Update matched lines in place.
+                 *
+                 * The existing row IDs are retained, so package references
+                 * to those lines are not broken.
+                 */
+                for (SalesOrderItem incomingItem : updatedItems) {
 
-                inventoryService.reserveStock(
-                        item,
-                        incomingItem.getQuantity()
-                );
-            }
-        }
+                        incomingItem.setSalesOrder(updatedOrder);
 
-        // Update the existing order header.
-        updatedOrder.setId(salesOrderId);
+                        if (incomingItem.getId() > 0) {
 
-        updatedOrder.setOrderDate(
-                existingOrder.getOrderDate()
-        );
+                                salesOrderItemDAO.update(incomingItem);
 
-        updatedOrder.setStatus(
-                existingOrder.getStatus()
-        );
+                        } else {
 
-        salesOrderDAO.update(updatedOrder);
+                                salesOrderItemDAO.save(incomingItem);
+                        }
+                }
 
-        /*
-         * Update matched lines in place.
-         *
-         * The existing row IDs are retained, so package references
-         * to those lines are not broken.
-         */
-        for (SalesOrderItem incomingItem : updatedItems) {
+                /*
+                 * Delete only lines that were removed from the edited order.
+                 * Each deletion is guarded against package references.
+                 */
+                for (SalesOrderItem removedItem : removedItems) {
 
-            incomingItem.setSalesOrder(updatedOrder);
-
-            if (incomingItem.getId() > 0) {
-
-                salesOrderItemDAO.update(incomingItem);
-
-            } else {
-
-                salesOrderItemDAO.save(incomingItem);
-            }
+                        salesOrderItemDAO.deleteByIdAndSalesOrderId(
+                                        removedItem.getId(),
+                                        salesOrderId);
+                }
         }
 
-        /*
-         * Delete only lines that were removed from the edited order.
-         * Each deletion is guarded against package references.
-         */
-        for (SalesOrderItem removedItem : removedItems) {
+        // =========================================================
+        // VALIDATE ITEMS AND CALCULATE TOTALS
+        // =========================================================
 
-            salesOrderItemDAO.deleteByIdAndSalesOrderId(
-                    removedItem.getId(),
-                    salesOrderId
-            );
+        private void validateAndCalculate(
+                        SalesOrder salesOrder,
+                        List<SalesOrderItem> salesOrderItems) {
+
+                if (salesOrder == null) {
+                        throw new RuntimeException(
+                                        "Sales order cannot be null");
+                }
+
+                if (salesOrderItems == null || salesOrderItems.isEmpty()) {
+                        throw new RuntimeException(
+                                        "Sales Order must contain at least one item");
+                }
+                if (salesOrder.getOrderDate() == null) {
+                        throw new RuntimeException(
+                                        "Order date is required");
+                }
+
+                if (salesOrder.getExpectedDeliveryDate() == null) {
+                        throw new RuntimeException(
+                                        "Expected delivery date is required");
+                }
+
+                if (salesOrder.getExpectedDeliveryDate()
+                                .isBefore(
+                                                salesOrder.getOrderDate().toLocalDate())) {
+                        throw new RuntimeException(
+                                        "Expected delivery date cannot be before order date");
+                }
+
+                BigDecimal taxRate = salesOrder.getTaxRate();
+
+                if (taxRate == null) {
+                        taxRate = BigDecimal.ZERO;
+                }
+
+                if (taxRate.compareTo(BigDecimal.ZERO) < 0
+                                || taxRate.compareTo(new BigDecimal("100")) > 0) {
+
+                        throw new RuntimeException(
+                                        "Tax rate must be between 0 and 100");
+                }
+
+                taxRate = taxRate.setScale(
+                                2,
+                                RoundingMode.HALF_UP);
+
+                BigDecimal subtotal = BigDecimal.ZERO;
+
+                for (SalesOrderItem orderItem : salesOrderItems) {
+
+                        if (orderItem == null || orderItem.getItem() == null) {
+                                throw new RuntimeException(
+                                                "Item cannot be null");
+                        }
+
+                        if (orderItem.getQuantity() <= 0) {
+                                throw new RuntimeException(
+                                                "Quantity must be greater than 0");
+                        }
+
+                        if (orderItem.getSellingPrice() == null) {
+                                throw new RuntimeException(
+                                                "Selling price is required");
+                        }
+
+                        if (orderItem.getSellingPrice()
+                                        .compareTo(BigDecimal.ZERO) < 0) {
+
+                                throw new RuntimeException(
+                                                "Selling price cannot be negative");
+                        }
+
+                        BigDecimal lineTotal = orderItem.getSellingPrice().multiply(
+                                        BigDecimal.valueOf(
+                                                        orderItem.getQuantity()));
+
+                        subtotal = subtotal.add(lineTotal);
+                }
+
+                subtotal = subtotal.setScale(
+                                2,
+                                RoundingMode.HALF_UP);
+
+                BigDecimal taxAmount = subtotal
+                                .multiply(taxRate)
+                                .divide(
+                                                new BigDecimal("100"),
+                                                2,
+                                                RoundingMode.HALF_UP);
+
+                BigDecimal totalAmount = subtotal
+                                .add(taxAmount)
+                                .setScale(
+                                                2,
+                                                RoundingMode.HALF_UP);
+
+                salesOrder.setTaxRate(taxRate);
+                salesOrder.setSubtotal(subtotal);
+                salesOrder.setTaxAmount(taxAmount);
+                salesOrder.setTotalAmount(totalAmount);
         }
-    }
 
-    // =========================================================
-    // VALIDATE ITEMS AND CALCULATE TOTALS
-    // =========================================================
+        // =========================================================
+        // GET ALL SALES ORDERS
+        // =========================================================
 
-    private void validateAndCalculate(
-            SalesOrder salesOrder,
-            List<SalesOrderItem> salesOrderItems) {
-
-        if (salesOrder == null) {
-            throw new RuntimeException(
-                    "Sales order cannot be null"
-            );
+        public List<SalesOrder> getAllSalesOrders() {
+                return salesOrderDAO.findAll();
         }
 
-        if (salesOrderItems == null || salesOrderItems.isEmpty()) {
-            throw new RuntimeException(
-                    "Sales Order must contain at least one item"
-            );
+        // GET SALES ORDER BY STATUS
+        public List<SalesOrder> getSalesOrdersByStatus(String status) {
+                return salesOrderDAO.findAll(status);
         }
 
-        BigDecimal taxRate = salesOrder.getTaxRate();
+        // =========================================================
+        // GET SALES ORDER BY ID
+        // =========================================================
 
-        if (taxRate == null) {
-            taxRate = BigDecimal.ZERO;
+        public SalesOrder getSalesOrderById(int id) {
+                return salesOrderDAO.findById(id);
         }
 
-        if (taxRate.compareTo(BigDecimal.ZERO) < 0
-                || taxRate.compareTo(new BigDecimal("100")) > 0) {
+        // =========================================================
+        // GET SALES ORDER ITEMS
+        // =========================================================
 
-            throw new RuntimeException(
-                    "Tax rate must be between 0 and 100"
-            );
+        public List<SalesOrderItem> getSalesOrderItems(
+                        SalesOrder salesOrder) {
+
+                return salesOrderItemDAO.findBySalesOrder(salesOrder);
         }
-
-        taxRate = taxRate.setScale(
-                2,
-                RoundingMode.HALF_UP
-        );
-
-        BigDecimal subtotal = BigDecimal.ZERO;
-
-        for (SalesOrderItem orderItem : salesOrderItems) {
-
-            if (orderItem == null || orderItem.getItem() == null) {
-                throw new RuntimeException(
-                        "Item cannot be null"
-                );
-            }
-
-            if (orderItem.getQuantity() <= 0) {
-                throw new RuntimeException(
-                        "Quantity must be greater than 0"
-                );
-            }
-
-            if (orderItem.getSellingPrice() == null) {
-                throw new RuntimeException(
-                        "Selling price is required"
-                );
-            }
-
-            if (orderItem.getSellingPrice()
-                    .compareTo(BigDecimal.ZERO) < 0) {
-
-                throw new RuntimeException(
-                        "Selling price cannot be negative"
-                );
-            }
-
-            BigDecimal lineTotal =
-                    orderItem.getSellingPrice().multiply(
-                            BigDecimal.valueOf(
-                                    orderItem.getQuantity()
-                            )
-                    );
-
-            subtotal = subtotal.add(lineTotal);
-        }
-
-        subtotal = subtotal.setScale(
-                2,
-                RoundingMode.HALF_UP
-        );
-
-        BigDecimal taxAmount = subtotal
-                .multiply(taxRate)
-                .divide(
-                        new BigDecimal("100"),
-                        2,
-                        RoundingMode.HALF_UP
-                );
-
-        BigDecimal totalAmount = subtotal
-                .add(taxAmount)
-                .setScale(
-                        2,
-                        RoundingMode.HALF_UP
-                );
-
-        salesOrder.setTaxRate(taxRate);
-        salesOrder.setSubtotal(subtotal);
-        salesOrder.setTaxAmount(taxAmount);
-        salesOrder.setTotalAmount(totalAmount);
-    }
-
-    // =========================================================
-    // GET ALL SALES ORDERS
-    // =========================================================
-
-    public List<SalesOrder> getAllSalesOrders() {
-        return salesOrderDAO.findAll();
-    }
-    //GET SALES ORDER BY STATUS
-    public List<SalesOrder> getSalesOrdersByStatus(String status) {
-    return salesOrderDAO.findAll(status);
-}
-
-    // =========================================================
-    // GET SALES ORDER BY ID
-    // =========================================================
-
-    public SalesOrder getSalesOrderById(int id) {
-        return salesOrderDAO.findById(id);
-    }
-
-    // =========================================================
-    // GET SALES ORDER ITEMS
-    // =========================================================
-
-    public List<SalesOrderItem> getSalesOrderItems(
-            SalesOrder salesOrder) {
-
-        return salesOrderItemDAO.findBySalesOrder(salesOrder);
-    }
 }

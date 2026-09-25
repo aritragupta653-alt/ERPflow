@@ -161,6 +161,24 @@
                             </option>
                         </select>
                     </div>
+                    <div class="form-group">
+
+                        <label for="orderDate">
+                            Order Date
+                        </label>
+
+                        <input type="date" id="orderDate" required>
+
+                    </div>
+                    <div class="form-group">
+
+                        <label for="expectedDeliveryDate">
+                            Expected Delivery Date
+                        </label>
+
+                        <input type="date" id="expectedDeliveryDate" required>
+
+                    </div>
 
                     <!-- Tax -->
 
@@ -288,7 +306,7 @@
                         <h2>Sales Orders</h2>
                     </div>
 
-                    
+
                     <div class="section-header">
                         <div>
                             <h2>Sales Orders</h2>
@@ -317,6 +335,8 @@
                                 <th>Order ID</th>
                                 <th>Customer</th>
                                 <th>Order Date</th>
+                                <th>Expected Delivery</th>
+
                                 <th>Subtotal</th>
                                 <th>Tax</th>
                                 <th>Total</th>

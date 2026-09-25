@@ -181,7 +181,12 @@ public class ShippingService {
         // Preserve a date supplied by the caller.
         // If none was supplied, use the current date/time.
         if (shipment.getShipmentDate() == null) {
-            shipment.setShipmentDate(LocalDateTime.now());
+                throw new RuntimeException("Shipment date is required");
+                
+        }
+        else {
+                shipment.setShipmentDate(shipment.getShipmentDate());
+
         }
 
         // Preserve a status supplied by the caller.

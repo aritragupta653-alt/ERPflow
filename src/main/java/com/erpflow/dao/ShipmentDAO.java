@@ -46,17 +46,14 @@ public class ShipmentDAO {
                 """;
 
         try (Connection connection = DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(
-                             sql,
-                             Statement.RETURN_GENERATED_KEYS
-                     )) {
+                PreparedStatement statement = connection.prepareStatement(
+                        sql,
+                        Statement.RETURN_GENERATED_KEYS)) {
 
             statement.setString(1, shipment.getShipmentNumber());
-            statement.setTimestamp(
+            statement.setDate(
                     2,
-                    Timestamp.valueOf(shipment.getShipmentDate())
-            );
+                    Date.valueOf(shipment.getShipmentDate()));
             statement.setString(3, shipment.getStatus().name());
             statement.setString(4, shipment.getShippingMethod());
 
@@ -69,8 +66,7 @@ public class ShipmentDAO {
             if (shipment.getCarrierService() != null) {
                 statement.setInt(
                         6,
-                        shipment.getCarrierService().getId()
-                );
+                        shipment.getCarrierService().getId());
             } else {
                 statement.setNull(6, Types.INTEGER);
             }
@@ -85,9 +81,7 @@ public class ShipmentDAO {
                 statement.setDate(
                         12,
                         Date.valueOf(
-                                shipment.getEstimatedDeliveryDate()
-                        )
-                );
+                                shipment.getEstimatedDeliveryDate()));
             } else {
                 statement.setNull(12, Types.DATE);
             }
@@ -96,9 +90,7 @@ public class ShipmentDAO {
                 statement.setDate(
                         13,
                         Date.valueOf(
-                                shipment.getActualDeliveryDate()
-                        )
-                );
+                                shipment.getActualDeliveryDate()));
             } else {
                 statement.setNull(13, Types.DATE);
             }
@@ -118,11 +110,9 @@ public class ShipmentDAO {
             e.printStackTrace();
             throw new RuntimeException(
                     "Failed to save shipment",
-                    e
-            );
+                    e);
         }
     }
-
 
     // =========================
     // UPDATE SHIPMENT
@@ -150,17 +140,13 @@ public class ShipmentDAO {
                 """;
 
         try (Connection connection = DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setString(1, shipment.getShipmentNumber());
 
-            statement.setTimestamp(
+            statement.setDate(
                     2,
-                    Timestamp.valueOf(
-                            shipment.getShipmentDate()
-                    )
-            );
+                    Date.valueOf(shipment.getShipmentDate()));
 
             statement.setString(3, shipment.getStatus().name());
             statement.setString(4, shipment.getShippingMethod());
@@ -168,8 +154,7 @@ public class ShipmentDAO {
             if (shipment.getCarrier() != null) {
                 statement.setInt(
                         5,
-                        shipment.getCarrier().getId()
-                );
+                        shipment.getCarrier().getId());
             } else {
                 statement.setNull(5, Types.INTEGER);
             }
@@ -177,8 +162,7 @@ public class ShipmentDAO {
             if (shipment.getCarrierService() != null) {
                 statement.setInt(
                         6,
-                        shipment.getCarrierService().getId()
-                );
+                        shipment.getCarrierService().getId());
             } else {
                 statement.setNull(6, Types.INTEGER);
             }
@@ -193,9 +177,7 @@ public class ShipmentDAO {
                 statement.setDate(
                         12,
                         Date.valueOf(
-                                shipment.getEstimatedDeliveryDate()
-                        )
-                );
+                                shipment.getEstimatedDeliveryDate()));
             } else {
                 statement.setNull(12, Types.DATE);
             }
@@ -204,9 +186,7 @@ public class ShipmentDAO {
                 statement.setDate(
                         13,
                         Date.valueOf(
-                                shipment.getActualDeliveryDate()
-                        )
-                );
+                                shipment.getActualDeliveryDate()));
             } else {
                 statement.setNull(13, Types.DATE);
             }
@@ -219,106 +199,96 @@ public class ShipmentDAO {
         } catch (SQLException e) {
             throw new RuntimeException(
                     "Failed to update shipment",
-                    e
-            );
+                    e);
         }
     }
-
 
     // =========================
     // FIND ALL
     // =========================
 
-    
-public List<Shipment> findAll() {
-    return findAll("ALL");
-}
-
-public List<Shipment> findAll(String status) {
-
-    String normalizedStatus =
-            (status == null || status.isBlank())
-                    ? "ALL"
-                    : status.trim().toUpperCase();
-
-    if (!normalizedStatus.equals("ALL")) {
-        try {
-            ShipmentStatus.valueOf(normalizedStatus);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                    "Invalid shipment status: " + status
-            );
-        }
+    public List<Shipment> findAll() {
+        return findAll("ALL");
     }
 
-    String sql = """
-            SELECT
-                s.id,
-                s.shipment_number,
-                s.shipmentDate,
-                s.status,
-                s.shipping_method,
-                s.tracking_number,
-                s.tracking_url,
-                s.shipping_charge,
-                s.dispatch_address,
-                s.destination_address,
-                s.estimated_delivery_date,
-                s.actual_delivery_date,
-                s.notes,
-                c.id AS carrier_id,
-                c.name AS carrier_name,
-                c.code AS carrier_code,
-                c.status AS carrier_status,
-                cs.id AS service_id,
-                cs.name AS service_name,
-                cs.estimated_days,
-                cs.base_charge AS service_base_charge,
-                cs.charge_per_kg AS service_charge_per_kg
-            FROM shipments s
-            LEFT JOIN carriers c
-                ON s.carrier_id = c.id
-            LEFT JOIN carrier_services cs
-                ON s.carrier_service_id = cs.id
-            WHERE (? = 'ALL' OR s.status = ?)
-            ORDER BY s.shipmentDate DESC
-            """;
+    public List<Shipment> findAll(String status) {
 
-    List<Shipment> shipments = new ArrayList<>();
+        String normalizedStatus = (status == null || status.isBlank())
+                ? "ALL"
+                : status.trim().toUpperCase();
 
-    try (Connection connection = DBConnection.getConnection();
-         PreparedStatement statement =
-                 connection.prepareStatement(sql)) {
-
-        statement.setString(1, normalizedStatus);
-        statement.setString(2, normalizedStatus);
-
-        try (ResultSet rs = statement.executeQuery()) {
-            while (rs.next()) {
-
-                Shipment shipment = mapShipment(rs);
-
-                shipment.setPackages(
-                        findPackagesForShipment(
-                                connection,
-                                shipment.getId()
-                        )
-                );
-
-                shipments.add(shipment);
+        if (!normalizedStatus.equals("ALL")) {
+            try {
+                ShipmentStatus.valueOf(normalizedStatus);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                        "Invalid shipment status: " + status);
             }
         }
 
-    } catch (SQLException e) {
-        throw new RuntimeException(
-                "Failed to fetch shipments",
-                e
-        );
+        String sql = """
+                SELECT
+                    s.id,
+                    s.shipment_number,
+                    s.shipmentDate,
+                    s.status,
+                    s.shipping_method,
+                    s.tracking_number,
+                    s.tracking_url,
+                    s.shipping_charge,
+                    s.dispatch_address,
+                    s.destination_address,
+                    s.estimated_delivery_date,
+                    s.actual_delivery_date,
+                    s.notes,
+                    c.id AS carrier_id,
+                    c.name AS carrier_name,
+                    c.code AS carrier_code,
+                    c.status AS carrier_status,
+                    cs.id AS service_id,
+                    cs.name AS service_name,
+                    cs.estimated_days,
+                    cs.base_charge AS service_base_charge,
+                    cs.charge_per_kg AS service_charge_per_kg
+                FROM shipments s
+                LEFT JOIN carriers c
+                    ON s.carrier_id = c.id
+                LEFT JOIN carrier_services cs
+                    ON s.carrier_service_id = cs.id
+                WHERE (? = 'ALL' OR s.status = ?)
+                ORDER BY s.shipmentDate DESC
+                """;
+
+        List<Shipment> shipments = new ArrayList<>();
+
+        try (Connection connection = DBConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            statement.setString(1, normalizedStatus);
+            statement.setString(2, normalizedStatus);
+
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+
+                    Shipment shipment = mapShipment(rs);
+
+                    shipment.setPackages(
+                            findPackagesForShipment(
+                                    connection,
+                                    shipment.getId()));
+
+                    shipments.add(shipment);
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                    "Failed to fetch shipments",
+                    e);
+        }
+
+        return shipments;
     }
-
-    return shipments;
-}
-
 
     // =========================
     // FIND BY ID
@@ -360,8 +330,7 @@ public List<Shipment> findAll(String status) {
                 """;
 
         try (Connection connection = DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, id);
 
@@ -376,9 +345,7 @@ public List<Shipment> findAll(String status) {
                 shipment.setPackages(
                         findPackagesForShipment(
                                 connection,
-                                id
-                        )
-                );
+                                id));
 
                 return shipment;
             }
@@ -386,11 +353,9 @@ public List<Shipment> findAll(String status) {
         } catch (SQLException e) {
             e.printStackTrace();
             throw new RuntimeException(
-                    "Failed to fetch shipment: " + e.getMessage(), e
-            );
+                    "Failed to fetch shipment: " + e.getMessage(), e);
         }
     }
-
 
     // =========================
     // LINK PACKAGE TO SHIPMENT
@@ -410,8 +375,7 @@ public List<Shipment> findAll(String status) {
                 """;
 
         try (Connection connection = DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, shipmentId);
             statement.setInt(2, packageId);
@@ -421,11 +385,9 @@ public List<Shipment> findAll(String status) {
         } catch (SQLException e) {
             throw new RuntimeException(
                     "Failed to link package to shipment",
-                    e
-            );
+                    e);
         }
     }
-
 
     // =========================
     // CHECK PACKAGE ALREADY SHIPPED
@@ -440,8 +402,7 @@ public List<Shipment> findAll(String status) {
                 """;
 
         try (Connection connection = DBConnection.getConnection();
-             PreparedStatement statement =
-                     connection.prepareStatement(sql)) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, packageId);
 
@@ -455,170 +416,145 @@ public List<Shipment> findAll(String status) {
         } catch (SQLException e) {
             throw new RuntimeException(
                     "Failed to check package shipment status",
-                    e
-            );
+                    e);
         }
 
         return false;
     }
-
 
     // =========================
     // GET PACKAGES OF SHIPMENT
     // =========================
 
     private List<Package> findPackagesForShipment(
-        Connection connection,
-        int shipmentId) throws SQLException {
+            Connection connection,
+            int shipmentId) throws SQLException {
 
-    String sql = """
-            SELECT
-                p.id,
-                p.package_number,
-                p.status,
-                p.packageDate,
-                p.weight,
-                p.length,
-                p.width,
-                p.height,
-                p.sales_order_id,
+        String sql = """
+                SELECT
+                    p.id,
+                    p.package_number,
+                    p.status,
+                    p.packageDate,
+                    p.weight,
+                    p.length,
+                    p.width,
+                    p.height,
+                    p.sales_order_id,
 
-                so.id AS sales_order_id,
-                so.status AS sales_order_status,
+                    so.id AS sales_order_id,
+                    so.status AS sales_order_status,
 
-                c.id AS customer_id,
-                c.name AS customer_name,
-                c.email AS customer_email
+                    c.id AS customer_id,
+                    c.name AS customer_name,
+                    c.email AS customer_email
 
-            FROM shipment_packages sp
+                FROM shipment_packages sp
 
-            JOIN packages p
-                ON sp.package_id = p.id
+                JOIN packages p
+                    ON sp.package_id = p.id
 
-            LEFT JOIN sales_orders so
-                ON p.sales_order_id = so.id
+                LEFT JOIN sales_orders so
+                    ON p.sales_order_id = so.id
 
-            LEFT JOIN customers c
-                ON so.customer_id = c.id
+                LEFT JOIN customers c
+                    ON so.customer_id = c.id
 
-            WHERE sp.shipment_id = ?
+                WHERE sp.shipment_id = ?
 
-            ORDER BY p.id
-            """;
+                ORDER BY p.id
+                """;
 
-    List<Package> packages = new ArrayList<>();
+        List<Package> packages = new ArrayList<>();
 
-    try (PreparedStatement statement =
-                 connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
 
-        statement.setInt(1, shipmentId);
+            statement.setInt(1, shipmentId);
 
-        try (ResultSet rs = statement.executeQuery()) {
+            try (ResultSet rs = statement.executeQuery()) {
 
-            while (rs.next()) {
+                while (rs.next()) {
 
-                Package pkg = new Package();
-
-                // =========================
-                // PACKAGE
-                // =========================
-
-                pkg.setId(
-                        rs.getInt("id")
-                );
-
-                pkg.setPackageNumber(
-                        rs.getString("package_number")
-                );
-
-                pkg.setStatus(PackageStatus.valueOf(rs.getString("status")));
-
-                Timestamp timestamp =
-                        rs.getTimestamp("packageDate");
-
-                if (timestamp != null) {
-                    pkg.setPackageDate(
-                            timestamp.toLocalDateTime()
-                    );
-                }
-
-                pkg.setWeight(
-                        rs.getDouble("weight")
-                );
-
-                pkg.setLength(
-                        rs.getDouble("length")
-                );
-
-                pkg.setWidth(
-                        rs.getDouble("width")
-                );
-
-                pkg.setHeight(
-                        rs.getDouble("height")
-                );
-
-
-                // =========================
-                // SALES ORDER
-                // =========================
-
-                int salesOrderId =
-                        rs.getInt("sales_order_id");
-
-                if (!rs.wasNull()) {
-
-                    SalesOrder salesOrder =
-                            new SalesOrder();
-
-                    salesOrder.setId(
-                            salesOrderId
-                    );
-
-                    
-
-                    salesOrder.setStatus(
-    SalesOrderStatus.valueOf(rs.getString("sales_order_status"))
-);
-
-
+                    Package pkg = new Package();
 
                     // =========================
-                    // CUSTOMER
+                    // PACKAGE
                     // =========================
 
-                    int customerId =
-                            rs.getInt("customer_id");
+                    pkg.setId(
+                            rs.getInt("id"));
+
+                    pkg.setPackageNumber(
+                            rs.getString("package_number"));
+
+                    pkg.setStatus(PackageStatus.valueOf(rs.getString("status")));
+
+                    Date packageDate = rs.getDate("packageDate");
+
+                    if (packageDate != null) {
+                        pkg.setPackageDate(
+                                packageDate.toLocalDate());
+                    }
+
+                    pkg.setWeight(
+                            rs.getDouble("weight"));
+
+                    pkg.setLength(
+                            rs.getDouble("length"));
+
+                    pkg.setWidth(
+                            rs.getDouble("width"));
+
+                    pkg.setHeight(
+                            rs.getDouble("height"));
+
+                    // =========================
+                    // SALES ORDER
+                    // =========================
+
+                    int salesOrderId = rs.getInt("sales_order_id");
 
                     if (!rs.wasNull()) {
 
-                        Customer customer =
-                                new Customer();
+                        SalesOrder salesOrder = new SalesOrder();
 
-                        customer.setId(customerId);
+                        salesOrder.setId(
+                                salesOrderId);
 
-                        customer.setName(
-                                rs.getString("customer_name")
-                        );
+                        salesOrder.setStatus(
+                                SalesOrderStatus.valueOf(rs.getString("sales_order_status")));
 
-                        customer.setEmail(
-                                rs.getString("customer_email")
-                        );
+                        // =========================
+                        // CUSTOMER
+                        // =========================
 
-                        salesOrder.setCustomer(customer);
+                        int customerId = rs.getInt("customer_id");
+
+                        if (!rs.wasNull()) {
+
+                            Customer customer = new Customer();
+
+                            customer.setId(customerId);
+
+                            customer.setName(
+                                    rs.getString("customer_name"));
+
+                            customer.setEmail(
+                                    rs.getString("customer_email"));
+
+                            salesOrder.setCustomer(customer);
+                        }
+
+                        pkg.setSalesOrder(salesOrder);
                     }
 
-                    pkg.setSalesOrder(salesOrder);
+                    packages.add(pkg);
                 }
-
-                packages.add(pkg);
             }
         }
+
+        return packages;
     }
-
-    return packages;
-}
-
 
     // =========================
     // MAP SHIPMENT
@@ -630,75 +566,58 @@ public List<Shipment> findAll(String status) {
         Shipment shipment = new Shipment();
 
         shipment.setId(
-                rs.getInt("id")
-        );
+                rs.getInt("id"));
 
         shipment.setShipmentNumber(
-                rs.getString("shipment_number")
-        );
+                rs.getString("shipment_number"));
 
-        Timestamp shipmentTimestamp =
-                rs.getTimestamp("shipmentDate");
+        Date shipmentDate = rs.getDate("shipmentDate");
 
-        if (shipmentTimestamp != null) {
+        if (shipmentDate != null) {
             shipment.setShipmentDate(
-                    shipmentTimestamp.toLocalDateTime()
-            );
+                    shipmentDate.toLocalDate());
         }
 
         shipment.setStatus(ShipmentStatus.valueOf(rs.getString("status")));
 
         shipment.setShippingMethod(
-                rs.getString("shipping_method")
-        );
+                rs.getString("shipping_method"));
 
         shipment.setTrackingNumber(
-                rs.getString("tracking_number")
-        );
+                rs.getString("tracking_number"));
 
         shipment.setTrackingUrl(
-                rs.getString("tracking_url")
-        );
+                rs.getString("tracking_url"));
 
         shipment.setShippingCharge(
-                rs.getDouble("shipping_charge")
-        );
+                rs.getDouble("shipping_charge"));
 
         shipment.setDispatchAddress(
-                rs.getString("dispatch_address")
-        );
+                rs.getString("dispatch_address"));
 
         shipment.setDestinationAddress(
-                rs.getString("destination_address")
-        );
+                rs.getString("destination_address"));
 
-        Date estimatedDate =
-                rs.getDate("estimated_delivery_date");
+        Date estimatedDate = rs.getDate("estimated_delivery_date");
 
         if (estimatedDate != null) {
             shipment.setEstimatedDeliveryDate(
-                    estimatedDate.toLocalDate()
-            );
+                    estimatedDate.toLocalDate());
         }
 
-        Date actualDate =
-                rs.getDate("actual_delivery_date");
+        Date actualDate = rs.getDate("actual_delivery_date");
 
         if (actualDate != null) {
             shipment.setActualDeliveryDate(
-                    actualDate.toLocalDate()
-            );
+                    actualDate.toLocalDate());
         }
 
         shipment.setNotes(
-                rs.getString("notes")
-        );
-
+                rs.getString("notes"));
 
         // Carrier
 
-        int carrierId =
-                rs.getInt("carrier_id");
+        int carrierId = rs.getInt("carrier_id");
 
         if (!rs.wasNull()) {
 
@@ -706,55 +625,44 @@ public List<Shipment> findAll(String status) {
 
             carrier.setId(carrierId);
             carrier.setName(
-                    rs.getString("carrier_name")
-            );
+                    rs.getString("carrier_name"));
             carrier.setCode(
-                    rs.getString("carrier_code")
-            );
+                    rs.getString("carrier_code"));
             carrier.setStatus(
-    CarrierStatus.valueOf(rs.getString("carrier_status"))
-);
+                    CarrierStatus.valueOf(rs.getString("carrier_status")));
 
             shipment.setCarrier(carrier);
         }
 
-
         // Carrier Service
 
-        int serviceId =
-                rs.getInt("service_id");
+        int serviceId = rs.getInt("service_id");
 
         if (!rs.wasNull()) {
 
-            CarrierService service =
-                    new CarrierService();
+            CarrierService service = new CarrierService();
 
             service.setId(serviceId);
 
             service.setName(
-                    rs.getString("service_name")
-            );
+                    rs.getString("service_name"));
 
             service.setEstimatedDays(
-        rs.getInt("estimated_days")
-);
+                    rs.getInt("estimated_days"));
 
-service.setBaseCharge(
-        rs.getBigDecimal("service_base_charge")
-);
+            service.setBaseCharge(
+                    rs.getBigDecimal("service_base_charge"));
 
-service.setChargePerKg(
-        rs.getBigDecimal("service_charge_per_kg")
-);
+            service.setChargePerKg(
+                    rs.getBigDecimal("service_charge_per_kg"));
 
-// Attach carrier to the service as well
-if (shipment.getCarrier() != null) {
-    service.setCarrier(
-            shipment.getCarrier()
-    );
-}
+            // Attach carrier to the service as well
+            if (shipment.getCarrier() != null) {
+                service.setCarrier(
+                        shipment.getCarrier());
+            }
 
-shipment.setCarrierService(service);
+            shipment.setCarrierService(service);
         }
 
         return shipment;
@@ -786,16 +694,13 @@ shipment.setCarrierService(service);
 
             if (!uniqueIds.add(packageId)) {
                 throw new IllegalArgumentException(
-                        "Duplicate package IDs are not allowed"
-                );
+                        "Duplicate package IDs are not allowed");
             }
         }
 
-        String shipmentExistsSql =
-                "SELECT COUNT(*) FROM shipments WHERE id = ?";
+        String shipmentExistsSql = "SELECT COUNT(*) FROM shipments WHERE id = ?";
 
-        String packageExistsSql =
-                "SELECT COUNT(*) FROM packages WHERE id = ?";
+        String packageExistsSql = "SELECT COUNT(*) FROM packages WHERE id = ?";
 
         String alreadyAssignedSql = """
                 SELECT COUNT(*)
@@ -804,8 +709,7 @@ shipment.setCarrierService(service);
                   AND shipment_id <> ?
                 """;
 
-        String deleteSql =
-                "DELETE FROM shipment_packages WHERE shipment_id = ?";
+        String deleteSql = "DELETE FROM shipment_packages WHERE shipment_id = ?";
 
         String insertSql = """
                 INSERT INTO shipment_packages (shipment_id, package_id)
@@ -819,16 +723,14 @@ shipment.setCarrierService(service);
 
             try {
                 // Ensure the shipment exists.
-                try (PreparedStatement statement =
-                             connection.prepareStatement(shipmentExistsSql)) {
+                try (PreparedStatement statement = connection.prepareStatement(shipmentExistsSql)) {
 
                     statement.setInt(1, shipmentId);
 
                     try (ResultSet rs = statement.executeQuery()) {
                         if (!rs.next() || rs.getInt(1) == 0) {
                             throw new IllegalArgumentException(
-                                    "Shipment not found"
-                            );
+                                    "Shipment not found");
                         }
                     }
                 }
@@ -836,22 +738,19 @@ shipment.setCarrierService(service);
                 // Validate every package before changing any assignments.
                 for (Integer packageId : packageIds) {
 
-                    try (PreparedStatement statement =
-                                 connection.prepareStatement(packageExistsSql)) {
+                    try (PreparedStatement statement = connection.prepareStatement(packageExistsSql)) {
 
                         statement.setInt(1, packageId);
 
                         try (ResultSet rs = statement.executeQuery()) {
                             if (!rs.next() || rs.getInt(1) == 0) {
                                 throw new IllegalArgumentException(
-                                        "Package not found: " + packageId
-                                );
+                                        "Package not found: " + packageId);
                             }
                         }
                     }
 
-                    try (PreparedStatement statement =
-                                 connection.prepareStatement(alreadyAssignedSql)) {
+                    try (PreparedStatement statement = connection.prepareStatement(alreadyAssignedSql)) {
 
                         statement.setInt(1, packageId);
                         statement.setInt(2, shipmentId);
@@ -860,24 +759,21 @@ shipment.setCarrierService(service);
                             if (rs.next() && rs.getInt(1) > 0) {
                                 throw new IllegalArgumentException(
                                         "Package " + packageId +
-                                        " is already assigned to another shipment"
-                                );
+                                                " is already assigned to another shipment");
                             }
                         }
                     }
                 }
 
                 // Remove the current package assignments.
-                try (PreparedStatement statement =
-                             connection.prepareStatement(deleteSql)) {
+                try (PreparedStatement statement = connection.prepareStatement(deleteSql)) {
 
                     statement.setInt(1, shipmentId);
                     statement.executeUpdate();
                 }
 
                 // Insert the requested assignments.
-                try (PreparedStatement statement =
-                             connection.prepareStatement(insertSql)) {
+                try (PreparedStatement statement = connection.prepareStatement(insertSql)) {
 
                     for (Integer packageId : packageIds) {
                         statement.setInt(1, shipmentId);
@@ -901,8 +797,7 @@ shipment.setCarrierService(service);
         } catch (SQLException e) {
             throw new RuntimeException(
                     "Failed to update shipment packages",
-                    e
-            );
+                    e);
         }
     }
 }

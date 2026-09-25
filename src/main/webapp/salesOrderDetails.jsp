@@ -133,6 +133,10 @@
                         <label>Order Date</label>
                         <input type="text" id="orderDate" class="readonly-input" readonly>
                     </div>
+                    <div class="form-group">
+                        <label>Expected Delivery Date</label>
+                        <input type="text" id="expectedDeliveryDate" class="readonly-input" readonly>
+                    </div>
 
                     <div class="form-group">
                         <label>Status</label>
@@ -321,6 +325,15 @@
                         border-radius:8px;
                     "></div>
                     </div>
+                    <div class="form-group">
+    <label for="shipmentDate">Shipment Date</label>
+    <input
+        type="date"
+        id="shipmentDate"
+        name="shipmentDate"
+        required
+    >
+</div>
 
                     <!-- CARRIER -->
                     <div class="form-grid">

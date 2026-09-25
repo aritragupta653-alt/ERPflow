@@ -48,11 +48,11 @@ function setupEventListeners() {
 
     const searchInput =
         document.getElementById("searchInput");
-    
+
     const statusFilter = document.getElementById("statusFilter");
     if (statusFilter) {
-    statusFilter.addEventListener("change", loadSalesOrders);
-}
+        statusFilter.addEventListener("change", loadSalesOrders);
+    }
 
 
     if (addItemButton) {
@@ -532,6 +532,13 @@ function calculateOrderTotals() {
 // =========================================================
 
 async function submitSalesOrder() {
+    const orderDateInput =
+        document.getElementById("orderDate");
+
+    const expectedDeliveryDateInput =
+        document.getElementById(
+            "expectedDeliveryDate"
+        );
     const customerSelect =
         document.getElementById("customerSelect");
 
@@ -548,6 +555,41 @@ async function submitSalesOrder() {
 
     if (rows.length === 0) {
         showMessage("Please add at least one item.", "error");
+        return;
+    }
+    if (
+        !orderDateInput ||
+        !orderDateInput.value
+    ) {
+        showMessage(
+            "Please select an order date.",
+            "error"
+        );
+
+        return;
+    }
+
+    if (
+        !expectedDeliveryDateInput ||
+        !expectedDeliveryDateInput.value
+    ) {
+        showMessage(
+            "Please select an expected delivery date.",
+            "error"
+        );
+
+        return;
+    }
+    if (
+        expectedDeliveryDateInput.value <
+        orderDateInput.value
+    ) {
+
+        showMessage(
+            "Expected delivery date cannot be before order date.",
+            "error"
+        );
+
         return;
     }
 
@@ -635,7 +677,13 @@ async function submitSalesOrder() {
     const orderData = {
         customerId: parseInt(customerSelect.value, 10),
         taxRate: taxRate,
-        items: items
+        items: items,
+        orderDate:
+            orderDateInput.value,
+
+        expectedDeliveryDate:
+            expectedDeliveryDateInput.value
+
     };
 
     const button =
@@ -758,6 +806,31 @@ async function editSalesOrder(orderId) {
         // Populate customer and tax fields.
         customerSelect.value = String(order.customer?.id ?? "");
         taxRateSelect.value = String(order.taxRate ?? 0);
+        const orderDateInput =
+            document.getElementById(
+                "orderDate"
+            );
+
+        const expectedDeliveryDateInput =
+            document.getElementById(
+                "expectedDeliveryDate"
+            );
+
+        if (orderDateInput) {
+
+            orderDateInput.value =
+                formatDateInput(
+                    order.orderDate
+                );
+        }
+
+        if (expectedDeliveryDateInput) {
+
+            expectedDeliveryDateInput.value =
+                formatDateInput(
+                    order.expectedDeliveryDate
+                );
+        }
 
         // Clear any existing item rows.
         tbody.replaceChildren();
@@ -836,6 +909,22 @@ async function editSalesOrder(orderId) {
 
 function cancelSalesOrderEdit() {
     resetSalesOrderForm();
+    const orderDateInput =
+        document.getElementById(
+            "orderDate"
+        );
+
+    const expectedDeliveryDateInput =
+        document.getElementById(
+            "expectedDeliveryDate"
+        );
+    if (orderDateInput) {
+        orderDateInput.value = "";
+    }
+
+    if (expectedDeliveryDateInput) {
+        expectedDeliveryDateInput.value = "";
+    }
 
     showMessage("Edit cancelled.", "info");
 }
@@ -951,7 +1040,7 @@ function displaySalesOrders(orders) {
     if (!orders || orders.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" style="text-align:center;">
+                <td colspan="9" style="text-align:center;">
                     No sales orders found.
                 </td>
             </tr>
@@ -980,6 +1069,13 @@ function displaySalesOrders(orders) {
             <td>${escapeHtml(customer.name || "-")}</td>
 
             <td>${escapeHtml(formatDate(order.orderDate))}</td>
+            <td>
+    ${escapeHtml(
+        formatDate(
+            order.expectedDeliveryDate
+        )
+    )}
+</td>
 
             <td>${formatCurrency(subtotal)}</td>
 
@@ -1158,7 +1254,41 @@ function showMessage(message, type = "info") {
         }
     }, 5000);
 }
+function formatDateInput(value) {
 
+    if (!value) {
+        return "";
+    }
+
+    if (Array.isArray(value)) {
+
+        const year =
+            value[0];
+
+        const month =
+            String(
+                value[1]
+            ).padStart(2, "0");
+
+        const day =
+            String(
+                value[2]
+            ).padStart(2, "0");
+
+        return `${year}-${month}-${day}`;
+    }
+
+    if (
+        typeof value === "string"
+    ) {
+
+        return value
+            .replace("T", " ")
+            .slice(0, 10);
+    }
+
+    return "";
+}
 // =========================================================
 // HTML ESCAPE
 // =========================================================

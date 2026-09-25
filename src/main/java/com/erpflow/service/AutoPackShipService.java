@@ -288,7 +288,9 @@ CartonSize selectedCarton =
                         estimatedWeight,
                         selectedCarton.getLength(),
                         selectedCarton.getWidth(),
-                        selectedCarton.getHeight()
+                        selectedCarton.getHeight(),
+                        shipmentDate
+
                 );
 
 
@@ -300,7 +302,7 @@ CartonSize selectedCarton =
 
         // Store the selected shipment date at midnight.
         shipment.setShipmentDate(
-                shipmentDate.atStartOfDay()
+                shipmentDate
         );
 
         shipment.setStatus(status);

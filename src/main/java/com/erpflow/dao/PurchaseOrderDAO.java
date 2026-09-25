@@ -14,24 +14,23 @@ import com.erpflow.model.enums.PurchaseOrderStatus;
 public class PurchaseOrderDAO {
 
     public void save(PurchaseOrder purchaseOrder) {
-        String sql =
-                "INSERT INTO purchase_orders " +
-                "(supplier_id, status, orderDate) " +
-                "VALUES (?, ?, ?)";
+        String sql = "INSERT INTO purchase_orders " +
+                "(supplier_id, status, orderDate, expected_delivery_date) " +
+                "VALUES (?, ?, ?, ?)";
 
         try (
                 Connection connection = DBConnection.getConnection();
                 PreparedStatement statement = connection.prepareStatement(
                         sql,
-                        Statement.RETURN_GENERATED_KEYS
-                )
-        ) {
+                        Statement.RETURN_GENERATED_KEYS)) {
             statement.setInt(1, purchaseOrder.getSupplier().getId());
             statement.setString(2, purchaseOrder.getStatus().name());
             statement.setTimestamp(
                     3,
-                    Timestamp.valueOf(purchaseOrder.getOrderDate())
-            );
+                    Timestamp.valueOf(purchaseOrder.getOrderDate()));
+            statement.setDate(
+                    4,
+                    Date.valueOf(purchaseOrder.getExpectedDeliveryDate()));
 
             statement.executeUpdate();
 
@@ -47,8 +46,8 @@ public class PurchaseOrderDAO {
     }
 
     public List<PurchaseOrder> findAll() {
-        String sql =
-                "SELECT po.id, po.status, po.orderDate, " +
+        String sql = "SELECT po.id, po.status, po.orderDate, " +
+                "po.expected_delivery_date, " +
                 "s.id AS supplier_id, " +
                 "s.name AS supplier_name, " +
                 "s.contact_person, " +
@@ -64,8 +63,7 @@ public class PurchaseOrderDAO {
         try (
                 Connection connection = DBConnection.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sql);
-                ResultSet rs = statement.executeQuery()
-        ) {
+                ResultSet rs = statement.executeQuery()) {
             while (rs.next()) {
                 orders.add(mapPurchaseOrder(rs));
             }
@@ -78,8 +76,7 @@ public class PurchaseOrderDAO {
     }
 
     public PurchaseOrder findById(int id) {
-        String sql =
-                "SELECT po.id, po.status, po.orderDate, " +
+        String sql = "SELECT po.id, po.status, po.orderDate, " + "po.expected_delivery_date, " +
                 "s.id AS supplier_id, " +
                 "s.name AS supplier_name, " +
                 "s.contact_person, " +
@@ -92,8 +89,7 @@ public class PurchaseOrderDAO {
 
         try (
                 Connection connection = DBConnection.getConnection();
-                PreparedStatement statement = connection.prepareStatement(sql)
-        ) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, id);
 
             try (ResultSet rs = statement.executeQuery()) {
@@ -110,22 +106,24 @@ public class PurchaseOrderDAO {
     }
 
     public void update(PurchaseOrder purchaseOrder) {
-        String sql =
-                "UPDATE purchase_orders " +
-                "SET supplier_id = ?, status = ?, orderDate = ? " +
+        String sql = "UPDATE purchase_orders " +
+                "SET supplier_id = ?, status = ?, orderDate = ?, " +
+                "expected_delivery_date = ? " +
                 "WHERE id = ?";
 
         try (
                 Connection connection = DBConnection.getConnection();
-                PreparedStatement statement = connection.prepareStatement(sql)
-        ) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, purchaseOrder.getSupplier().getId());
             statement.setString(2, purchaseOrder.getStatus().name());
             statement.setTimestamp(
                     3,
-                    Timestamp.valueOf(purchaseOrder.getOrderDate())
-            );
-            statement.setInt(4, purchaseOrder.getId());
+                    Timestamp.valueOf(purchaseOrder.getOrderDate()));
+            statement.setDate(
+                    4,
+                    Date.valueOf(
+                            purchaseOrder.getExpectedDeliveryDate()));
+            statement.setInt(5, purchaseOrder.getId());
 
             statement.executeUpdate();
 
@@ -157,6 +155,14 @@ public class PurchaseOrderDAO {
         if (orderTimestamp != null) {
             purchaseOrder.setOrderDate(orderTimestamp.toLocalDateTime());
         }
+        Date expectedDeliveryDate =
+        rs.getDate("expected_delivery_date");
+
+if (expectedDeliveryDate != null) {
+    purchaseOrder.setExpectedDeliveryDate(
+            expectedDeliveryDate.toLocalDate()
+    );
+}
 
         purchaseOrder.setSupplier(supplier);
 

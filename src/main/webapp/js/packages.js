@@ -168,9 +168,9 @@
                             <td>
                                 <strong>
                                     ${escapeHtml(
-                                        pkg.packageNumber ||
-                                        "PKG-" + pkg.id
-                                    )}
+                        pkg.packageNumber ||
+                        "PKG-" + pkg.id
+                    )}
                                 </strong>
                             </td>
 
@@ -179,12 +179,12 @@
 
                                 <a
                                     href="/erpflow/salesOrderDetails.jsp?id=${encodeURIComponent(
-                                        salesOrder.id || ""
-                                    )}"
+                        salesOrder.id || ""
+                    )}"
                                 >
                                     SO #${escapeHtml(
-                                        salesOrder.id || "-"
-                                    )}
+                        salesOrder.id || "-"
+                    )}
                                 </a>
 
                             </td>
@@ -192,35 +192,35 @@
 
                             <td>
                                 ${escapeHtml(
-                                    customer.name || "-"
-                                )}
+                        customer.name || "-"
+                    )}
                             </td>
 
 
                             <td>
                                 ${formatNumber(
-                                    pkg.weight
-                                )} kg
+                        pkg.weight
+                    )} kg
                             </td>
 
 
                             <td>
 
                                 ${formatNumber(
-                                    pkg.length
-                                )}
+                        pkg.length
+                    )}
 
                                 ×
 
                                 ${formatNumber(
-                                    pkg.width
-                                )}
+                        pkg.width
+                    )}
 
                                 ×
 
                                 ${formatNumber(
-                                    pkg.height
-                                )}
+                        pkg.height
+                    )}
 
                                 cm
 
@@ -231,12 +231,12 @@
 
                                 <span
                                     class="status-badge ${getStatusClass(
-                                        pkg.status
-                                    )}"
+                        pkg.status
+                    )}"
                                 >
                                     ${escapeHtml(
-                                        pkg.status || "-"
-                                    )}
+                        pkg.status || "-"
+                    )}
                                 </span>
 
                             </td>
@@ -256,28 +256,27 @@
                                         type="button"
                                         class="btn btn-secondary"
                                         onclick="viewPackage(${Number(
-                                            pkg.id
-                                        )})"
+                        pkg.id
+                    )})"
                                     >
                                         View
                                     </button>
 
 
-                                    ${
-                                        editable
-                                            ? `
+                                    ${editable
+                            ? `
                                                 <button
                                                     type="button"
                                                     class="btn btn-primary"
                                                     onclick="editPackage(${Number(
-                                                        pkg.id
-                                                    )})"
+                                pkg.id
+                            )})"
                                                 >
                                                     Edit
                                                 </button>
                                             `
-                                            : ""
-                                    }
+                            : ""
+                        }
 
                                 </div>
 
@@ -643,7 +642,7 @@
 
                         return (
                             packageOrderId ===
-                                Number(salesOrderId) &&
+                            Number(salesOrderId) &&
                             status !== "CANCELLED"
                         );
 
@@ -734,8 +733,7 @@
 
                         const displayLineId =
                             line.lineId ??
-                            `Line ${
-                                line.lineIndex + 1
+                            `Line ${line.lineIndex + 1
                             }`;
 
 
@@ -759,24 +757,24 @@
 
                                     <strong>
                                         ${escapeHtml(
-                                            line.name
-                                        )}
+                            line.name
+                        )}
                                     </strong>
 
 
                                     <div class="muted">
                                         SKU:
                                         ${escapeHtml(
-                                            line.sku
-                                        )}
+                            line.sku
+                        )}
                                     </div>
 
 
                                     <div class="muted">
                                         Sales Order Line ID:
                                         ${escapeHtml(
-                                            displayLineId
-                                        )}
+                            displayLineId
+                        )}
                                     </div>
 
                                 </div>
@@ -823,27 +821,22 @@
                                         type="number"
                                         id="quantity_${line.lineIndex}"
                                         class="package-quantity"
-                                        data-line-id="${
-                                            line.lineId ?? ""
-                                        }"
-                                        data-item-id="${
-                                            line.itemId
-                                        }"
-                                        data-max-quantity="${
-                                            line.remaining
-                                        }"
+                                        data-line-id="${line.lineId ?? ""
+                            }"
+                                        data-item-id="${line.itemId
+                            }"
+                                        data-max-quantity="${line.remaining
+                            }"
                                         min="0"
-                                        max="${
-                                            line.remaining
-                                        }"
+                                        max="${line.remaining
+                            }"
                                         step="1"
                                         value="0"
                                         style="width:100%;"
-                                        ${
-                                            line.remaining === 0
-                                                ? "disabled"
-                                                : ""
-                                        }
+                                        ${line.remaining === 0
+                                ? "disabled"
+                                : ""
+                            }
                                     >
 
                                 </div>
@@ -863,9 +856,9 @@
             container.innerHTML = `
                 <p class="error-message">
                     ${escapeHtml(
-                        error.message ||
-                        "Failed to load sales order items."
-                    )}
+                error.message ||
+                "Failed to load sales order items."
+            )}
                 </p>
             `;
         }
@@ -1094,10 +1087,23 @@
         // =================================================
         // REQUEST
         // =================================================
+        const packageDate =
+            document.getElementById("packageDate").value;
+
+        if (!packageDate) {
+
+            showError(
+                "Package date is required."
+            );
+
+            return;
+        }
 
         const requestBody = {
 
             salesOrderId,
+
+            packageDate,
 
             weight,
 
@@ -1160,8 +1166,7 @@
 
 
             alert(
-                `Package ${
-                    result.packageNumber || ""
+                `Package ${result.packageNumber || ""
                 } created successfully!`
             );
 
@@ -1245,6 +1250,17 @@
 
         if (form) {
             form.reset();
+            if (form) {
+                form.reset();
+
+                const packageDate =
+                    document.getElementById("packageDate");
+
+                if (packageDate) {
+                    packageDate.value =
+                        new Date().toISOString().split("T")[0];
+                }
+            }
         }
 
 
@@ -1273,11 +1289,11 @@
 
             salesOrderSelect.innerHTML = `
                 <option value="${escapeHtml(
-                    currentPageSalesOrderId
-                )}">
+                currentPageSalesOrderId
+            )}">
                     SO #${escapeHtml(
-                        currentPageSalesOrderId
-                    )}
+                currentPageSalesOrderId
+            )}
                 </option>
             `;
 
@@ -1341,8 +1357,7 @@
     function viewPackage(id) {
 
         window.location.href =
-            `/erpflow/packageDetails.jsp?id=${
-                encodeURIComponent(id)
+            `/erpflow/packageDetails.jsp?id=${encodeURIComponent(id)
             }`;
     }
 
@@ -1369,8 +1384,7 @@
 
 
         window.location.href =
-            `/erpflow/editPackage.jsp?id=${
-                encodeURIComponent(id)
+            `/erpflow/editPackage.jsp?id=${encodeURIComponent(id)
             }`;
     }
 
@@ -1387,7 +1401,7 @@
 
 
         switch (
-            status.toUpperCase()
+        status.toUpperCase()
         ) {
 
             case "PACKED":

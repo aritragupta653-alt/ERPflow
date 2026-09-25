@@ -173,6 +173,12 @@ function displaySalesOrder(order) {
         "orderDate",
         formatDate(order.orderDate)
     );
+    setValue(
+        "expectedDeliveryDate",
+        formatDate(
+            order.expectedDeliveryDate
+        )
+    );
 
     setValue(
         "orderStatus",
@@ -486,8 +492,8 @@ function createPackageModal() {
                 </strong>
 
                 #${escapeHtml(
-                    String(salesOrderId)
-                )}
+        String(salesOrderId)
+    )}
             </div>
 
             <form
@@ -755,9 +761,9 @@ async function openCreatePackageModal() {
                 "
             >
                 ${escapeHtml(
-                    error.message ||
-                    "Failed to load package items."
-                )}
+            error.message ||
+            "Failed to load package items."
+        )}
             </p>
         `;
     }
@@ -869,7 +875,7 @@ function renderCreatePackageItems(
 
             return (
                 packageOrderId ===
-                    Number(salesOrderId) &&
+                Number(salesOrderId) &&
                 status !== "CANCELLED"
             );
         });
@@ -933,7 +939,7 @@ function renderCreatePackageItems(
                     const packed =
                         Number(
                             packedByLine[
-                                Number(lineId)
+                            Number(lineId)
                             ] || 0
                         );
 
@@ -962,17 +968,17 @@ function renderCreatePackageItems(
 
                                 <strong>
                                     ${escapeHtml(
-                                        item.name ||
-                                        "Unknown Item"
-                                    )}
+                        item.name ||
+                        "Unknown Item"
+                    )}
                                 </strong>
 
                                 <div>
                                     SKU:
                                     ${escapeHtml(
-                                        item.sku ||
-                                        "-"
-                                    )}
+                        item.sku ||
+                        "-"
+                    )}
                                 </div>
 
                                 <div>
@@ -1004,11 +1010,11 @@ function renderCreatePackageItems(
                                     type="number"
                                     class="sales-order-package-quantity"
                                     data-line-id="${escapeHtml(
-                                        lineId
-                                    )}"
+                        lineId
+                    )}"
                                     data-item-id="${escapeHtml(
-                                        itemId
-                                    )}"
+                        itemId
+                    )}"
                                     data-max-quantity="${remaining}"
                                     min="0"
                                     max="${remaining}"
@@ -1018,19 +1024,17 @@ function renderCreatePackageItems(
                                         width:100%;
                                         box-sizing:border-box;
                                     "
-                                    ${
-                                        remaining === 0
-                                            ? "disabled"
-                                            : ""
-                                    }
+                                    ${remaining === 0
+                            ? "disabled"
+                            : ""
+                        }
                                 >
 
                             </div>
 
                             <div>
-                                ${
-                                    remaining === 0
-                                        ? `
+                                ${remaining === 0
+                            ? `
                                             <span
                                                 style="
                                                     color:#991b1b;
@@ -1039,7 +1043,7 @@ function renderCreatePackageItems(
                                                 Fully Packed
                                             </span>
                                         `
-                                        : `
+                            : `
                                             <span
                                                 style="
                                                     color:#166534;
@@ -1048,7 +1052,7 @@ function renderCreatePackageItems(
                                                 Available
                                             </span>
                                         `
-                                }
+                        }
                             </div>
 
                         </div>
@@ -1329,10 +1333,9 @@ async function submitSalesOrderPackage(
         }
 
         showMessage(
-            `Package ${
-                result.packageNumber ||
-                result.id ||
-                ""
+            `Package ${result.packageNumber ||
+            result.id ||
+            ""
             } created successfully.`,
             "success"
         );
@@ -1936,7 +1939,7 @@ async function loadCarriers() {
             if (
                 carrier.status &&
                 carrier.status !==
-                    "ACTIVE"
+                "ACTIVE"
             ) {
                 return;
             }
@@ -2338,6 +2341,24 @@ async function createShipment() {
 
         return;
     }
+    const shipmentDate =
+        document.getElementById("shipmentDate")?.value || "";
+
+    if (!shipmentDate) {
+        showMessage(
+            "Please select a shipment date.",
+            "error"
+        );
+        return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(shipmentDate)) {
+        showMessage(
+            "Shipment date must be in YYYY-MM-DD format.",
+            "error"
+        );
+        return;
+    }
 
     const carrierServiceId =
         Number(
@@ -2386,6 +2407,8 @@ async function createShipment() {
             "createShipmentButton"
         );
 
+    
+
     const shipment = {
 
         salesOrderId:
@@ -2394,6 +2417,7 @@ async function createShipment() {
         packageIds,
 
         carrierServiceId,
+        shipmentDate : shipmentDate,
 
         shippingMethod:
             "CARRIER",
@@ -2406,7 +2430,8 @@ async function createShipment() {
 
         destinationAddress,
 
-        notes
+        notes,
+        
     };
 
     try {

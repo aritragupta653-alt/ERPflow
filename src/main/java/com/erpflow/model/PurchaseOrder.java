@@ -2,6 +2,8 @@
 package com.erpflow.model;
 
 import com.erpflow.model.enums.PurchaseOrderStatus;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class PurchaseOrder {
@@ -10,6 +12,7 @@ public class PurchaseOrder {
     private Supplier supplier;
     private PurchaseOrderStatus status;
     private LocalDateTime orderDate;
+    private LocalDate expectedDeliveryDate;
 
     public int getId() {
         return id;
@@ -41,5 +44,13 @@ public class PurchaseOrder {
 
     public void setOrderDate(LocalDateTime orderDate) {
         this.orderDate = orderDate;
+    }
+
+    public LocalDate getExpectedDeliveryDate() {
+        return expectedDeliveryDate;
+    }
+
+    public void setExpectedDeliveryDate(LocalDate expectedDeliveryDate) {
+        this.expectedDeliveryDate = expectedDeliveryDate;
     }
 }

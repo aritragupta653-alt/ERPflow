@@ -23,6 +23,7 @@ public class SalesOrderDAO {
                 INSERT INTO sales_orders
                 (
                     orderDate,
+                    expected_delivery_date,
                     status,
                     customer_id,
                     tax_rate,
@@ -30,37 +31,35 @@ public class SalesOrderDAO {
                     tax_amount,
                     total_amount
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?,?,?, ?, ?, ?, ?, ?)
                 """;
 
         try (
                 Connection connection = DBConnection.getConnection();
-                PreparedStatement statement =
-                        connection.prepareStatement(
-                                sql,
-                                Statement.RETURN_GENERATED_KEYS
-                        )
-        ) {
+                PreparedStatement statement = connection.prepareStatement(
+                        sql,
+                        Statement.RETURN_GENERATED_KEYS)) {
 
             statement.setTimestamp(
                     1,
-                    Timestamp.valueOf(salesOrder.getOrderDate())
-            );
+                    Timestamp.valueOf(salesOrder.getOrderDate()));
+            statement.setDate(
+                    2,
+                    Date.valueOf(
+                            salesOrder.getExpectedDeliveryDate()));
 
             statement.setString(
-                    2,
-                    salesOrder.getStatus().name()
-            );
+                    3,
+                    salesOrder.getStatus().name());
 
             statement.setInt(
-                    3,
-                    salesOrder.getCustomer().getId()
-            );
+                    4,
+                    salesOrder.getCustomer().getId());
 
-            statement.setBigDecimal(4, salesOrder.getTaxRate());
-            statement.setBigDecimal(5, salesOrder.getSubtotal());
-            statement.setBigDecimal(6, salesOrder.getTaxAmount());
-            statement.setBigDecimal(7, salesOrder.getTotalAmount());
+            statement.setBigDecimal(5, salesOrder.getTaxRate());
+            statement.setBigDecimal(6, salesOrder.getSubtotal());
+            statement.setBigDecimal(7, salesOrder.getTaxAmount());
+            statement.setBigDecimal(8, salesOrder.getTotalAmount());
 
             statement.executeUpdate();
 
@@ -75,83 +74,81 @@ public class SalesOrderDAO {
 
             throw new RuntimeException(
                     "Error saving sales order",
-                    e
-            );
+                    e);
         }
     }
-
 
     // =========================================================
     // FIND ALL
     // =========================================================
 
     public List<SalesOrder> findAll() {
-    return findAll(null);
-}
-
-public List<SalesOrder> findAll(String status) {
-
-    boolean filterByStatus = status != null && !status.isBlank();
-
-    String sql = """
-            SELECT
-                so.id,
-                so.orderDate,
-                so.status,
-                so.customer_id,
-
-                so.tax_rate AS tax_rate,
-                so.subtotal AS subtotal,
-                so.tax_amount AS tax_amount,
-                so.total_amount AS total_amount,
-
-                c.name AS customer_name,
-                c.address AS customer_address,
-                c.email AS customer_email,
-                c.phone AS customer_phone,
-                c.status AS customer_status
-
-            FROM sales_orders so
-
-            JOIN customers c
-                ON so.customer_id = c.id
-            """ +
-            (filterByStatus ? " WHERE so.status = ? " : "") +
-            " ORDER BY so.orderDate DESC";
-
-    List<SalesOrder> orders = new ArrayList<>();
-
-    try (
-            Connection connection = DBConnection.getConnection();
-            PreparedStatement statement =
-                    connection.prepareStatement(sql)
-    ) {
-
-        if (filterByStatus) {
-            statement.setString(1, status);
-        }
-
-        try (ResultSet rs = statement.executeQuery()) {
-            while (rs.next()) {
-                orders.add(mapSalesOrder(rs));
-            }
-        }
-
-    } catch (SQLException e) {
-        throw new RuntimeException(
-                "Error fetching sales orders",
-                e
-        );
+        return findAll(null);
     }
 
-    return orders;
-}
+    public List<SalesOrder> findAll(String status) {
+
+        boolean filterByStatus = status != null && !status.isBlank();
+
+        String sql = """
+                SELECT
+                    so.id,
+                    so.orderDate,
+                    so.expected_delivery_date,
+                    so.status,
+                    so.customer_id,
+
+                    so.tax_rate AS tax_rate,
+                    so.subtotal AS subtotal,
+                    so.tax_amount AS tax_amount,
+                    so.total_amount AS total_amount,
+
+                    c.name AS customer_name,
+                    c.address AS customer_address,
+                    c.email AS customer_email,
+                    c.phone AS customer_phone,
+                    c.status AS customer_status
+
+                FROM sales_orders so
+
+                JOIN customers c
+                    ON so.customer_id = c.id
+                """ +
+                (filterByStatus ? " WHERE so.status = ? " : "") +
+                " ORDER BY so.orderDate DESC";
+
+        List<SalesOrder> orders = new ArrayList<>();
+
+        try (
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sql)) {
+
+            if (filterByStatus) {
+                statement.setString(1, status);
+            }
+
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    orders.add(mapSalesOrder(rs));
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                    "Error fetching sales orders",
+                    e);
+        }
+
+        return orders;
+    }
+
     public SalesOrder findById(int id) {
 
         String sql = """
                 SELECT
                     so.id,
                     so.orderDate,
+                    so.expected_delivery_date,
                     so.status,
                     so.customer_id,
 
@@ -176,9 +173,7 @@ public List<SalesOrder> findAll(String status) {
 
         try (
                 Connection connection = DBConnection.getConnection();
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
-        ) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, id);
 
@@ -193,13 +188,11 @@ public List<SalesOrder> findAll(String status) {
 
             throw new RuntimeException(
                     "Error fetching sales order",
-                    e
-            );
+                    e);
         }
 
         return null;
     }
-
 
     // =========================================================
     // UPDATE
@@ -211,6 +204,7 @@ public List<SalesOrder> findAll(String status) {
                 UPDATE sales_orders
                 SET
                     orderDate = ?,
+                    expected_delivery_date = ?,
                     status = ?,
                     customer_id = ?,
                     tax_rate = ?,
@@ -223,30 +217,29 @@ public List<SalesOrder> findAll(String status) {
 
         try (
                 Connection connection = DBConnection.getConnection();
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
-        ) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setTimestamp(
                     1,
-                    Timestamp.valueOf(salesOrder.getOrderDate())
-            );
+                    Timestamp.valueOf(salesOrder.getOrderDate()));
+            statement.setDate(
+                    2,
+                    Date.valueOf(
+                            salesOrder.getExpectedDeliveryDate()));
 
             statement.setString(
-                    2,
-                    salesOrder.getStatus().name()
-            );
+                    3,
+                    salesOrder.getStatus().name());
 
             statement.setInt(
-                    3,
-                    salesOrder.getCustomer().getId()
-            );
+                    4,
+                    salesOrder.getCustomer().getId());
 
-            statement.setBigDecimal(4, salesOrder.getTaxRate());
-            statement.setBigDecimal(5, salesOrder.getSubtotal());
-            statement.setBigDecimal(6, salesOrder.getTaxAmount());
-            statement.setBigDecimal(7, salesOrder.getTotalAmount());
-            statement.setInt(8, salesOrder.getId());
+            statement.setBigDecimal(5, salesOrder.getTaxRate());
+            statement.setBigDecimal(6, salesOrder.getSubtotal());
+            statement.setBigDecimal(7, salesOrder.getTaxAmount());
+            statement.setBigDecimal(8, salesOrder.getTotalAmount());
+            statement.setInt(9, salesOrder.getId());
 
             statement.executeUpdate();
 
@@ -254,11 +247,9 @@ public List<SalesOrder> findAll(String status) {
 
             throw new RuntimeException(
                     "Error updating sales order",
-                    e
-            );
+                    e);
         }
     }
-
 
     // =========================================================
     // MAP RESULT SET
@@ -275,14 +266,19 @@ public List<SalesOrder> findAll(String status) {
         if (timestamp != null) {
             order.setOrderDate(timestamp.toLocalDateTime());
         }
+        Date expectedDeliveryDate = rs.getDate("expected_delivery_date");
+
+        if (expectedDeliveryDate != null) {
+            order.setExpectedDeliveryDate(
+                    expectedDeliveryDate.toLocalDate());
+        }
 
         String status = rs.getString("status");
 
         order.setStatus(
                 status == null
                         ? null
-                        : SalesOrderStatus.valueOf(status)
-        );
+                        : SalesOrderStatus.valueOf(status));
 
         // TAX VALUES
 
@@ -306,26 +302,24 @@ public List<SalesOrder> findAll(String status) {
         customer.setStatus(
                 customerStatus == null
                         ? null
-                        : CustomerStatus.valueOf(customerStatus)
-        );
+                        : CustomerStatus.valueOf(customerStatus));
 
         order.setCustomer(customer);
 
         return order;
     }
 
-
-    /** Remove all persisted lines for an order before inserting its replacement lines. */
+    /**
+     * Remove all persisted lines for an order before inserting its replacement
+     * lines.
+     */
     public void deleteBySalesOrderId(int salesOrderId) {
 
-        String sql =
-                "DELETE FROM sales_order_items WHERE sales_order_id = ?";
+        String sql = "DELETE FROM sales_order_items WHERE sales_order_id = ?";
 
         try (
                 Connection connection = DBConnection.getConnection();
-                PreparedStatement statement =
-                        connection.prepareStatement(sql)
-        ) {
+                PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setInt(1, salesOrderId);
             statement.executeUpdate();
@@ -334,8 +328,7 @@ public List<SalesOrder> findAll(String status) {
 
             throw new RuntimeException(
                     "Error replacing sales order items",
-                    e
-            );
+                    e);
         }
     }
 }

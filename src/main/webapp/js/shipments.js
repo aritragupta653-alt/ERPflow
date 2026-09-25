@@ -201,48 +201,48 @@ function formatDate(dateValue) {
         return "-";
     }
 
-
-    // Jackson LocalDateTime array
+    // Jackson LocalDate array: [year, month, day]
     if (Array.isArray(dateValue)) {
 
-        const [
-            year,
-            month,
-            day,
-            hour = 0,
-            minute = 0,
-            second = 0
-        ] = dateValue;
+        const [year, month, day] = dateValue;
 
-
-        const date =
-            new Date(
-                year,
-                month - 1,
-                day,
-                hour,
-                minute,
-                second
-            );
-
-
-        if (isNaN(date.getTime())) {
+        if (!year || !month || !day) {
             return "-";
         }
 
-
-        return date.toLocaleString();
+        return `${String(day).padStart(2, "0")}/${
+            String(month).padStart(2, "0")
+        }/${year}`;
     }
 
+    // LocalDate string: "2026-09-25"
+    if (typeof dateValue === "string") {
 
-    const date =
-        new Date(dateValue);
+        const match = dateValue.match(
+            /^(\d{4})-(\d{2})-(\d{2})$/
+        );
 
+        if (match) {
 
-    if (isNaN(date.getTime())) {
-        return "-";
+            const [, year, month, day] = match;
+
+            return `${day}/${month}/${year}`;
+        }
+
+        // If backend somehow sends an ISO datetime,
+        // take only the date portion.
+        if (dateValue.includes("T")) {
+
+            const datePart = dateValue.split("T")[0];
+
+            const [year, month, day] =
+                datePart.split("-");
+
+            if (year && month && day) {
+                return `${day}/${month}/${year}`;
+            }
+        }
     }
 
-
-    return date.toLocaleString();
+    return "-";
 }
