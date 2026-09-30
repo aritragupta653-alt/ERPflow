@@ -19,7 +19,7 @@ import com.erpflow.model.enums.SalesOrderStatus;
 import com.erpflow.model.enums.ShipmentStatus;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,7 +53,8 @@ public class ShippingService {
             int salesOrderId,
             List<Integer> packageIds,
             int carrierServiceId,
-            Shipment shipment) {
+            Shipment shipment,
+        LocalDate shipmentDate) {
 
         // -------------------------------------------------
         // BASIC VALIDATION
@@ -121,6 +122,14 @@ public class ShippingService {
                         "Package not found: " + packageId
                 );
             }
+            if (pkg.getPackageDate() != null &&
+        pkg.getPackageDate().isAfter(shipmentDate)) {
+
+    throw new RuntimeException(
+            "Shipment date cannot be before package date for package "
+                    + pkg.getPackageNumber()
+    );
+}
 
             // Package must belong to this Sales Order.
             if (pkg.getSalesOrder() == null ||
@@ -180,15 +189,11 @@ public class ShippingService {
 
         // Preserve a date supplied by the caller.
         // If none was supplied, use the current date/time.
-        if (shipment.getShipmentDate() == null) {
-                throw new RuntimeException("Shipment date is required");
-                
-        }
-        else {
-                shipment.setShipmentDate(shipment.getShipmentDate());
+       if (shipmentDate == null) {
+    throw new RuntimeException("Shipment date is required");
+}
 
-        }
-
+shipment.setShipmentDate(shipmentDate);
         // Preserve a status supplied by the caller.
         // If none was supplied, default to CREATED.
         if (shipment.getStatus() == null) {
@@ -207,8 +212,8 @@ public class ShippingService {
 
         if (estimatedDays > 0) {
             shipment.setEstimatedDeliveryDate(
-                    LocalDate.now().plusDays(estimatedDays)
-            );
+        shipmentDate.plusDays(estimatedDays)
+);
         }
 
         // -------------------------------------------------

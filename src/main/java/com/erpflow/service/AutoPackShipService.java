@@ -355,7 +355,7 @@ CartonSize selectedCarton =
                         salesOrderId,
                         List.of(createdPackage.getId()),
                         selectedService.getId(),
-                        shipment
+                        shipment,shipmentDate
                 );
 
 

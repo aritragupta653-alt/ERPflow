@@ -164,7 +164,7 @@ public class ShipmentService {
     // MARK AS DELIVERED
     // =========================
 
-    public void markShipmentDelivered(int shipmentId) {
+    public void markShipmentDelivered(int shipmentId,LocalDate actualDeliveryDate) {
 
         if (shipmentId <= 0) {
             throw new IllegalArgumentException("Invalid shipment ID");
@@ -182,8 +182,23 @@ public class ShipmentService {
             );
         }
 
-        shipment.setStatus(ShipmentStatus.DELIVERED);
-        shipment.setActualDeliveryDate(LocalDate.now());
+       
+       if (actualDeliveryDate == null) {
+    throw new IllegalArgumentException(
+            "Actual delivery date is required"
+    );
+}
+
+if (shipment.getShipmentDate() != null &&
+        actualDeliveryDate.isBefore(shipment.getShipmentDate())) {
+
+    throw new IllegalArgumentException(
+            "Actual delivery date cannot be before shipment date"
+    );
+}
+
+shipment.setStatus(ShipmentStatus.DELIVERED);
+shipment.setActualDeliveryDate(actualDeliveryDate);
 
         shipmentDAO.update(shipment);
     }

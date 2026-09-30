@@ -212,11 +212,14 @@ public class ShippingServlet extends HttpServlet {
                         // CREATE SHIPMENT THROUGH SERVICE
                         // =====================================================
 
-                        Shipment createdShipment = shippingService.shipPackages(
-                                        salesOrderId,
-                                        packageIds,
-                                        carrierServiceId,
-                                        shipment);
+                        Shipment createdShipment =
+        shippingService.shipPackages(
+                salesOrderId,
+                packageIds,
+                carrierServiceId,
+                shipment,
+                shipmentDate
+        );
 
                         response.setStatus(HttpServletResponse.SC_CREATED);
 
