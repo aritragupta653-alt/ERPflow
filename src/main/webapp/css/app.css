@@ -954,3 +954,320 @@ hr {
     border-top: 2px solid #ddd;
     font-size: 18px;
 }
+/* =====================================================
+   INVENTORY NOTIFICATION
+   ===================================================== */
+
+.inventory-notification-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+
+.inventory-notification-button {
+    position: relative;
+    width: 42px;
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    background: transparent;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    font-size: 18px;
+}
+
+
+.inventory-notification-button:hover {
+    background: #f3f4f6;
+}
+
+
+.inventory-notification-bell {
+    line-height: 1;
+}
+
+
+.inventory-notification-badge {
+    position: absolute;
+
+    top: 2px;
+    right: 1px;
+
+    min-width: 18px;
+    height: 18px;
+
+    padding: 0 5px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 999px;
+
+    background: #dc2626;
+    color: #ffffff;
+
+    font-size: 10px;
+    font-weight: 700;
+
+    border: 2px solid #ffffff;
+}
+
+
+/* =====================================================
+   DROPDOWN
+   ===================================================== */
+
+.inventory-notification-dropdown {
+    position: absolute;
+
+    top: calc(100% + 10px);
+    right: 0;
+
+    width: 380px;
+    max-width: calc(100vw - 30px);
+
+    background: #ffffff;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 12px;
+
+    box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.12);
+
+    overflow: hidden;
+
+    display: none;
+
+    z-index: 9999;
+}
+
+
+.inventory-notification-dropdown.show {
+    display: block;
+}
+
+
+/* =====================================================
+   HEADER
+   ===================================================== */
+
+.inventory-notification-header {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    padding: 16px;
+
+    border-bottom: 1px solid #e5e7eb;
+}
+
+
+.inventory-notification-header-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+}
+
+
+.inventory-notification-header-subtitle {
+    margin-top: 3px;
+
+    font-size: 12px;
+
+    color: #6b7280;
+}
+
+
+.mark-all-notifications {
+    border: none;
+    background: transparent;
+
+    color: #2563eb;
+
+    font-size: 12px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    white-space: nowrap;
+}
+
+
+.mark-all-notifications:hover {
+    text-decoration: underline;
+}
+
+
+/* =====================================================
+   LIST
+   ===================================================== */
+
+.inventory-notification-list {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+
+.inventory-notification-item {
+    display: flex;
+
+    gap: 12px;
+
+    padding: 14px 16px;
+
+    border-bottom: 1px solid #f3f4f6;
+
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease;
+}
+
+
+.inventory-notification-item:hover {
+    background: #f9fafb;
+}
+
+
+.inventory-notification-item:last-child {
+    border-bottom: none;
+}
+
+
+/* =====================================================
+   ICON
+   ===================================================== */
+
+.inventory-notification-icon {
+    width: 34px;
+    height: 34px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #fef3c7;
+
+    font-size: 15px;
+}
+
+
+/* =====================================================
+   CONTENT
+   ===================================================== */
+
+.inventory-notification-content {
+    min-width: 0;
+    flex: 1;
+}
+
+
+.inventory-notification-title {
+    font-size: 13px;
+    font-weight: 700;
+
+    color: #111827;
+}
+
+
+.inventory-notification-message {
+    margin-top: 4px;
+
+    font-size: 13px;
+    line-height: 1.4;
+
+    color: #4b5563;
+
+    word-break: break-word;
+}
+
+
+.inventory-notification-time {
+    margin-top: 6px;
+
+    font-size: 11px;
+
+    color: #9ca3af;
+}
+
+
+/* =====================================================
+   EMPTY / LOADING
+   ===================================================== */
+
+.notification-empty,
+.notification-loading {
+    min-height: 130px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    flex-direction: column;
+
+    gap: 8px;
+
+    padding: 25px;
+
+    color: #6b7280;
+
+    font-size: 13px;
+
+    text-align: center;
+}
+
+
+.notification-empty-icon {
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #ecfdf5;
+
+    color: #059669;
+
+    font-weight: 700;
+}
+
+
+/* =====================================================
+   MOBILE
+   ===================================================== */
+
+@media (max-width: 600px) {
+
+    .inventory-notification-dropdown {
+        position: fixed;
+
+        top: 65px;
+        left: 15px;
+        right: 15px;
+
+        width: auto;
+
+        max-width: none;
+    }
+}

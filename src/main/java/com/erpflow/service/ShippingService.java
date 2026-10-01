@@ -50,228 +50,362 @@ public class ShippingService {
     // =====================================================
 
     public Shipment shipPackages(
-            int salesOrderId,
-            List<Integer> packageIds,
-            int carrierServiceId,
-            Shipment shipment,
-        LocalDate shipmentDate) {
+        int salesOrderId,
+        List<Integer> packageIds,
+        int carrierServiceId,
+        Shipment shipment) {
 
-        // -------------------------------------------------
-        // BASIC VALIDATION
-        // -------------------------------------------------
+    // =====================================================
+    // BASIC VALIDATION
+    // =====================================================
 
-        if (packageIds == null || packageIds.isEmpty()) {
-            throw new RuntimeException("Select at least one package");
-        }
+    if (packageIds == null || packageIds.isEmpty()) {
+        throw new RuntimeException(
+                "Select at least one package"
+        );
+    }
 
-        if (carrierServiceId <= 0) {
-            throw new RuntimeException("Carrier service is required");
-        }
+    if (carrierServiceId <= 0) {
+        throw new RuntimeException(
+                "Carrier service is required"
+        );
+    }
 
-        // -------------------------------------------------
-        // FIND SALES ORDER
-        // -------------------------------------------------
+    if (shipment == null) {
+        throw new RuntimeException(
+                "Shipment details are required"
+        );
+    }
 
-        SalesOrder salesOrder = salesOrderDAO.findById(salesOrderId);
+    if (shipment.getShipmentDate() == null) {
+        throw new RuntimeException(
+                "Shipment date is required"
+        );
+    }
 
-        if (salesOrder == null) {
-            throw new RuntimeException("Sales Order not found");
-        }
+    // Manual shipment always starts as CREATED.
+    if (shipment.getStatus() == null) {
+        shipment.setStatus(
+                ShipmentStatus.CREATED
+        );
+    }
+    // =====================================================
+// SHIPMENT STATUS
+// =====================================================
 
-        // -------------------------------------------------
-        // PREVENT DUPLICATE PACKAGE IDS
-        // -------------------------------------------------
+if (shipment.getStatus() == null) {
 
-        Set<Integer> uniquePackageIds = new HashSet<>(packageIds);
-
-        if (uniquePackageIds.size() != packageIds.size()) {
-            throw new RuntimeException("Duplicate package selected");
-        }
-
-        // -------------------------------------------------
-        // FIND CARRIER SERVICE
-        // -------------------------------------------------
-
-        CarrierService carrierService =
-                carrierServiceDAO.findById(carrierServiceId);
-
-        if (carrierService == null) {
-            throw new RuntimeException("Carrier service not found");
-        }
-
-        if (carrierService.getCarrier() == null) {
-            throw new RuntimeException(
-                    "Carrier not found for selected service"
-            );
-        }
-
-        // -------------------------------------------------
-        // VALIDATE ALL PACKAGES FIRST
-        // -------------------------------------------------
-
-        for (Integer packageId : packageIds) {
-
-            if (packageId == null || packageId <= 0) {
-                throw new RuntimeException("Invalid package ID");
-            }
-
-            Package pkg = packageDAO.findById(packageId);
-
-            if (pkg == null) {
-                throw new RuntimeException(
-                        "Package not found: " + packageId
-                );
-            }
-            if (pkg.getPackageDate() != null &&
-        pkg.getPackageDate().isAfter(shipmentDate)) {
-
-    throw new RuntimeException(
-            "Shipment date cannot be before package date for package "
-                    + pkg.getPackageNumber()
+    shipment.setStatus(
+            ShipmentStatus.CREATED
     );
 }
 
-            // Package must belong to this Sales Order.
-            if (pkg.getSalesOrder() == null ||
-                    pkg.getSalesOrder().getId() != salesOrderId) {
+if (shipment.getStatus() != ShipmentStatus.CREATED &&
+        shipment.getStatus() != ShipmentStatus.IN_TRANSIT) {
 
-                throw new RuntimeException(
-                        "Package " + packageId
-                                + " does not belong to Sales Order "
-                                + salesOrderId
-                );
-            }
-
-            // Only PACKED packages can be shipped.
-            if (pkg.getStatus() != PackageStatus.PACKED) {
-                throw new RuntimeException(
-                        "Package " + packageId
-                                + " is not ready for shipping"
-                );
-            }
-
-            // Package cannot already belong to a shipment.
-            if (shipmentDAO.isPackageAlreadyShipped(packageId)) {
-                throw new RuntimeException(
-                        "Package " + packageId
-                                + " has already been shipped"
-                );
-            }
-
-            // Package must contain items.
-            List<PackageItem> packageItems =
-                    packageItemDAO.findByPackage(pkg);
-
-            if (packageItems == null || packageItems.isEmpty()) {
-                throw new RuntimeException(
-                        "Package " + packageId + " contains no items"
-                );
-            }
-        }
-
-        // -------------------------------------------------
-        // CALCULATE SHIPPING RATE
-        // -------------------------------------------------
-
-        ShippingRateService.ShippingRate rate =
-                shippingRateService.calculateRate(
-                        packageIds,
-                        carrierServiceId
-                );
-
-        // -------------------------------------------------
-        // PREPARE SHIPMENT OBJECT
-        // -------------------------------------------------
-
-        if (shipment == null) {
-            shipment = new Shipment();
-        }
-
-        // Preserve a date supplied by the caller.
-        // If none was supplied, use the current date/time.
-       if (shipmentDate == null) {
-    throw new RuntimeException("Shipment date is required");
+    throw new RuntimeException(
+            "Shipment status must be CREATED or IN_TRANSIT"
+    );
 }
 
-shipment.setShipmentDate(shipmentDate);
-        // Preserve a status supplied by the caller.
-        // If none was supplied, default to CREATED.
-        if (shipment.getStatus() == null) {
-            shipment.setStatus(ShipmentStatus.CREATED);
+
+    // =====================================================
+    // FIND SALES ORDER
+    // =====================================================
+
+    SalesOrder salesOrder =
+            salesOrderDAO.findById(salesOrderId);
+
+    if (salesOrder == null) {
+        throw new RuntimeException(
+                "Sales Order not found"
+        );
+    }
+
+
+    // =====================================================
+    // DUPLICATE PACKAGE CHECK
+    // =====================================================
+
+    Set<Integer> uniquePackageIds =
+            new HashSet<>(packageIds);
+
+    if (uniquePackageIds.size() != packageIds.size()) {
+        throw new RuntimeException(
+                "Duplicate package selected"
+        );
+    }
+
+
+    // =====================================================
+    // FIND CARRIER SERVICE
+    // =====================================================
+
+    CarrierService carrierService =
+            carrierServiceDAO.findById(
+                    carrierServiceId
+            );
+
+    if (carrierService == null) {
+        throw new RuntimeException(
+                "Carrier service not found"
+        );
+    }
+
+    if (carrierService.getCarrier() == null) {
+        throw new RuntimeException(
+                "Carrier not found for selected service"
+        );
+    }
+
+
+    // =====================================================
+    // VALIDATE ALL PACKAGES
+    // =====================================================
+
+    for (Integer packageId : packageIds) {
+
+        if (packageId == null || packageId <= 0) {
+            throw new RuntimeException(
+                    "Invalid package ID"
+            );
         }
 
-        shipment.setCarrier(carrierService.getCarrier());
-        shipment.setCarrierService(carrierService);
-        shipment.setShippingCharge(rate.getTotalCharge().doubleValue());
 
-        // -------------------------------------------------
-        // ESTIMATED DELIVERY DATE
-        // -------------------------------------------------
+        Package pkg =
+                packageDAO.findById(packageId);
 
-        int estimatedDays = carrierService.getEstimatedDays();
-
-        if (estimatedDays > 0) {
-            shipment.setEstimatedDeliveryDate(
-        shipmentDate.plusDays(estimatedDays)
-);
+        if (pkg == null) {
+            throw new RuntimeException(
+                    "Package not found: " + packageId
+            );
         }
 
-        // -------------------------------------------------
-        // CREATE SHIPMENT IN DATABASE
-        // -------------------------------------------------
-
-        shipmentDAO.save(shipment);
 
         // -------------------------------------------------
-        // GENERATE SHIPMENT NUMBER
+        // Package must belong to this Sales Order
         // -------------------------------------------------
 
-        shipment.setShipmentNumber(
-                String.format("SH-%06d", shipment.getId())
+        if (pkg.getSalesOrder() == null ||
+                pkg.getSalesOrder().getId() != salesOrderId) {
+
+            throw new RuntimeException(
+                    "Package " + packageId +
+                    " does not belong to Sales Order " +
+                    salesOrderId
+            );
+        }
+
+
+        // -------------------------------------------------
+        // Only PACKED packages can be shipped
+        // -------------------------------------------------
+
+        if (pkg.getStatus() != PackageStatus.PACKED) {
+
+            throw new RuntimeException(
+                    "Package " + packageId +
+                    " is not ready for shipping"
+            );
+        }
+
+
+        // -------------------------------------------------
+        // Package cannot already be shipped
+        // -------------------------------------------------
+
+        if (shipmentDAO.isPackageAlreadyShipped(
+                packageId)) {
+
+            throw new RuntimeException(
+                    "Package " + packageId +
+                    " has already been shipped"
+            );
+        }
+
+
+        // -------------------------------------------------
+        // Package date <= shipment date
+        // -------------------------------------------------
+
+        if (pkg.getPackageDate() != null &&
+                pkg.getPackageDate().isAfter(
+                        shipment.getShipmentDate()
+                )) {
+
+            throw new RuntimeException(
+                    "Shipment date cannot be before package date for "
+                    + pkg.getPackageNumber()
+            );
+        }
+
+
+        // -------------------------------------------------
+        // Package must contain items
+        // -------------------------------------------------
+
+        List<PackageItem> packageItems =
+                packageItemDAO.findByPackage(pkg);
+
+        if (packageItems == null ||
+                packageItems.isEmpty()) {
+
+            throw new RuntimeException(
+                    "Package " + packageId +
+                    " contains no items"
+            );
+        }
+    }
+
+
+    // =====================================================
+    // CALCULATE SHIPPING RATE
+    // =====================================================
+
+    ShippingRateService.ShippingRate rate =
+            shippingRateService.calculateRate(
+                    packageIds,
+                    carrierServiceId
+            );
+
+
+    // =====================================================
+    // SET SHIPMENT DETAILS
+    // =====================================================
+
+    shipment.setCarrier(
+            carrierService.getCarrier()
+    );
+
+    shipment.setCarrierService(
+            carrierService
+    );
+
+    shipment.setShippingCharge(
+            rate.getTotalCharge().doubleValue()
+    );
+
+
+    // =====================================================
+    // ESTIMATED DELIVERY DATE
+    // =====================================================
+
+    int estimatedDays =
+            carrierService.getEstimatedDays();
+
+    if (shipment.getEstimatedDeliveryDate() == null &&
+            estimatedDays > 0) {
+
+        shipment.setEstimatedDeliveryDate(
+                shipment.getShipmentDate()
+                        .plusDays(estimatedDays)
+        );
+    }
+
+
+    // =====================================================
+    // DATE VALIDATION
+    // =====================================================
+
+    if (shipment.getEstimatedDeliveryDate() != null &&
+            shipment.getEstimatedDeliveryDate()
+                    .isBefore(
+                            shipment.getShipmentDate()
+                    )) {
+
+        throw new RuntimeException(
+                "Estimated delivery date cannot be before shipment date"
+        );
+    }
+
+
+    // =====================================================
+    // ACTUAL DELIVERY DATE
+    // =====================================================
+
+    // Manual creation must NOT mark the shipment
+    // as delivered.
+
+    shipment.setActualDeliveryDate(null);
+
+
+    // =====================================================
+    // CREATE SHIPMENT
+    // =====================================================
+
+    shipmentDAO.save(shipment);
+
+
+    // =====================================================
+    // GENERATE SHIPMENT NUMBER
+    // =====================================================
+
+    shipment.setShipmentNumber(
+            String.format(
+                    "SH-%06d",
+                    shipment.getId()
+            )
+    );
+
+    shipmentDAO.update(shipment);
+
+
+    // =====================================================
+    // SHIP INVENTORY + MARK PACKAGES
+    // =====================================================
+
+    for (Integer packageId : packageIds) {
+
+        Package pkg =
+                packageDAO.findById(packageId);
+
+        List<PackageItem> packageItems =
+                packageItemDAO.findByPackage(pkg);
+
+
+        for (PackageItem packageItem :
+                packageItems) {
+
+            inventoryService.shipReservedStock(
+                    packageItem.getItem(),
+                    packageItem.getQuantity()
+            );
+        }
+
+
+        // Package becomes SHIPPED
+        pkg.setStatus(
+                PackageStatus.SHIPPED
         );
 
-        shipmentDAO.update(shipment);
-
-        // -------------------------------------------------
-        // SHIP INVENTORY AND MARK PACKAGES
-        // -------------------------------------------------
-
-        for (Integer packageId : packageIds) {
-
-            Package pkg = packageDAO.findById(packageId);
-
-            List<PackageItem> packageItems =
-                    packageItemDAO.findByPackage(pkg);
-
-            for (PackageItem packageItem : packageItems) {
-                inventoryService.shipReservedStock(
-                        packageItem.getItem(),
-                        packageItem.getQuantity()
-                );
-            }
-
-            // Mark package as shipped.
-            pkg.setStatus(PackageStatus.SHIPPED);
-
-            packageDAO.update(pkg);
-        }
-
-        // -------------------------------------------------
-        // LINK PACKAGES TO SHIPMENT
-        // -------------------------------------------------
-
-        for (Integer packageId : packageIds) {
-            shipmentDAO.addPackage(shipment.getId(), packageId);
-        }
-
-        // -------------------------------------------------
-        // UPDATE SALES ORDER STATUS
-        // -------------------------------------------------
-
-        updateSalesOrderStatus(salesOrder);
-
-        return shipment;
+        packageDAO.update(pkg);
     }
+
+
+    // =====================================================
+    // LINK PACKAGES TO SHIPMENT
+    // =====================================================
+
+    for (Integer packageId : packageIds) {
+
+        shipmentDAO.addPackage(
+                shipment.getId(),
+                packageId
+        );
+    }
+
+
+    // =====================================================
+    // UPDATE SALES ORDER STATUS
+    // =====================================================
+
+    updateSalesOrderStatus(
+            salesOrder
+    );
+
+
+    return shipment;
+}
 
     // =====================================================
     // UPDATE SALES ORDER STATUS

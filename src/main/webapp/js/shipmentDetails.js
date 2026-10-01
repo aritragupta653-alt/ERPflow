@@ -37,6 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
         ?.addEventListener('click', savePackages);
 
     loadShipment();
+
+    document
+        .getElementById('editCarrier')
+        ?.addEventListener(
+            'change',
+            async function () {
+                await loadEditCarrierServices(this.value);
+            }
+        );
 });
 
 
@@ -100,7 +109,12 @@ async function loadShipment() {
         }
 
         if (isDelivered) {
-            document.getElementById("editPackagesSection").hidden = true;
+            const section =
+                document.getElementById("editPackagesSection");
+
+            if (section) {
+                section.hidden = true;
+            }
         }
 
         displayShipment(currentShipment);
@@ -129,7 +143,6 @@ function displayShipment(shipment) {
         `Shipment #${shipment.id}`
     );
 
-    // Shipment Date is LocalDate now
     setText(
         'shipmentDate',
         formatDate(shipment.shipmentDate)
@@ -150,7 +163,8 @@ function displayShipment(shipment) {
         formatDate(shipment.actualDeliveryDate)
     );
 
-    const status = shipment.status || 'UNKNOWN';
+    const status =
+        shipment.status || 'UNKNOWN';
 
     const statusEl =
         document.getElementById('shipmentStatus');
@@ -330,11 +344,13 @@ function displayPackages(packages) {
 
 function openEditForm() {
 
-    if (!currentShipment) return;
+    if (!currentShipment) {
+        return;
+    }
 
-    const s = currentShipment;
+    const s =
+        currentShipment;
 
-    // Shipment date is LocalDate
     putValue(
         'editShipmentDate',
         toDateInput(s.shipmentDate)
@@ -353,16 +369,6 @@ function openEditForm() {
     putValue(
         'editShippingCharge',
         s.shippingCharge ?? 0
-    );
-
-    putValue(
-        'editCarrier',
-        s.carrier?.name || ''
-    );
-
-    putValue(
-        'editCarrierService',
-        s.carrierService?.name || ''
     );
 
     putValue(
@@ -400,22 +406,208 @@ function openEditForm() {
         s.notes || ''
     );
 
-    showMessage(
-        'editShipmentMessage',
-        ''
-    );
+
+    const delivered =
+        String(
+            s.status || ''
+        ).toUpperCase() === 'DELIVERED';
+
+
+    const checkbox =
+        document.getElementById(
+            'markAsDeliveredCheckbox'
+        );
+
+    if (checkbox) {
+        checkbox.checked =
+            delivered;
+    }
+
 
     toggle(
         'editShipmentSection',
         true
     );
 
+
+    showMessage(
+        'editShipmentMessage',
+        ''
+    );
+
+
+    const carrierId =
+        s.carrier?.id ?? null;
+
+    const serviceId =
+        s.carrierService?.id ?? null;
+
+
+    loadEditCarriers(
+        carrierId
+    ).then(() =>
+        loadEditCarrierServices(
+            carrierId,
+            serviceId
+        )
+    );
+
+
     document
-        .getElementById('editShipmentSection')
+        .getElementById(
+            'editShipmentSection'
+        )
         ?.scrollIntoView({
             behavior: 'smooth',
             block: 'start'
         });
+}
+
+
+// =========================
+// LOAD CARRIERS
+// =========================
+
+async function loadEditCarriers(
+    selectedCarrierId = null
+) {
+
+    const select =
+        document.getElementById(
+            'editCarrier'
+        );
+
+    if (!select) {
+        return;
+    }
+
+    try {
+
+        const carriers =
+            await api(
+                '/erpflow/api/carriers'
+            );
+
+
+        select.innerHTML =
+            '<option value="">Select Carrier</option>';
+
+
+        (
+            Array.isArray(carriers)
+                ? carriers
+                : []
+        ).forEach(carrier => {
+
+            const option =
+                document.createElement(
+                    'option'
+                );
+
+            option.value =
+                carrier.id;
+
+            option.textContent =
+                carrier.name ||
+                `Carrier #${carrier.id}`;
+
+            select.appendChild(
+                option
+            );
+        });
+
+
+        select.value =
+            selectedCarrierId != null
+                ? String(selectedCarrierId)
+                : '';
+
+    } catch (e) {
+
+        console.error(e);
+
+        select.innerHTML =
+            '<option value="">Failed to load carriers</option>';
+    }
+}
+
+
+// =========================
+// LOAD CARRIER SERVICES
+// =========================
+
+async function loadEditCarrierServices(
+    carrierId,
+    selectedServiceId = null
+) {
+
+    const select =
+        document.getElementById(
+            'editCarrierService'
+        );
+
+    if (!select) {
+        return;
+    }
+
+
+    select.innerHTML =
+        '<option value="">Select Carrier Service</option>';
+
+
+    select.disabled =
+        !carrierId;
+
+
+    if (!carrierId) {
+        return;
+    }
+
+
+    try {
+
+        const services =
+            await api(
+                `/erpflow/api/carriers/${encodeURIComponent(carrierId)}/services`
+            );
+
+
+        (
+            Array.isArray(services)
+                ? services
+                : []
+        ).forEach(service => {
+
+            const option =
+                document.createElement(
+                    'option'
+                );
+
+            option.value =
+                service.id;
+
+            option.textContent =
+                service.name ||
+                `Service #${service.id}`;
+
+            select.appendChild(
+                option
+            );
+        });
+
+
+        select.value =
+            selectedServiceId != null
+                ? String(selectedServiceId)
+                : '';
+
+    } catch (e) {
+
+        console.error(e);
+
+        select.innerHTML =
+            '<option value="">Failed to load services</option>';
+    }
 }
 
 
@@ -427,26 +619,52 @@ async function saveShipment(event) {
 
     event.preventDefault();
 
-    if (!currentShipment) return;
+
+    if (!currentShipment) {
+        return;
+    }
+
+
+    const s =
+        currentShipment;
+
+
+    const currentStatus =
+        String(
+            s.status || ''
+        ).toUpperCase();
+
+
+    // Delivered shipments are final.
 
     if (
-        String(currentShipment.status || "")
-            .toUpperCase() === "DELIVERED"
+        currentStatus === 'DELIVERED'
     ) {
 
         alert(
-            "Delivered shipments cannot be edited."
+            'Delivered shipments cannot be edited.'
         );
 
         return;
     }
 
-    const s = currentShipment;
+
+    // =========================
+    // SHIPPING CHARGE
+    // =========================
 
     const charge =
-        Number(value('editShippingCharge'));
+        Number(
+            value(
+                'editShippingCharge'
+            )
+        );
 
-    if (!Number.isFinite(charge) || charge < 0) {
+
+    if (
+        !Number.isFinite(charge) ||
+        charge < 0
+    ) {
 
         showMessage(
             'editShipmentMessage',
@@ -456,16 +674,57 @@ async function saveShipment(event) {
         return;
     }
 
+
+    // =========================
+    // DATES
+    // =========================
+
     const shipmentDate =
-        value('editShipmentDate');
+        value(
+            'editShipmentDate'
+        );
+
 
     const estimatedDeliveryDate =
-        value('editEstimatedDeliveryDate') || null;
+        value(
+            'editEstimatedDeliveryDate'
+        ) || null;
+
 
     const actualDeliveryDate =
-        value('editActualDeliveryDate') || null;
+        value(
+            'editActualDeliveryDate'
+        ) || null;
 
-    // Validate shipment date
+
+    // =========================
+    // MARK AS DELIVERED
+    // =========================
+
+    const markAsDelivered =
+        document
+            .getElementById(
+                'markAsDeliveredCheckbox'
+            )
+            ?.checked === true;
+
+
+    // =========================
+    // STATUS
+    // =========================
+
+    let selectedStatus =
+        String(
+            value(
+                'editShipmentStatus'
+            ) || ''
+        ).toUpperCase();
+
+
+    // =========================
+    // SHIPMENT DATE REQUIRED
+    // =========================
+
     if (!shipmentDate) {
 
         showMessage(
@@ -473,13 +732,66 @@ async function saveShipment(event) {
             'Shipment date is required.'
         );
 
+        document
+            .getElementById(
+                'editShipmentDate'
+            )
+            ?.focus();
+
         return;
     }
 
-    // Expected delivery cannot be before shipment date
+
+    // =========================
+    // SALES ORDER DATE
+    // =========================
+
+    const salesOrderDate =
+        s.salesOrder?.orderDate ||
+        s.salesOrderDate ||
+        null;
+
+
+    const normalizedSalesOrderDate =
+        salesOrderDate
+            ? String(
+                salesOrderDate
+            ).slice(0, 10)
+            : null;
+
+
+    // Shipment cannot happen
+    // before sales order.
+
+    if (
+        normalizedSalesOrderDate &&
+        shipmentDate <
+        normalizedSalesOrderDate
+    ) {
+
+        showMessage(
+            'editShipmentMessage',
+            `Shipment date cannot be before sales order date (${normalizedSalesOrderDate}).`
+        );
+
+        document
+            .getElementById(
+                'editShipmentDate'
+            )
+            ?.focus();
+
+        return;
+    }
+
+
+    // =========================
+    // ESTIMATED DELIVERY DATE
+    // =========================
+
     if (
         estimatedDeliveryDate &&
-        estimatedDeliveryDate < shipmentDate
+        estimatedDeliveryDate <
+        shipmentDate
     ) {
 
         showMessage(
@@ -487,13 +799,24 @@ async function saveShipment(event) {
             'Estimated delivery date cannot be before shipment date.'
         );
 
+        document
+            .getElementById(
+                'editEstimatedDeliveryDate'
+            )
+            ?.focus();
+
         return;
     }
 
-    // Actual delivery cannot be before shipment date
+
+    // =========================
+    // ACTUAL DELIVERY DATE
+    // =========================
+
     if (
         actualDeliveryDate &&
-        actualDeliveryDate < shipmentDate
+        actualDeliveryDate <
+        shipmentDate
     ) {
 
         showMessage(
@@ -501,51 +824,178 @@ async function saveShipment(event) {
             'Actual delivery date cannot be before shipment date.'
         );
 
+        document
+            .getElementById(
+                'editActualDeliveryDate'
+            )
+            ?.focus();
+
         return;
     }
 
+
+    // =========================
+    // MARK AS DELIVERED
+    //
+    // CREATED -> DELIVERED
+    // SHIPPED -> DELIVERED
+    // IN_TRANSIT -> DELIVERED
+    //
+    // ALL ALLOWED.
+    // =========================
+
+    if (markAsDelivered) {
+
+        if (!actualDeliveryDate) {
+
+            showMessage(
+                'editShipmentMessage',
+                'Actual delivery date is required when marking the shipment as delivered.'
+            );
+
+            document
+                .getElementById(
+                    'editActualDeliveryDate'
+                )
+                ?.focus();
+
+            return;
+        }
+
+
+        selectedStatus =
+            'DELIVERED';
+    }
+
+
+    // =========================
+    // DROPDOWN STATUS = DELIVERED
+    // =========================
+
+    if (
+        selectedStatus ===
+        'DELIVERED'
+    ) {
+
+        if (!actualDeliveryDate) {
+
+            showMessage(
+                'editShipmentMessage',
+                'Actual delivery date is required when status is DELIVERED.'
+            );
+
+            document
+                .getElementById(
+                    'editActualDeliveryDate'
+                )
+                ?.focus();
+
+            return;
+        }
+    }
+
+
+    // =========================
+    // CARRIER
+    // =========================
+
+    const carrierId =
+        value(
+            'editCarrier'
+        ) || null;
+
+
+    const carrierServiceId =
+        value(
+            'editCarrierService'
+        ) || null;
+
+
+    if (
+        carrierId &&
+        !carrierServiceId
+    ) {
+
+        showMessage(
+            'editShipmentMessage',
+            'Please select a carrier service.'
+        );
+
+        document
+            .getElementById(
+                'editCarrierService'
+            )
+            ?.focus();
+
+        return;
+    }
+
+
+    // =========================
+    // PAYLOAD
+    // =========================
+
     const payload = {
 
-        id: s.id,
+        id:
+            s.id,
 
         shipmentNumber:
             s.shipmentNumber,
 
-        // LocalDate -> YYYY-MM-DD
         shipmentDate:
             shipmentDate,
 
         status:
-            value('editShipmentStatus'),
+            selectedStatus,
 
         shippingMethod:
-            value('editShippingMethod'),
+            value(
+                'editShippingMethod'
+            ),
 
-        // Preserve existing associations
         carrier:
-            s.carrier
-                ? { id: s.carrier.id }
+            carrierId
+                ? {
+                    id:
+                        Number(
+                            carrierId
+                        )
+                }
                 : null,
 
         carrierService:
-            s.carrierService
-                ? { id: s.carrierService.id }
+            carrierServiceId
+                ? {
+                    id:
+                        Number(
+                            carrierServiceId
+                        )
+                }
                 : null,
 
         trackingNumber:
-            value('editTrackingNumber'),
+            value(
+                'editTrackingNumber'
+            ),
 
         trackingUrl:
-            value('editTrackingUrl'),
+            value(
+                'editTrackingUrl'
+            ),
 
         shippingCharge:
             charge,
 
         dispatchAddress:
-            value('editDispatchAddress'),
+            value(
+                'editDispatchAddress'
+            ),
 
         destinationAddress:
-            value('editDestinationAddress'),
+            value(
+                'editDestinationAddress'
+            ),
 
         estimatedDeliveryDate:
             estimatedDeliveryDate,
@@ -554,11 +1004,18 @@ async function saveShipment(event) {
             actualDeliveryDate,
 
         notes:
-            value('editShipmentNotes'),
+            value(
+                'editShipmentNotes'
+            ),
 
         packages:
             s.packages || []
     };
+
+
+    // =========================
+    // SAVE
+    // =========================
 
     try {
 
@@ -567,32 +1024,43 @@ async function saveShipment(event) {
             true
         );
 
+
         await api(
             `/erpflow/api/shipments/${encodeURIComponent(shipmentId)}`,
             {
                 method: 'PUT',
-                body: JSON.stringify(payload)
+
+                body:
+                    JSON.stringify(
+                        payload
+                    )
             }
         );
+
 
         toggle(
             'editShipmentSection',
             false
         );
 
+
         await loadShipment();
 
-        showMessage(
-            'editShipmentMessage',
-            'Shipment saved.'
-        );
 
     } catch (e) {
 
+        console.error(
+            'Save Shipment Error:',
+            e
+        );
+
+
         showMessage(
             'editShipmentMessage',
-            e.message
+            e.message ||
+            'Failed to save shipment.'
         );
+
 
     } finally {
 
@@ -612,15 +1080,24 @@ async function markDelivered() {
 
     if (
         !currentShipment ||
-        String(currentShipment.status)
-            .toUpperCase() === 'DELIVERED'
+        String(
+            currentShipment.status || ''
+        ).toUpperCase() ===
+        'DELIVERED'
     ) {
+
         return;
     }
 
-    // Read the date entered by the user
+
     const actualDeliveryDate =
-        value('actualDeliveryDate');
+        value(
+            'editActualDeliveryDate'
+        ) ||
+        value(
+            'actualDeliveryDate'
+        );
+
 
     if (!actualDeliveryDate) {
 
@@ -631,16 +1108,17 @@ async function markDelivered() {
         return;
     }
 
-    // Shipment date
+
     const shipmentDate =
         toDateInput(
             currentShipment.shipmentDate
         );
 
-    // Actual delivery cannot be before shipment date
+
     if (
         shipmentDate &&
-        actualDeliveryDate < shipmentDate
+        actualDeliveryDate <
+        shipmentDate
     ) {
 
         alert(
@@ -650,13 +1128,16 @@ async function markDelivered() {
         return;
     }
 
+
     if (
         !confirm(
             `Mark this shipment as delivered on ${formatDate(actualDeliveryDate)}?`
         )
     ) {
+
         return;
     }
+
 
     try {
 
@@ -665,25 +1146,29 @@ async function markDelivered() {
             true
         );
 
+
         await api(
             `/erpflow/api/shipments/${encodeURIComponent(shipmentId)}/deliver`,
             {
                 method: 'POST',
 
-                body: JSON.stringify({
-                    actualDeliveryDate:
+                body:
+                    JSON.stringify({
                         actualDeliveryDate
-                })
+                    })
             }
         );
 
+
         await loadShipment();
+
 
     } catch (e) {
 
         alert(
             `Could not mark shipment delivered: ${e.message}`
         );
+
 
     } finally {
 
@@ -701,17 +1186,33 @@ async function markDelivered() {
 
 async function openPackageEditor() {
 
-    if (!currentShipment) return;
+    if (!currentShipment) {
+        return;
+    }
+
+
+    if (
+        String(
+            currentShipment.status || ''
+        ).toUpperCase() ===
+        'DELIVERED'
+    ) {
+
+        return;
+    }
+
 
     toggle(
         'editPackagesSection',
         true
     );
 
+
     showMessage(
         'packageEditMessage',
         'Loading packages…'
     );
+
 
     try {
 
@@ -719,6 +1220,7 @@ async function openPackageEditor() {
             await api(
                 '/erpflow/api/packages'
             );
+
 
         allPackages =
             Array.isArray(result)
@@ -729,14 +1231,18 @@ async function openPackageEditor() {
                     []
                 );
 
+
         renderPackageChoices(
-            currentShipment.packages || []
+            currentShipment.packages ||
+            []
         );
+
 
         showMessage(
             'packageEditMessage',
             'Select the packages for this shipment.'
         );
+
 
     } catch (e) {
 
@@ -745,10 +1251,12 @@ async function openPackageEditor() {
             `Could not load packages: ${e.message}. Check that GET /api/packages returns the package list.`
         );
 
+
         const container =
             document.getElementById(
                 'availablePackagesContainer'
             );
+
 
         if (container) {
             container.textContent = '';
@@ -757,51 +1265,114 @@ async function openPackageEditor() {
 }
 
 
-function renderPackageChoices(assigned) {
+// =========================
+// RENDER PACKAGE CHOICES
+// =========================
+
+function renderPackageChoices(
+    assigned
+) {
 
     const container =
         document.getElementById(
             'availablePackagesContainer'
         );
 
-    if (!container) return;
+
+    if (!container) {
+        return;
+    }
+
 
     const assignedIds =
         new Set(
             assigned.map(
-                p => Number(p.id)
+                p => Number(
+                    p.id
+                )
             )
         );
 
+
     const eligible =
-        allPackages.filter(pkg => {
+        allPackages.filter(
+            pkg => {
 
-            const items =
-                pkg.packageItems ||
-                pkg.items ||
-                [];
+                const items =
+                    pkg.packageItems ||
+                    pkg.items ||
+                    [];
 
-            const containsIneligibleItem =
-                items.some(packageItem => {
 
-                    const item =
-                        packageItem.item ||
-                        packageItem;
+                const containsIneligibleItem =
+                    items.some(
+                        packageItem => {
 
-                    return item.itemType === 'SERVICE' ||
-                        item.trackInventory === false;
-                });
+                            const item =
+                                packageItem.item ||
+                                packageItem;
 
-            const linkedToOtherShipment =
-                pkg.shipmentId &&
-                Number(pkg.shipmentId) !==
-                Number(shipmentId);
 
-            return !containsIneligibleItem &&
-                !linkedToOtherShipment;
-        });
+                            return (
+                                item.itemType ===
+                                'SERVICE'
+                            ) ||
+                            (
+                                item.trackInventory ===
+                                false
+                            );
+                        }
+                    );
+
+
+                const linkedToOtherShipment =
+                    pkg.shipmentId &&
+                    Number(
+                        pkg.shipmentId
+                    ) !==
+                    Number(
+                        shipmentId
+                    );
+
+
+                const packageStatus =
+                    String(
+                        pkg.status ||
+                        ''
+                    ).toUpperCase();
+
+
+                // A package that is already
+                // shipped must not be selected
+                // again for another shipment.
+
+                const alreadyShipped =
+                    packageStatus ===
+                    'SHIPPED' ||
+                    packageStatus ===
+                    'IN_TRANSIT' ||
+                    packageStatus ===
+                    'DELIVERED';
+
+
+                return (
+                    !containsIneligibleItem &&
+                    !linkedToOtherShipment &&
+                    (
+                        assignedIds.has(
+                            Number(
+                                pkg.id
+                            )
+                        ) ||
+                        !alreadyShipped
+                    )
+                );
+            }
+        );
+
 
     container.replaceChildren();
+
 
     if (!eligible.length) {
 
@@ -811,56 +1382,89 @@ function renderPackageChoices(assigned) {
         return;
     }
 
-    eligible.forEach(pkg => {
 
-        const label =
-            document.createElement('label');
+    eligible.forEach(
+        pkg => {
 
-        label.className =
-            'package-choice';
+            const label =
+                document.createElement(
+                    'label'
+                );
 
-        const checkbox =
-            document.createElement('input');
 
-        checkbox.type =
-            'checkbox';
+            label.className =
+                'package-choice';
 
-        checkbox.value =
-            pkg.id;
 
-        checkbox.checked =
-            assignedIds.has(
-                Number(pkg.id)
+            const checkbox =
+                document.createElement(
+                    'input'
+                );
+
+
+            checkbox.type =
+                'checkbox';
+
+
+            checkbox.value =
+                pkg.id;
+
+
+            checkbox.checked =
+                assignedIds.has(
+                    Number(
+                        pkg.id
+                    )
+                );
+
+
+            checkbox.dataset.packageId =
+                pkg.id;
+
+
+            const text =
+                document.createElement(
+                    'span'
+                );
+
+
+            text.textContent =
+                `${pkg.packageNumber || `Package #${pkg.id}`} — ${Number(pkg.weight || 0).toFixed(2)} kg`;
+
+
+            label.append(
+                checkbox,
+                text
             );
 
-        checkbox.dataset.packageId =
-            pkg.id;
 
-        const text =
-            document.createElement('span');
-
-        text.textContent =
-            `${pkg.packageNumber || `Package #${pkg.id}`} — ${Number(pkg.weight || 0).toFixed(2)} kg`;
-
-        label.append(
-            checkbox,
-            text
-        );
-
-        container.appendChild(label);
-    });
+            container.appendChild(
+                label
+            );
+        }
+    );
 }
 
+
+// =========================
+// SAVE PACKAGES
+// =========================
 
 async function savePackages() {
 
     const selected = [
+
         ...document.querySelectorAll(
             '#availablePackagesContainer input[type="checkbox"]:checked'
         )
+
     ].map(
-        el => Number(el.dataset.packageId)
+        el =>
+            Number(
+                el.dataset.packageId
+            )
     );
+
 
     try {
 
@@ -869,23 +1473,29 @@ async function savePackages() {
             true
         );
 
+
         await api(
             `/erpflow/api/shipments/${encodeURIComponent(shipmentId)}/packages`,
             {
                 method: 'PUT',
 
-                body: JSON.stringify({
-                    packageIds: selected
-                })
+                body:
+                    JSON.stringify({
+                        packageIds:
+                            selected
+                    })
             }
         );
+
 
         toggle(
             'editPackagesSection',
             false
         );
 
+
         await loadShipment();
+
 
     } catch (e) {
 
@@ -893,6 +1503,7 @@ async function savePackages() {
             'packageEditMessage',
             e.message
         );
+
 
     } finally {
 
@@ -921,58 +1532,82 @@ function putValue(id, v) {
     const element =
         document.getElementById(id);
 
+
     if (element) {
+
         element.value =
             v ?? '';
     }
 }
 
 
-function toggle(id, visible) {
+function toggle(
+    id,
+    visible
+) {
 
     const element =
         document.getElementById(id);
 
+
     if (element) {
+
         element.style.display =
-            visible ? 'block' : 'none';
+            visible
+                ? 'block'
+                : 'none';
     }
 }
 
 
-function disable(id, state) {
+function disable(
+    id,
+    state
+) {
 
     const element =
         document.getElementById(id);
 
+
     if (element) {
+
         element.disabled =
             state;
     }
 }
 
 
-function showMessage(id, message) {
+function showMessage(
+    id,
+    message
+) {
 
     const element =
         document.getElementById(id);
 
+
     if (element) {
+
         element.textContent =
             message;
     }
 }
 
 
-function setText(id, v) {
+function setText(
+    id,
+    v
+) {
 
     const element =
         document.getElementById(id);
 
+
     if (element) {
 
         element.textContent =
-            v == null || v === ''
+            v == null ||
+            v === ''
                 ? '-'
                 : v;
     }
@@ -983,6 +1618,7 @@ function formatMoney(v) {
 
     const n =
         Number(v);
+
 
     return `₹${(
         Number.isFinite(n)
@@ -997,6 +1633,7 @@ function formatNumber(v) {
     const n =
         Number(v);
 
+
     return Number.isFinite(n)
         ? n.toFixed(2)
         : '-';
@@ -1007,15 +1644,12 @@ function formatNumber(v) {
 // DATE FORMATTERS
 // =========================
 
-// Used for LocalDate.
-// Supports:
-// [2026, 9, 25]
-// "2026-09-25"
-// "2026-09-25T00:00:00"
-
 function formatDate(v) {
 
-    if (!v) return '-';
+    if (!v) {
+        return '-';
+    }
+
 
     if (Array.isArray(v)) {
 
@@ -1026,40 +1660,60 @@ function formatDate(v) {
             v[2]
         ) {
 
-            return `${pad(v[2])}/${pad(v[1])}/${v[0]}`;
+            return (
+                `${pad(v[2])}/` +
+                `${pad(v[1])}/` +
+                `${v[0]}`
+            );
         }
+
 
         return '-';
     }
 
+
     const value =
         String(v);
+
 
     const match =
         value.match(
             /^(\d{4})-(\d{2})-(\d{2})/
         );
 
+
     if (match) {
 
-        return `${match[3]}/${match[2]}/${match[1]}`;
+        return (
+            `${match[3]}/` +
+            `${match[2]}/` +
+            `${match[1]}`
+        );
     }
+
 
     const d =
         new Date(value);
 
-    return Number.isNaN(d.getTime())
+
+    return Number.isNaN(
+        d.getTime()
+    )
         ? value
         : d.toLocaleDateString();
 }
 
 
-// Convert LocalDate JSON to
-// HTML date input format YYYY-MM-DD.
+// =========================
+// DATE INPUT
+// =========================
 
 function toDateInput(v) {
 
-    if (!v) return '';
+    if (!v) {
+        return '';
+    }
+
 
     if (Array.isArray(v)) {
 
@@ -1067,42 +1721,72 @@ function toDateInput(v) {
             return '';
         }
 
-        return `${v[0]}-${pad(v[1])}-${pad(v[2])}`;
+
+        return (
+            `${v[0]}-` +
+            `${pad(v[1])}-` +
+            `${pad(v[2])}`
+        );
     }
+
 
     const value =
         String(v);
+
 
     const match =
         value.match(
             /^(\d{4})-(\d{2})-(\d{2})/
         );
 
+
     if (match) {
-        return `${match[1]}-${match[2]}-${match[3]}`;
+
+        return (
+            `${match[1]}-` +
+            `${match[2]}-` +
+            `${match[3]}`
+        );
     }
 
-    return value.slice(0, 10);
+
+    return value.slice(
+        0,
+        10
+    );
 }
 
 
-// Kept only in case another part of the page
-// still needs a datetime formatter.
+// =========================
+// OPTIONAL DATETIME FORMAT
+// =========================
 
 function formatDateTime(v) {
 
-    if (!v) return '-';
+    if (!v) {
+        return '-';
+    }
+
 
     if (Array.isArray(v)) {
 
-        return `${pad(v[2])}/${pad(v[1])}/${v[0]} ` +
-            `${pad(v[3] || 0)}:${pad(v[4] || 0)}`;
+        return (
+            `${pad(v[2])}/` +
+            `${pad(v[1])}/` +
+            `${v[0]} ` +
+            `${pad(v[3] || 0)}:` +
+            `${pad(v[4] || 0)}`
+        );
     }
+
 
     const d =
         new Date(v);
 
-    return Number.isNaN(d.getTime())
+
+    return Number.isNaN(
+        d.getTime()
+    )
         ? String(v)
         : d.toLocaleString();
 }
@@ -1111,7 +1795,10 @@ function formatDateTime(v) {
 function pad(v) {
 
     return String(v)
-        .padStart(2, '0');
+        .padStart(
+            2,
+            '0'
+        );
 }
 
 
@@ -1119,10 +1806,14 @@ function pad(v) {
 // STATUS
 // =========================
 
-function getStatusClass(status) {
+function getStatusClass(
+    status
+) {
 
     switch (
-        String(status || '').toUpperCase()
+        String(
+            status || ''
+        ).toUpperCase()
     ) {
 
         case 'CREATED':
@@ -1133,6 +1824,9 @@ function getStatusClass(status) {
 
         case 'DELIVERED':
             return 'status-delivered';
+
+        case 'IN_TRANSIT':
+            return 'status-in-transit';
 
         default:
             return 'status-default';
@@ -1146,12 +1840,29 @@ function getStatusClass(status) {
 
 function escapeHtml(v) {
 
-    return String(v ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+    return String(
+        v ?? ''
+    )
+        .replace(
+            /&/g,
+            '&amp;'
+        )
+        .replace(
+            /</g,
+            '&lt;'
+        )
+        .replace(
+            />/g,
+            '&gt;'
+        )
+        .replace(
+            /"/g,
+            '&quot;'
+        )
+        .replace(
+            /'/g,
+            '&#039;'
+        );
 }
 
 
@@ -1170,36 +1881,46 @@ function goBack() {
 // EDITABILITY
 // =========================
 
-function applyShipmentEditability(shipment) {
+function applyShipmentEditability(
+    shipment
+) {
 
     const isDelivered =
-        String(shipment.status || "")
-            .toUpperCase() === "DELIVERED";
+        String(
+            shipment.status || ""
+        ).toUpperCase() ===
+        "DELIVERED";
+
 
     const editShipmentButton =
         document.getElementById(
             "editShipmentButton"
         );
 
+
     const editPackagesButton =
         document.getElementById(
             "editPackagesButton"
         );
+
 
     const markDeliveredButton =
         document.getElementById(
             "markDeliveredButton"
         );
 
+
     const editShipmentSection =
         document.getElementById(
             "editShipmentSection"
         );
 
+
     const editPackagesSection =
         document.getElementById(
             "editPackagesSection"
         );
+
 
     if (editShipmentButton) {
 
@@ -1210,6 +1931,7 @@ function applyShipmentEditability(shipment) {
             isDelivered;
     }
 
+
     if (editPackagesButton) {
 
         editPackagesButton.disabled =
@@ -1218,6 +1940,7 @@ function applyShipmentEditability(shipment) {
         editPackagesButton.hidden =
             isDelivered;
     }
+
 
     if (markDeliveredButton) {
 
@@ -1228,14 +1951,20 @@ function applyShipmentEditability(shipment) {
             isDelivered;
     }
 
+
     if (isDelivered) {
 
         if (editShipmentSection) {
-            editShipmentSection.hidden = true;
+
+            editShipmentSection.hidden =
+                true;
         }
 
+
         if (editPackagesSection) {
-            editPackagesSection.hidden = true;
+
+            editPackagesSection.hidden =
+                true;
         }
     }
 }

@@ -155,4 +155,129 @@ public class InventoryNotificationDAO {
 
         return notification;
     }
+    // =====================================================
+// CHECK FOR EXISTING UNREAD ALERT
+// =====================================================
+
+public boolean existsUnreadForItemAndType(
+        int itemId,
+        String alertType) {
+
+    String sql = """
+            SELECT COUNT(*)
+            FROM inventory_notifications
+            WHERE item_id = ?
+              AND alert_type = ?
+              AND is_read = FALSE
+            """;
+
+    try (
+            Connection connection =
+                    DBConnection.getConnection();
+
+            PreparedStatement statement =
+                    connection.prepareStatement(sql)
+    ) {
+
+        statement.setInt(
+                1,
+                itemId
+        );
+
+        statement.setString(
+                2,
+                alertType
+        );
+
+
+        try (
+                ResultSet rs =
+                        statement.executeQuery()
+        ) {
+
+            if (rs.next()) {
+
+                return rs.getInt(1) > 0;
+            }
+        }
+
+    } catch (SQLException e) {
+
+        throw new RuntimeException(
+                "Error checking existing inventory notification",
+                e
+        );
+    }
+
+    return false;
+}
+// =====================================================
+// GET UNREAD NOTIFICATION COUNT
+// =====================================================
+
+public int getUnreadCount() {
+
+    String sql = """
+            SELECT COUNT(*)
+            FROM inventory_notifications
+            WHERE is_read = FALSE
+            """;
+
+    try (
+            Connection connection =
+                    DBConnection.getConnection();
+
+            PreparedStatement statement =
+                    connection.prepareStatement(sql);
+
+            ResultSet rs =
+                    statement.executeQuery()
+    ) {
+
+        if (rs.next()) {
+            return rs.getInt(1);
+        }
+
+    } catch (SQLException e) {
+
+        throw new RuntimeException(
+                "Error fetching unread notification count",
+                e
+        );
+    }
+
+    return 0;
+}
+// =====================================================
+// MARK ALL NOTIFICATIONS AS READ
+// =====================================================
+
+public boolean markAllAsRead() {
+
+    String sql = """
+            UPDATE inventory_notifications
+            SET is_read = TRUE
+            WHERE is_read = FALSE
+            """;
+
+    try (
+            Connection connection =
+                    DBConnection.getConnection();
+
+            PreparedStatement statement =
+                    connection.prepareStatement(sql)
+    ) {
+
+        statement.executeUpdate();
+
+        return true;
+
+    } catch (SQLException e) {
+
+        throw new RuntimeException(
+                "Error marking all notifications as read",
+                e
+        );
+    }
+}
 }

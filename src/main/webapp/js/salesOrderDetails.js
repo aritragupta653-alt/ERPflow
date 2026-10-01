@@ -4,8 +4,14 @@
 // SALES ORDER DETAILS
 // =====================================================
 
-const params = new URLSearchParams(window.location.search);
-const salesOrderId = params.get("id");
+const params =
+    new URLSearchParams(
+        window.location.search
+    );
+
+const salesOrderId =
+    params.get("id");
+
 
 // =====================================================
 // API URLS
@@ -29,88 +35,187 @@ const shippingApi =
 const autoPackShipApi =
     `/erpflow/api/auto-pack-ship/${salesOrderId}`;
 
-// Current Sales Order object
+
 let currentSalesOrder = null;
+
 
 // =====================================================
 // PAGE LOAD
 // =====================================================
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
-    if (!salesOrderId) {
-        showMessage(
-            "Sales Order ID is missing.",
-            "error"
+        if (!salesOrderId) {
+
+            showMessage(
+                "Sales Order ID is missing.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        loadSalesOrder();
+
+        loadPackages();
+
+        createPackageButton();
+
+        initializeShipmentCreation();
+
+
+
+        const rateButton =
+            document.getElementById(
+                "calculateRateButton"
+            );
+
+        if (rateButton) {
+
+            rateButton.addEventListener(
+                "click",
+                calculateShippingRate
+            );
+        }
+
+
+        const packShipButton =
+            document.getElementById(
+                "packShipButton"
+            );
+
+        if (packShipButton) {
+
+            packShipButton.addEventListener(
+                "click",
+                packAndShip
+            );
+        }
+
+
+        setTodayIfEmpty(
+            "manualShipmentDate"
         );
+
+        setTodayIfEmpty(
+            "autoShipmentDate"
+        );
+
+
+        setupDateValidation();
+
+    }
+);
+
+
+// =====================================================
+// DATE HELPERS
+// =====================================================
+
+function getTodayLocalDate() {
+
+    const now =
+        new Date();
+
+
+    const year =
+        now.getFullYear();
+
+
+    const month =
+        String(
+            now.getMonth() + 1
+        ).padStart(
+            2,
+            "0"
+        );
+
+
+    const day =
+        String(
+            now.getDate()
+        ).padStart(
+            2,
+            "0"
+        );
+
+
+    return `${year}-${month}-${day}`;
+}
+
+
+function setTodayIfEmpty(
+    elementId
+) {
+
+    const input =
+        document.getElementById(
+            elementId
+        );
+
+
+    if (
+        !input ||
+        input.value
+    ) {
+
         return;
     }
 
-    loadSalesOrder();
-    loadPackages();
 
-    createPackageButton();
+    input.value =
+        getTodayLocalDate();
+}
 
-    const rateButton =
+
+function setupDateValidation() {
+
+    const manualDate =
         document.getElementById(
-            "calculateRateButton"
+            "manualShipmentDate"
         );
 
-    if (rateButton) {
-        rateButton.addEventListener(
-            "click",
-            calculateShippingRate
+
+    const autoDate =
+        document.getElementById(
+            "autoShipmentDate"
         );
+
+
+    if (manualDate) {
+
+        manualDate.type =
+            "date";
+
+
+        if (!manualDate.value) {
+
+            manualDate.value =
+                getTodayLocalDate();
+        }
+
     }
 
-    const createShipmentButton =
-        document.getElementById(
-            "createShipmentButton"
-        );
 
-    if (createShipmentButton) {
-        createShipmentButton.addEventListener(
-            "click",
-            createShipment
-        );
+    if (autoDate) {
+
+        autoDate.type =
+            "date";
+
+
+        if (!autoDate.value) {
+
+            autoDate.value =
+                getTodayLocalDate();
+        }
+
     }
 
-    const packShipButton =
-        document.getElementById(
-            "packShipButton"
-        );
+}
 
-    if (packShipButton) {
-        packShipButton.addEventListener(
-            "click",
-            packAndShip
-        );
-    }
-
-    // Default shipment date
-    const shipmentDateInput =
-        document.getElementById(
-            "shipmentDate"
-        );
-
-    if (
-        shipmentDateInput &&
-        !shipmentDateInput.value
-    ) {
-        const now = new Date();
-
-        const localDate =
-            new Date(
-                now.getTime() -
-                now.getTimezoneOffset() * 60000
-            )
-                .toISOString()
-                .slice(0, 10);
-
-        shipmentDateInput.value =
-            localDate;
-    }
-});
 
 // =====================================================
 // LOAD SALES ORDER
@@ -121,25 +226,31 @@ async function loadSalesOrder() {
     try {
 
         const response =
-            await fetch(salesOrderApi);
+            await fetch(
+                salesOrderApi
+            );
+
 
         if (!response.ok) {
+
             throw new Error(
                 "Failed to load Sales Order."
             );
         }
 
+
         const order =
             await response.json();
 
-        currentSalesOrder = order;
 
-        console.log(
-            "Sales Order:",
+        currentSalesOrder =
+            order;
+
+
+        displaySalesOrder(
             order
         );
 
-        displaySalesOrder(order);
 
     } catch (error) {
 
@@ -148,19 +259,25 @@ async function loadSalesOrder() {
             error
         );
 
+
         showMessage(
             error.message ||
             "Failed to load Sales Order.",
             "error"
         );
+
     }
+
 }
+
 
 // =====================================================
 // DISPLAY SALES ORDER
 // =====================================================
 
-function displaySalesOrder(order) {
+function displaySalesOrder(
+    order
+) {
 
     setValue(
         "orderId",
@@ -169,10 +286,15 @@ function displaySalesOrder(order) {
             : "-"
     );
 
+
     setValue(
         "orderDate",
-        formatDate(order.orderDate)
+        formatDate(
+            order.orderDate
+        )
     );
+
+
     setValue(
         "expectedDeliveryDate",
         formatDate(
@@ -180,97 +302,117 @@ function displaySalesOrder(order) {
         )
     );
 
+
     setValue(
         "orderStatus",
         order.status || "-"
     );
 
+
     const customer =
         order.customer || {};
+
 
     setValue(
         "customerId",
         customer.id ?? "-"
     );
 
+
     setValue(
         "customerName",
         customer.name || "-"
     );
+
 
     setValue(
         "customerEmail",
         customer.email || "-"
     );
 
+
     setValue(
         "customerPhone",
         customer.phone || "-"
     );
 
+
     setValue(
         "subtotal",
-        formatCurrency(order.subtotal)
+        formatCurrency(
+            order.subtotal
+        )
     );
+
 
     setValue(
         "taxRate",
         `${order.taxRate ?? 0}%`
     );
 
+
     setValue(
         "taxAmount",
-        formatCurrency(order.taxAmount)
+        formatCurrency(
+            order.taxAmount
+        )
     );
+
 
     setValue(
         "totalAmount",
-        formatCurrency(order.totalAmount)
+        formatCurrency(
+            order.totalAmount
+        )
     );
 
-    const customerAddress =
-        customer.address || "";
 
     const destinationInput =
         document.getElementById(
             "destinationAddress"
         );
 
+
     if (
         destinationInput &&
-        !destinationInput.value
+        !destinationInput.value &&
+        customer.address
     ) {
+
         destinationInput.value =
-            customerAddress;
+            customer.address;
+
     }
+
 
     const tableBody =
         document.getElementById(
             "orderItemsTableBody"
         );
 
+
     if (!tableBody) {
-        console.error(
-            "orderItemsTableBody not found."
-        );
+
         return;
     }
 
+
     tableBody.replaceChildren();
 
+
     const items =
-        Array.isArray(order.items)
+        Array.isArray(
+            order.items
+        )
             ? order.items
             : [];
+
 
     if (items.length === 0) {
 
         tableBody.innerHTML = `
             <tr>
-                <td
-                    colspan="6"
-                    class="empty-message"
-                >
+                <td colspan="6" class="empty-message">
                     No items found.
                 </td>
             </tr>
@@ -279,47 +421,488 @@ function displaySalesOrder(order) {
         return;
     }
 
-    items.forEach(orderItem => {
 
-        const item =
-            orderItem.item || {};
+    items.forEach(
+        orderItem => {
 
-        const quantity =
-            Number(
-                orderItem.quantity || 0
+            const item =
+                orderItem.item || {};
+
+
+            const quantity =
+                Number(
+                    orderItem.quantity || 0
+                );
+
+
+            const price =
+                Number(
+                    orderItem.sellingPrice || 0
+                );
+
+
+            const row =
+                document.createElement(
+                    "tr"
+                );
+
+
+            [
+                item.id ?? "-",
+                item.name || "-",
+                item.sku || "-",
+                quantity,
+                formatCurrency(price),
+                formatCurrency(
+                    quantity * price
+                )
+
+            ].forEach(
+                value => {
+
+                    const cell =
+                        document.createElement(
+                            "td"
+                        );
+
+
+                    cell.textContent =
+                        String(value);
+
+
+                    row.appendChild(
+                        cell
+                    );
+
+                }
             );
 
-        const price =
-            Number(
-                orderItem.sellingPrice || 0
+
+            tableBody.appendChild(
+                row
             );
 
-        const row =
-            document.createElement("tr");
+        }
+    );
 
-        [
-            item.id ?? "-",
-            item.name || "-",
-            item.sku || "-",
-            quantity,
-            formatCurrency(price),
-            formatCurrency(
-                quantity * price
-            )
-        ].forEach(value => {
-
-            const cell =
-                document.createElement("td");
-
-            cell.textContent =
-                String(value);
-
-            row.appendChild(cell);
-        });
-
-        tableBody.appendChild(row);
-    });
 }
+
+
+// =====================================================
+// LOAD PACKAGES
+// =====================================================
+
+async function loadPackages() {
+
+    const tableBody =
+        document.getElementById(
+            "packagesTableBody"
+        );
+
+
+    if (!tableBody) {
+
+        return;
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                packagesApi
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Failed to load packages."
+            );
+        }
+
+
+        const packages =
+            await response.json();
+
+
+        renderPackages(
+            packages
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Packages Error:",
+            error
+        );
+
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="10">
+                    Failed to load packages.
+                </td>
+            </tr>
+        `;
+
+    }
+
+}
+
+
+// =====================================================
+// RENDER PACKAGES
+// =====================================================
+
+function renderPackages(
+    packages
+) {
+
+    const tableBody =
+        document.getElementById(
+            "packagesTableBody"
+        );
+
+
+    if (!tableBody) {
+
+        return;
+    }
+
+
+    tableBody.replaceChildren();
+
+
+    if (
+        !Array.isArray(packages) ||
+        packages.length === 0
+    ) {
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="10">
+                    No packages created for this Sales Order.
+                </td>
+            </tr>
+        `;
+
+        updateShipmentButtons();
+
+        return;
+    }
+
+
+    packages.forEach(
+        pkg => {
+
+            const row =
+                document.createElement(
+                    "tr"
+                );
+
+
+            const status =
+                pkg.status || "-";
+
+
+            const packageDate =
+                formatDate(
+                    pkg.packageDate
+                );
+
+
+            const items =
+                Array.isArray(
+                    pkg.items
+                )
+                    ? pkg.items
+                    : [];
+
+
+            const itemText =
+                items.length > 0
+                    ? items
+                        .map(
+                            item =>
+                                `${escapeHtml(
+                                    item.item?.name ||
+                                    item.itemName ||
+                                    "-"
+                                )} × ${escapeHtml(item.quantity)}`
+                        )
+                        .join("<br>")
+                    : "-";
+
+            const isShipped =
+    pkg.shipmentId != null ||
+    pkg.shipment != null ||
+    pkg.status === "SHIPPED";
+            row.innerHTML = `
+
+                <td>
+
+                    <input
+                        type="checkbox"
+                        class="package-checkbox"
+                        value="${pkg.id}" ${isShipped ? "disabled" : ""}
+                        data-status="${escapeHtml(
+                status
+            )}"
+                    >
+
+                </td>
+
+
+                <td>
+
+                    <strong>
+                        ${escapeHtml(
+                pkg.packageNumber ||
+                `#${pkg.id}`
+            )}
+                    </strong>
+
+                </td>
+
+
+                <td>
+                    ${itemText}
+                </td>
+
+
+                <td>
+                    ${pkg.weight ?? "-"}
+                </td>
+
+
+                <td>
+                    ${pkg.length ?? "-"}
+                </td>
+
+
+                <td>
+                    ${pkg.width ?? "-"}
+                </td>
+
+
+                <td>
+                    ${pkg.height ?? "-"}
+                </td>
+
+
+                <td>
+                    ${packageDate}
+                </td>
+
+
+                <td>
+
+                    <span class="status">
+                        ${escapeHtml(
+                status
+            )}
+                    </span>
+
+                </td>
+
+
+                <td>
+
+                    <button
+                        type="button"
+                        class="action-button"
+                        onclick="editPackage(${pkg.id})"
+                    >
+                        Edit
+                    </button>
+
+                </td>
+
+            `;
+
+
+            tableBody.appendChild(
+                row
+            );
+
+        }
+    );
+
+
+    document
+        .querySelectorAll(
+            ".package-checkbox"
+        )
+        .forEach(
+            checkbox => {
+
+                checkbox.addEventListener(
+                    "change",
+                    updateShipmentButtons
+                );
+
+            }
+        );
+
+
+    updateShipmentButtons();
+
+}
+
+
+// =====================================================
+// PACKAGE SELECTION
+// =====================================================
+
+function getSelectedPackageIds() {
+
+    return Array.from(
+        document.querySelectorAll(
+            ".package-checkbox:checked"
+        )
+    )
+        .map(
+            checkbox =>
+                Number(
+                    checkbox.value
+                )
+        )
+        .filter(
+            id => id > 0
+        );
+
+}
+
+
+// =====================================================
+// RATE RESET
+// =====================================================
+
+/*
+ * Any change to the selected packages, carrier or service
+ * makes a previously calculated rate invalid.
+ */
+
+function invalidateShippingRate() {
+
+    const createButton =
+        document.getElementById(
+            "createShipmentButton"
+        );
+
+    if (createButton) {
+
+        createButton.disabled =
+            true;
+
+        createButton.dataset.rateCalculated =
+            "false";
+
+    }
+
+    [
+        "actualWeight",
+        "dimensionalWeight",
+        "chargeableWeight",
+        "baseCharge",
+        "chargePerKg",
+        "totalShippingCharge",
+        "shippingCharge"
+    ].forEach(
+        id => {
+
+            const field =
+                document.getElementById(id);
+
+            if (!field) {
+                return;
+            }
+
+            if ("value" in field) {
+
+                field.value = "";
+
+            } else {
+
+                field.textContent = "";
+
+            }
+
+        }
+    );
+
+    const display =
+        document.getElementById(
+            "shippingRateDisplay"
+        );
+
+    if (display) {
+
+        display.textContent = "";
+
+    }
+
+}
+
+
+// =====================================================
+// UPDATE SHIPMENT BUTTONS
+// =====================================================
+
+function updateShipmentButtons() {
+
+    const selected =
+        getSelectedPackageIds();
+
+    const section =
+        document.getElementById(
+            "shippingSection"
+        );
+
+    // Selection changed, so any earlier rate is stale
+    invalidateShippingRate();
+
+    /*
+     * No separate "Ship Selected Packages"
+     * button is required anymore.
+     *
+     * Once the user selects packed packages,
+     * open the manual shipment section.
+     */
+
+    if (
+        selected.length > 0 &&
+        section
+    ) {
+
+        const isHidden =
+            window.getComputedStyle(
+                section
+            ).display === "none";
+
+        if (isHidden) {
+
+            openShipmentCreation();
+
+        } else {
+
+            updateSelectedPackagesDisplay();
+
+        }
+    }
+
+    if (
+        selected.length === 0 &&
+        section
+    ) {
+
+        section.style.display =
+            "none";
+    }
+}
+
 
 // =====================================================
 // CREATE PACKAGE BUTTON
@@ -332,66 +915,88 @@ function createPackageButton() {
             "salesOrderCreatePackageButton"
         )
     ) {
+
         return;
     }
+
 
     const tableBody =
         document.getElementById(
             "packagesTableBody"
         );
 
+
     if (!tableBody) {
+
         return;
     }
 
-    /*
-     * Find the section containing the package table.
-     */
+
     let packageSection =
         tableBody.closest(
             "section"
         );
 
-    if (!packageSection) {
-        packageSection =
-            tableBody.parentElement?.parentElement;
-    }
 
     if (!packageSection) {
+
+        packageSection =
+            tableBody.parentElement
+                ?.parentElement;
+    }
+
+
+    if (!packageSection) {
+
         return;
     }
 
-    const button =
-        document.createElement("button");
 
-    button.type = "button";
+    const button =
+        document.createElement(
+            "button"
+        );
+
+
+    button.type =
+        "button";
+
+
     button.id =
         "salesOrderCreatePackageButton";
+
 
     button.className =
         "action-button";
 
+
     button.textContent =
         "Create Package";
 
+
     button.style.marginBottom =
         "15px";
+
 
     button.addEventListener(
         "click",
         openCreatePackageModal
     );
 
+
     packageSection.insertBefore(
         button,
         packageSection.firstChild
     );
 
+
     createPackageModal();
+
 }
 
+
 // =====================================================
-// CREATE PACKAGE MODAL HTML
+// CREATE PACKAGE MODAL
 // =====================================================
 
 function createPackageModal() {
@@ -401,24 +1006,52 @@ function createPackageModal() {
             "salesOrderCreatePackageModal"
         )
     ) {
+
         return;
     }
 
+
     const modal =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
+
 
     modal.id =
         "salesOrderCreatePackageModal";
 
-    modal.style.display = "none";
-    modal.style.position = "fixed";
-    modal.style.inset = "0";
+
+    modal.style.display =
+        "none";
+
+
+    modal.style.position =
+        "fixed";
+
+
+    modal.style.inset =
+        "0";
+
+
     modal.style.background =
         "rgba(0,0,0,0.5)";
-    modal.style.zIndex = "9999";
-    modal.style.alignItems = "center";
-    modal.style.justifyContent = "center";
-    modal.style.padding = "20px";
+
+
+    modal.style.zIndex =
+        "9999";
+
+
+    modal.style.alignItems =
+        "center";
+
+
+    modal.style.justifyContent =
+        "center";
+
+
+    modal.style.padding =
+        "20px";
+
 
     modal.innerHTML = `
 
@@ -444,13 +1077,10 @@ function createPackageModal() {
                 "
             >
 
-                <h2
-                    style="
-                        margin:0;
-                    "
-                >
+                <h2 style="margin:0;">
                     Create Package
                 </h2>
+
 
                 <button
                     type="button"
@@ -467,6 +1097,7 @@ function createPackageModal() {
 
             </div>
 
+
             <div
                 id="salesOrderPackageError"
                 style="
@@ -479,166 +1110,49 @@ function createPackageModal() {
                 "
             ></div>
 
+
+            <div
+                id="salesOrderPackageItems"
+            ></div>
+
+
             <div
                 style="
-                    background:#f3f4f6;
-                    padding:10px;
-                    border-radius:6px;
-                    margin-bottom:20px;
+                    display:flex;
+                    gap:10px;
+                    justify-content:flex-end;
+                    margin-top:20px;
                 "
             >
-                <strong>
-                    Sales Order:
-                </strong>
 
-                #${escapeHtml(
-        String(salesOrderId)
-    )}
+                <button
+                    type="button"
+                    id="cancelSalesOrderPackage"
+                    class="action-button"
+                >
+                    Cancel
+                </button>
+
+
+                <button
+                    type="button"
+                    id="saveSalesOrderPackage"
+                    class="action-button"
+                >
+                    Create Package
+                </button>
+
             </div>
 
-            <form
-                id="salesOrderCreatePackageForm"
-            >
-
-                <h3>
-                    Items
-                </h3>
-
-                <div
-                    id="salesOrderPackageItems"
-                    style="
-                        margin-bottom:20px;
-                    "
-                >
-                    Loading items...
-                </div>
-
-                <h3>
-                    Package Details
-                </h3>
-
-                <div
-                    style="
-                        display:grid;
-                        grid-template-columns:
-                            repeat(2, 1fr);
-                        gap:15px;
-                        margin-bottom:20px;
-                    "
-                >
-
-                    <div>
-
-                        <label>
-                            Weight (kg)
-                        </label>
-
-                        <input
-                            id="salesOrderPackageWeight"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            required
-                            style="
-                                width:100%;
-                                box-sizing:border-box;
-                            "
-                        >
-
-                    </div>
-
-                    <div>
-
-                        <label>
-                            Length (cm)
-                        </label>
-
-                        <input
-                            id="salesOrderPackageLength"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            required
-                            style="
-                                width:100%;
-                                box-sizing:border-box;
-                            "
-                        >
-
-                    </div>
-
-                    <div>
-
-                        <label>
-                            Width (cm)
-                        </label>
-
-                        <input
-                            id="salesOrderPackageWidth"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            required
-                            style="
-                                width:100%;
-                                box-sizing:border-box;
-                            "
-                        >
-
-                    </div>
-
-                    <div>
-
-                        <label>
-                            Height (cm)
-                        </label>
-
-                        <input
-                            id="salesOrderPackageHeight"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            required
-                            style="
-                                width:100%;
-                                box-sizing:border-box;
-                            "
-                        >
-
-                    </div>
-
-                </div>
-
-                <div
-                    style="
-                        display:flex;
-                        justify-content:flex-end;
-                        gap:10px;
-                    "
-                >
-
-                    <button
-                        type="button"
-                        id="cancelSalesOrderPackage"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        type="submit"
-                        id="submitSalesOrderPackage"
-                    >
-                        Create Package
-                    </button>
-
-                </div>
-
-            </form>
-
         </div>
+
     `;
 
-    document.body.appendChild(modal);
+
+    document.body.appendChild(
+        modal
+    );
+
 
     document
         .getElementById(
@@ -649,6 +1163,7 @@ function createPackageModal() {
             closeCreatePackageModal
         );
 
+
     document
         .getElementById(
             "cancelSalesOrderPackage"
@@ -658,119 +1173,165 @@ function createPackageModal() {
             closeCreatePackageModal
         );
 
+
     document
         .getElementById(
-            "salesOrderCreatePackageForm"
+            "saveSalesOrderPackage"
         )
         ?.addEventListener(
-            "submit",
-            submitSalesOrderPackage
+            "click",
+            saveCreatePackage
         );
+
 }
+
 
 // =====================================================
 // OPEN CREATE PACKAGE MODAL
 // =====================================================
 
-async function openCreatePackageModal() {
+function openCreatePackageModal() {
 
     const modal =
         document.getElementById(
             "salesOrderCreatePackageModal"
         );
 
+
     if (!modal) {
-        createPackageModal();
-        return openCreatePackageModal();
+
+        return;
     }
 
-    modal.style.display = "flex";
-
-    clearPackageError();
 
     const container =
         document.getElementById(
             "salesOrderPackageItems"
         );
 
+
     if (!container) {
+
         return;
     }
 
-    container.innerHTML = `
-        <p>
-            Loading items...
-        </p>
-    `;
 
-    try {
+    const items =
+        Array.isArray(
+            currentSalesOrder?.items
+        )
+            ? currentSalesOrder.items
+            : [];
 
-        /*
-         * Always fetch the CURRENT Sales Order.
-         */
-        const orderResponse =
-            await fetch(
-                salesOrderApi
+
+    container.innerHTML =
+        "";
+
+
+    items.forEach(
+        orderItem => {
+
+            const item =
+                orderItem.item || {};
+
+
+            const quantity =
+                Number(
+                    orderItem.quantity || 0
+                );
+
+
+            if (quantity <= 0) {
+
+                return;
+            }
+
+
+            const wrapper =
+                document.createElement(
+                    "div"
+                );
+
+
+            wrapper.style.display =
+                "grid";
+
+
+            wrapper.style.gridTemplateColumns =
+                "1fr 150px";
+
+
+            wrapper.style.gap =
+                "15px";
+
+
+            wrapper.style.alignItems =
+                "center";
+
+
+            wrapper.style.padding =
+                "12px 0";
+
+
+            wrapper.innerHTML = `
+
+                <div>
+
+                    <strong>
+                        ${escapeHtml(
+                item.name || "-"
+            )}
+                    </strong>
+
+
+                    <div
+                        style="
+                            color:#6b7280;
+                            font-size:13px;
+                        "
+                    >
+
+                        SKU:
+                        ${escapeHtml(
+                item.sku || "-"
+            )}
+
+                        · Ordered:
+                        ${quantity}
+
+                    </div>
+
+                </div>
+
+
+                <input
+                    type="number"
+                    min="0"
+                    max="${quantity}"
+                    value="${quantity}"
+                    class="create-package-quantity"
+                    data-sales-order-item-id="${orderItem.id}"
+                >
+
+            `;
+
+
+            container.appendChild(
+                wrapper
             );
 
-        if (!orderResponse.ok) {
-            throw new Error(
-                "Failed to load Sales Order items."
-            );
         }
+    );
 
-        const order =
-            await orderResponse.json();
 
-        /*
-         * IMPORTANT:
-         *
-         * Only packages belonging to
-         * THIS Sales Order are fetched.
-         */
-        const packageResponse =
-            await fetch(
-                packagesApi
-            );
+    modal.style.display =
+        "flex";
 
-        if (!packageResponse.ok) {
-            throw new Error(
-                "Failed to load existing packages."
-            );
-        }
-
-        const packages =
-            await packageResponse.json();
-
-        renderCreatePackageItems(
-            order,
-            packages
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Create Package Load Error:",
-            error
-        );
-
-        container.innerHTML = `
-            <p
-                style="
-                    color:#991b1b;
-                "
-            >
-                ${escapeHtml(
-            error.message ||
-            "Failed to load package items."
-        )}
-            </p>
-        `;
-    }
 }
 
+
 // =====================================================
-// CLOSE CREATE PACKAGE MODAL
+// CLOSE PACKAGE MODAL
 // =====================================================
 
 function closeCreatePackageModal() {
@@ -780,577 +1341,194 @@ function closeCreatePackageModal() {
             "salesOrderCreatePackageModal"
         );
 
+
     if (modal) {
-        modal.style.display = "none";
+
+        modal.style.display =
+            "none";
+
     }
+
 }
 
-// =====================================================
-// RENDER PACKAGE ITEMS
-// =====================================================
-
-function renderCreatePackageItems(
-    order,
-    packages
-) {
-
-    const container =
-        document.getElementById(
-            "salesOrderPackageItems"
-        );
-
-    if (!container) {
-        return;
-    }
-
-    const orderItems =
-        Array.isArray(order.items)
-            ? order.items
-            : [];
-
-    /*
-     * Only GOODS + inventory tracked.
-     */
-    const packageableItems =
-        orderItems.filter(orderItem => {
-
-            const item =
-                orderItem.item || {};
-
-            const itemType =
-                String(
-                    item.itemType || ""
-                ).toUpperCase();
-
-            return (
-                itemType === "GOODS" &&
-                (
-                    item.trackInventory === true ||
-                    item.trackInventory === 1 ||
-                    item.trackInventory === "true"
-                )
-            );
-        });
-
-    if (
-        packageableItems.length === 0
-    ) {
-
-        container.innerHTML = `
-            <p>
-                This Sales Order has no
-                inventory-tracked goods to package.
-            </p>
-        `;
-
-        return;
-    }
-
-    /*
-     * Calculate packed quantities.
-     *
-     * PACKED + SHIPPED count.
-     * CANCELLED does not count.
-     */
-    const packedByLine =
-        {};
-
-    const currentOrderPackages =
-        (
-            Array.isArray(packages)
-                ? packages
-                : []
-        ).filter(pkg => {
-
-            const packageOrderId =
-                Number(
-                    pkg.salesOrder?.id ??
-                    pkg.salesOrderId
-                );
-
-            const status =
-                String(
-                    pkg.status || ""
-                ).toUpperCase();
-
-            return (
-                packageOrderId ===
-                Number(salesOrderId) &&
-                status !== "CANCELLED"
-            );
-        });
-
-    currentOrderPackages.forEach(pkg => {
-
-        const packageItems =
-            Array.isArray(pkg.items)
-                ? pkg.items
-                : [];
-
-        packageItems.forEach(
-            packageItem => {
-
-                const lineId =
-                    Number(
-                        packageItem.salesOrderItemId ??
-                        packageItem.salesOrderItem?.id
-                    );
-
-                if (
-                    !Number.isFinite(lineId)
-                ) {
-                    return;
-                }
-
-                const quantity =
-                    Number(
-                        packageItem.quantity || 0
-                    );
-
-                packedByLine[lineId] =
-                    (
-                        packedByLine[lineId] || 0
-                    ) + quantity;
-            }
-        );
-    });
-
-    container.innerHTML =
-        packageableItems
-            .map(
-                (orderItem, index) => {
-
-                    const item =
-                        orderItem.item || {};
-
-                    const lineId =
-                        orderItem.id ??
-                        orderItem.salesOrderItemId;
-
-                    const itemId =
-                        item.id ??
-                        orderItem.itemId;
-
-                    const ordered =
-                        Number(
-                            orderItem.quantity || 0
-                        );
-
-                    const packed =
-                        Number(
-                            packedByLine[
-                            Number(lineId)
-                            ] || 0
-                        );
-
-                    const remaining =
-                        Math.max(
-                            0,
-                            ordered - packed
-                        );
-
-                    return `
-                        <div
-                            style="
-                                display:grid;
-                                grid-template-columns:
-                                    2fr 1fr 1fr;
-                                gap:15px;
-                                align-items:center;
-                                padding:15px;
-                                margin-bottom:10px;
-                                border:1px solid #ddd;
-                                border-radius:8px;
-                            "
-                        >
-
-                            <div>
-
-                                <strong>
-                                    ${escapeHtml(
-                        item.name ||
-                        "Unknown Item"
-                    )}
-                                </strong>
-
-                                <div>
-                                    SKU:
-                                    ${escapeHtml(
-                        item.sku ||
-                        "-"
-                    )}
-                                </div>
-
-                                <div>
-                                    Ordered:
-                                    ${ordered}
-                                </div>
-
-                                <div>
-                                    Packed:
-                                    ${packed}
-                                </div>
-
-                                <div>
-                                    Remaining:
-                                    <strong>
-                                        ${remaining}
-                                    </strong>
-                                </div>
-
-                            </div>
-
-                            <div>
-
-                                <label>
-                                    Package Qty
-                                </label>
-
-                                <input
-                                    type="number"
-                                    class="sales-order-package-quantity"
-                                    data-line-id="${escapeHtml(
-                        lineId
-                    )}"
-                                    data-item-id="${escapeHtml(
-                        itemId
-                    )}"
-                                    data-max-quantity="${remaining}"
-                                    min="0"
-                                    max="${remaining}"
-                                    value="0"
-                                    step="1"
-                                    style="
-                                        width:100%;
-                                        box-sizing:border-box;
-                                    "
-                                    ${remaining === 0
-                            ? "disabled"
-                            : ""
-                        }
-                                >
-
-                            </div>
-
-                            <div>
-                                ${remaining === 0
-                            ? `
-                                            <span
-                                                style="
-                                                    color:#991b1b;
-                                                "
-                                            >
-                                                Fully Packed
-                                            </span>
-                                        `
-                            : `
-                                            <span
-                                                style="
-                                                    color:#166534;
-                                                "
-                                            >
-                                                Available
-                                            </span>
-                                        `
-                        }
-                            </div>
-
-                        </div>
-                    `;
-                }
-            )
-            .join("");
-}
 
 // =====================================================
-// SUBMIT CREATE PACKAGE
+// SAVE PACKAGE
 // =====================================================
 
-async function submitSalesOrderPackage(
-    event
-) {
-
-    event.preventDefault();
-
-    clearPackageError();
-
-    const weight =
-        Number(
-            document.getElementById(
-                "salesOrderPackageWeight"
-            )?.value
-        );
-
-    const length =
-        Number(
-            document.getElementById(
-                "salesOrderPackageLength"
-            )?.value
-        );
-
-    const width =
-        Number(
-            document.getElementById(
-                "salesOrderPackageWidth"
-            )?.value
-        );
-
-    const height =
-        Number(
-            document.getElementById(
-                "salesOrderPackageHeight"
-            )?.value
-        );
-
-    if (
-        !Number.isFinite(weight) ||
-        weight <= 0
-    ) {
-
-        showPackageError(
-            "Weight must be greater than 0."
-        );
-
-        return;
-    }
-
-    if (
-        !Number.isFinite(length) ||
-        length <= 0
-    ) {
-
-        showPackageError(
-            "Length must be greater than 0."
-        );
-
-        return;
-    }
-
-    if (
-        !Number.isFinite(width) ||
-        width <= 0
-    ) {
-
-        showPackageError(
-            "Width must be greater than 0."
-        );
-
-        return;
-    }
-
-    if (
-        !Number.isFinite(height) ||
-        height <= 0
-    ) {
-
-        showPackageError(
-            "Height must be greater than 0."
-        );
-
-        return;
-    }
+async function saveCreatePackage() {
 
     const quantityInputs =
-        document.querySelectorAll(
-            ".sales-order-package-quantity"
+        Array.from(
+            document.querySelectorAll(
+                ".create-package-quantity"
+            )
         );
 
-    const items = [];
+
+    const items =
+        [];
+
 
     for (
-        const input of quantityInputs
+        const input
+        of quantityInputs
     ) {
 
         const quantity =
-            Number(input.value);
-
-        const itemId =
             Number(
-                input.dataset.itemId
+                input.value || 0
             );
 
-        const lineId =
-            Number(
-                input.dataset.lineId
-            );
 
         const maxQuantity =
             Number(
-                input.dataset.maxQuantity
+                input.max || 0
             );
 
+
+        const salesOrderItemId =
+            Number(
+                input.dataset
+                    .salesOrderItemId
+            );
+
+
         if (
-            !Number.isSafeInteger(
+            quantity < 0 ||
+            !Number.isInteger(
                 quantity
-            ) ||
-            quantity < 0
+            )
         ) {
 
-            showPackageError(
-                "Package quantity must be a non-negative whole number."
+            showMessage(
+                "Package quantities must be whole numbers.",
+                "error"
             );
 
             return;
         }
 
-        if (
-            quantity > maxQuantity
-        ) {
 
-            showPackageError(
-                `Quantity cannot exceed the remaining quantity (${maxQuantity}).`
+        if (quantity > maxQuantity) {
+
+            showMessage(
+                "Package quantity cannot exceed the ordered quantity.",
+                "error"
             );
 
             return;
         }
 
-        if (quantity === 0) {
-            continue;
+
+        if (quantity > 0) {
+
+            items.push({
+
+                salesOrderItemId,
+
+                quantity
+
+            });
+
         }
 
-        if (
-            !Number.isSafeInteger(
-                itemId
-            ) ||
-            itemId <= 0
-        ) {
-
-            showPackageError(
-                "Invalid item ID."
-            );
-
-            return;
-        }
-
-        if (
-            !Number.isSafeInteger(
-                lineId
-            ) ||
-            lineId <= 0
-        ) {
-
-            showPackageError(
-                "Invalid Sales Order line ID."
-            );
-
-            return;
-        }
-
-        items.push({
-
-            itemId,
-
-            salesOrderItemId:
-                lineId,
-
-            quantity
-
-        });
     }
+
 
     if (items.length === 0) {
 
-        showPackageError(
-            "Enter a quantity for at least one item."
+        showMessage(
+            "Enter quantity for at least one item.",
+            "error"
         );
 
         return;
     }
 
-    /*
-     * EXACT payload structure used
-     * by the existing Packages API.
-     */
-    const requestBody = {
 
-        salesOrderId:
-            Number(salesOrderId),
-
-        weight,
-
-        length,
-
-        width,
-
-        height,
-
-        items
-    };
-
-    const submitButton =
+    const saveButton =
         document.getElementById(
-            "submitSalesOrderPackage"
+            "saveSalesOrderPackage"
         );
+
 
     try {
 
-        if (submitButton) {
+        if (saveButton) {
 
-            submitButton.disabled =
+            saveButton.disabled =
                 true;
 
-            submitButton.textContent =
+            saveButton.textContent =
                 "Creating...";
+
         }
 
-        console.log(
-            "Creating package:",
-            requestBody
-        );
 
         const response =
             await fetch(
                 packagesBaseApi,
                 {
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json"
+
                     },
 
                     body:
-                        JSON.stringify(
-                            requestBody
-                        )
+                        JSON.stringify({
+
+                            salesOrderId:
+                                Number(
+                                    salesOrderId
+                                ),
+
+                            packageDate:
+                                getTodayLocalDate(),
+
+                            items
+
+                        })
+
                 }
             );
 
-        const result =
-            await response
-                .json()
-                .catch(
-                    () => ({})
-                );
 
         if (!response.ok) {
 
+            const errorData =
+                await response
+                    .json()
+                    .catch(
+                        () => null
+                    );
+
+
             throw new Error(
-                result.error ||
-                result.message ||
+                errorData?.message ||
+                errorData?.error ||
                 "Failed to create package."
             );
+
         }
 
-        showMessage(
-            `Package ${result.packageNumber ||
-            result.id ||
-            ""
-            } created successfully.`,
-            "success"
-        );
 
         closeCreatePackageModal();
 
-        /*
-         * IMPORTANT:
-         *
-         * Refresh only the packages
-         * belonging to THIS Sales Order.
-         */
+
+        showMessage(
+            "Package created successfully.",
+            "success"
+        );
+
+
         await loadPackages();
 
-        await loadSalesOrder();
 
     } catch (error) {
 
@@ -1359,442 +1537,42 @@ async function submitSalesOrderPackage(
             error
         );
 
-        showPackageError(
-            error.message ||
-            "Failed to create package."
-        );
-
-    } finally {
-
-        if (submitButton) {
-
-            submitButton.disabled =
-                false;
-
-            submitButton.textContent =
-                "Create Package";
-        }
-    }
-}
-
-// =====================================================
-// PACKAGE ERROR
-// =====================================================
-
-function showPackageError(
-    message
-) {
-
-    const errorBox =
-        document.getElementById(
-            "salesOrderPackageError"
-        );
-
-    if (!errorBox) {
-        return;
-    }
-
-    errorBox.textContent =
-        message;
-
-    errorBox.style.display =
-        "block";
-}
-
-function clearPackageError() {
-
-    const errorBox =
-        document.getElementById(
-            "salesOrderPackageError"
-        );
-
-    if (!errorBox) {
-        return;
-    }
-
-    errorBox.textContent =
-        "";
-
-    errorBox.style.display =
-        "none";
-}
-
-// =====================================================
-// LOAD PACKAGES
-// =====================================================
-
-async function loadPackages() {
-
-    const tableBody =
-        document.getElementById(
-            "packagesTableBody"
-        );
-
-    if (!tableBody) {
-        console.error(
-            "packagesTableBody not found."
-        );
-        return;
-    }
-
-    try {
-
-        /*
-         * This endpoint already contains:
-         *
-         * ?salesOrderId=${salesOrderId}
-         *
-         * so this page never asks for
-         * every package in the system.
-         */
-        const response =
-            await fetch(packagesApi);
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Failed to load packages."
-            );
-        }
-
-        const responseData =
-            await response.json();
-
-        const allReturnedPackages =
-            Array.isArray(responseData)
-                ? responseData
-                : [];
-
-        /*
-         * Extra safety:
-         *
-         * Even if backend returns more than
-         * one Sales Order's packages, only
-         * packages belonging to the current
-         * Sales Order are displayed.
-         */
-        const packages =
-            allReturnedPackages.filter(
-                pkg => {
-
-                    const packageOrderId =
-                        Number(
-                            pkg.salesOrder?.id ??
-                            pkg.salesOrderId
-                        );
-
-                    return (
-                        packageOrderId ===
-                        Number(salesOrderId)
-                    );
-                }
-            );
-
-        console.log(
-            "Current Sales Order Packages:",
-            packages
-        );
-
-        tableBody.replaceChildren();
-
-        if (
-            packages.length === 0
-        ) {
-
-            tableBody.innerHTML = `
-                <tr>
-                    <td
-                        colspan="7"
-                        class="empty-message"
-                    >
-                        No packages created for this Sales Order.
-                    </td>
-                </tr>
-            `;
-
-            updateShipButton();
-
-            return;
-        }
-
-        packages.forEach(pkg => {
-
-            const row =
-                document.createElement(
-                    "tr"
-                );
-
-            const canShip =
-                String(
-                    pkg.status || ""
-                ).toUpperCase() ===
-                "PACKED";
-
-            // Checkbox
-            const selectCell =
-                document.createElement(
-                    "td"
-                );
-
-            const checkbox =
-                document.createElement(
-                    "input"
-                );
-
-            checkbox.type =
-                "checkbox";
-
-            checkbox.className =
-                "package-checkbox";
-
-            checkbox.value =
-                pkg.id;
-
-            checkbox.disabled =
-                !canShip;
-
-            checkbox.addEventListener(
-                "change",
-                updateShipButton
-            );
-
-            selectCell.appendChild(
-                checkbox
-            );
-
-            row.appendChild(
-                selectCell
-            );
-
-            // Package number
-            const packageCell =
-                document.createElement(
-                    "td"
-                );
-
-            const packageStrong =
-                document.createElement(
-                    "strong"
-                );
-
-            packageStrong.textContent =
-                pkg.packageNumber ||
-                `#${pkg.id}`;
-
-            packageCell.appendChild(
-                packageStrong
-            );
-
-            row.appendChild(
-                packageCell
-            );
-
-            // Status
-            const statusCell =
-                document.createElement(
-                    "td"
-                );
-
-            const statusBadge =
-                document.createElement(
-                    "span"
-                );
-
-            statusBadge.className =
-                "status-badge";
-
-            statusBadge.textContent =
-                pkg.status || "-";
-
-            statusCell.appendChild(
-                statusBadge
-            );
-
-            row.appendChild(
-                statusCell
-            );
-
-            // Weight
-            const weightCell =
-                document.createElement(
-                    "td"
-                );
-
-            weightCell.textContent =
-                `${Number(
-                    pkg.weight || 0
-                ).toFixed(2)} kg`;
-
-            row.appendChild(
-                weightCell
-            );
-
-            // Dimensions
-            const dimensionsCell =
-                document.createElement(
-                    "td"
-                );
-
-            dimensionsCell.textContent =
-                `${Number(
-                    pkg.length || 0
-                )} × ` +
-                `${Number(
-                    pkg.width || 0
-                )} × ` +
-                `${Number(
-                    pkg.height || 0
-                )} cm`;
-
-            row.appendChild(
-                dimensionsCell
-            );
-
-            // Date
-            const dateCell =
-                document.createElement(
-                    "td"
-                );
-
-            dateCell.textContent =
-                formatDate(
-                    pkg.packageDate
-                );
-
-            row.appendChild(
-                dateCell
-            );
-
-            // View
-            const actionCell =
-                document.createElement(
-                    "td"
-                );
-
-            const viewLink =
-                document.createElement(
-                    "a"
-                );
-
-            viewLink.className =
-                "action-button";
-
-            viewLink.href =
-                `/erpflow/packageDetails.jsp?id=${encodeURIComponent(
-                    pkg.id
-                )}`;
-
-            viewLink.textContent =
-                "View";
-
-            actionCell.appendChild(
-                viewLink
-            );
-
-            row.appendChild(
-                actionCell
-            );
-
-            tableBody.appendChild(
-                row
-            );
-        });
-
-        updateShipButton();
-
-    } catch (error) {
-
-        console.error(
-            "Package Error:",
-            error
-        );
-
-        tableBody.innerHTML = `
-            <tr>
-                <td
-                    colspan="7"
-                    class="empty-message"
-                >
-                    Failed to load packages.
-                </td>
-            </tr>
-        `;
 
         showMessage(
             error.message ||
-            "Failed to load packages.",
+            "Failed to create package.",
             "error"
         );
+
+
+    } finally {
+
+        if (saveButton) {
+
+            saveButton.disabled =
+                false;
+
+            saveButton.textContent =
+                "Create Package";
+
+        }
+
     }
+
 }
 
+
 // =====================================================
-// PACKAGE SELECTION
+// SHIP SELECTED PACKAGES
 // =====================================================
 
-function getSelectedPackageIds() {
+function openShipmentCreation() {
 
-    return Array.from(
-        document.querySelectorAll(
-            ".package-checkbox:checked"
-        )
-    ).map(
-        checkbox =>
-            Number(checkbox.value)
-    );
-}
-
-function updateShipButton() {
-
-    const selectedIds =
+    const packageIds =
         getSelectedPackageIds();
 
-    const shipButton =
-        document.getElementById(
-            "shipSelectedButton"
-        );
 
-    if (!shipButton) {
-        return;
-    }
-
-    shipButton.disabled =
-        selectedIds.length === 0;
-
-    shipButton.textContent =
-        selectedIds.length > 0
-            ? `Ship Selected Packages (${selectedIds.length})`
-            : "Ship Selected Packages";
-
-    if (
-        shipButton.dataset
-            .listenerAttached !==
-        "true"
-    ) {
-
-        shipButton.addEventListener(
-            "click",
-            openShippingSection
-        );
-
-        shipButton.dataset
-            .listenerAttached =
-            "true";
-    }
-}
-
-// =====================================================
-// OPEN SHIPPING SECTION
-// =====================================================
-
-function openShippingSection() {
-
-    const selectedIds =
-        getSelectedPackageIds();
-
-    if (
-        selectedIds.length === 0
-    ) {
+    if (packageIds.length === 0) {
 
         showMessage(
             "Select at least one package.",
@@ -1804,84 +1582,138 @@ function openShippingSection() {
         return;
     }
 
-    const shippingSection =
+
+    const section =
         document.getElementById(
             "shippingSection"
         );
 
-    if (!shippingSection) {
 
-        console.error(
-            "shippingSection not found."
+    if (!section) {
+
+        showMessage(
+            "Shipment creation section is not available.",
+            "error"
         );
 
         return;
     }
 
-    shippingSection.style.display =
+
+    section.style.display =
         "block";
 
-    displaySelectedPackages(
-        selectedIds
+
+    setTodayIfEmpty(
+        "manualShipmentDate"
     );
+
+
+    updateSelectedPackagesDisplay();
+
+
+    section.scrollIntoView({
+
+        behavior:
+            "smooth",
+
+        block:
+            "start"
+
+    });
+
 
     loadCarriers();
 
-    shippingSection.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-    });
 }
 
+
 // =====================================================
-// DISPLAY SELECTED PACKAGES
+// SELECTED PACKAGE DISPLAY
 // =====================================================
 
-function displaySelectedPackages(
-    selectedIds
-) {
+function updateSelectedPackagesDisplay() {
 
     const container =
         document.getElementById(
             "selectedPackages"
         );
 
+
     if (!container) {
+
         return;
     }
 
-    container.replaceChildren();
 
-    selectedIds.forEach(id => {
-
-        const badge =
-            document.createElement(
-                "span"
-            );
-
-        badge.style.display =
-            "inline-block";
-
-        badge.style.padding =
-            "6px 10px";
-
-        badge.style.margin =
-            "4px";
-
-        badge.style.background =
-            "#e5e7eb";
-
-        badge.style.borderRadius =
-            "5px";
-
-        badge.textContent =
-            `Package #${id}`;
-
-        container.appendChild(
-            badge
+    const selectedCheckboxes =
+        Array.from(
+            document.querySelectorAll(
+                ".package-checkbox:checked"
+            )
         );
-    });
+
+
+    if (
+        selectedCheckboxes.length === 0
+    ) {
+
+        container.textContent =
+            "No packages selected.";
+
+        return;
+    }
+
+
+    container.innerHTML =
+        selectedCheckboxes
+            .map(
+                checkbox => {
+
+                    const row =
+                        checkbox.closest(
+                            "tr"
+                        );
+
+
+                    const packageCell =
+                        row?.children?.[1];
+
+
+                    return escapeHtml(
+                        packageCell
+                            ? packageCell.textContent.trim()
+                            : `#${checkbox.value}`
+                    );
+
+                }
+            )
+            .join(", ");
+
 }
+
+
+// =====================================================
+// SHIP BUTTON
+// =====================================================
+
+document.addEventListener(
+    "click",
+    event => {
+
+        if (
+            event.target.closest(
+                "#shipSelectedPackagesButton"
+            )
+        ) {
+
+            openShipmentCreation();
+
+        }
+
+    }
+);
+
 
 // =====================================================
 // LOAD CARRIERS
@@ -1894,87 +1726,92 @@ async function loadCarriers() {
             "carrierSelect"
         );
 
+
     if (!carrierSelect) {
+
         return;
     }
+
+
+    const serviceSelect =
+        document.getElementById(
+            "serviceSelect"
+        );
+
 
     try {
 
         const response =
-            await fetch(carriersApi);
+            await fetch(
+                carriersApi
+            );
+
 
         if (!response.ok) {
 
             throw new Error(
                 "Failed to load carriers."
             );
+
         }
+
 
         const carriers =
             await response.json();
 
-        carrierSelect.replaceChildren();
 
-        const placeholder =
-            document.createElement(
-                "option"
-            );
+        carrierSelect.innerHTML =
+            `
+                <option value="">
+                    Select Carrier
+                </option>
+            `;
 
-        placeholder.value =
-            "";
 
-        placeholder.textContent =
-            "Select Carrier";
+        // Clear services left over from a previous carrier
+        if (serviceSelect) {
 
-        carrierSelect.appendChild(
-            placeholder
-        );
+            serviceSelect.innerHTML =
+                `
+                    <option value="">
+                        Select Service
+                    </option>
+                `;
 
-        (
-            Array.isArray(carriers)
-                ? carriers
-                : []
-        ).forEach(carrier => {
+            serviceSelect.onchange =
+                invalidateShippingRate;
 
-            if (
-                carrier.status &&
-                carrier.status !==
-                "ACTIVE"
-            ) {
-                return;
-            }
+        }
 
-            const option =
-                document.createElement(
-                    "option"
+
+        carriers.forEach(
+            carrier => {
+
+                const option =
+                    document.createElement(
+                        "option"
+                    );
+
+
+                option.value =
+                    carrier.id;
+
+
+                option.textContent =
+                    carrier.name;
+
+
+                carrierSelect.appendChild(
+                    option
                 );
 
-            option.value =
-                carrier.id;
+            }
+        );
 
-            option.textContent =
-                `${carrier.name} (${carrier.code})`;
 
-            carrierSelect.appendChild(
-                option
-            );
-        });
+        carrierSelect.onchange =
+            loadCarrierServices;
 
-        if (
-            carrierSelect.dataset
-                .listenerAttached !==
-            "true"
-        ) {
-
-            carrierSelect.addEventListener(
-                "change",
-                loadCarrierServices
-            );
-
-            carrierSelect.dataset
-                .listenerAttached =
-                "true";
-        }
 
     } catch (error) {
 
@@ -1983,13 +1820,16 @@ async function loadCarriers() {
             error
         );
 
+
         showMessage(
-            error.message ||
             "Failed to load carriers.",
             "error"
         );
+
     }
+
 }
+
 
 // =====================================================
 // LOAD CARRIER SERVICES
@@ -2002,109 +1842,109 @@ async function loadCarrierServices() {
             "carrierSelect"
         );
 
+
     const serviceSelect =
         document.getElementById(
             "serviceSelect"
         );
 
-    const createButton =
-        document.getElementById(
-            "createShipmentButton"
-        );
 
     if (
         !carrierSelect ||
         !serviceSelect
     ) {
+
         return;
     }
+
 
     const carrierId =
-        carrierSelect.value;
-
-    serviceSelect.replaceChildren();
-
-    const placeholder =
-        document.createElement(
-            "option"
+        Number(
+            carrierSelect.value
         );
 
-    placeholder.value =
-        "";
 
-    placeholder.textContent =
-        "Select Service";
+    serviceSelect.innerHTML =
+        `
+            <option value="">
+                Select Service
+            </option>
+        `;
 
-    serviceSelect.appendChild(
-        placeholder
-    );
 
-    clearShippingRate();
+    // Carrier changed, so any earlier rate is stale
+    invalidateShippingRate();
 
-    if (createButton) {
-        createButton.disabled =
-            true;
-    }
 
     if (!carrierId) {
+
         return;
     }
+
 
     try {
 
         const response =
             await fetch(
-                `${carriersApi}/${encodeURIComponent(
-                    carrierId
-                )}/services`
+                `${carriersApi}/${carrierId}/services`
             );
+
 
         if (!response.ok) {
 
             throw new Error(
                 "Failed to load carrier services."
             );
+
         }
+
 
         const services =
             await response.json();
 
-        (
-            Array.isArray(services)
-                ? services
-                : []
-        ).forEach(service => {
 
-            const option =
-                document.createElement(
-                    "option"
+        services.forEach(
+            service => {
+
+                const option =
+                    document.createElement(
+                        "option"
+                    );
+
+
+                option.value =
+                    service.id;
+
+
+                option.textContent =
+                    service.name;
+
+
+                serviceSelect.appendChild(
+                    option
                 );
 
-            option.value =
-                service.id;
+            }
+        );
 
-            option.textContent =
-                `${service.name} - ${service.estimatedDays} days`;
-
-            serviceSelect.appendChild(
-                option
-            );
-        });
 
     } catch (error) {
 
         console.error(
-            "Service Error:",
+            "Carrier Service Error:",
             error
         );
 
+
         showMessage(
-            error.message ||
             "Failed to load carrier services.",
             "error"
         );
+
     }
+
 }
+
 
 // =====================================================
 // CALCULATE SHIPPING RATE
@@ -2115,24 +1955,8 @@ async function calculateShippingRate() {
     const packageIds =
         getSelectedPackageIds();
 
-    const serviceSelect =
-        document.getElementById(
-            "serviceSelect"
-        );
 
-    const carrierServiceId =
-        Number(
-            serviceSelect?.value || 0
-        );
-
-    const createButton =
-        document.getElementById(
-            "createShipmentButton"
-        );
-
-    if (
-        packageIds.length === 0
-    ) {
+    if (packageIds.length === 0) {
 
         showMessage(
             "Select at least one package.",
@@ -2141,6 +1965,19 @@ async function calculateShippingRate() {
 
         return;
     }
+
+
+    const serviceSelect =
+        document.getElementById(
+            "serviceSelect"
+        );
+
+
+    const carrierServiceId =
+        Number(
+            serviceSelect?.value || 0
+        );
+
 
     if (!carrierServiceId) {
 
@@ -2152,31 +1989,59 @@ async function calculateShippingRate() {
         return;
     }
 
-    if (createButton) {
-        createButton.disabled =
-            true;
-    }
+
+    const rateButton =
+        document.getElementById(
+            "calculateRateButton"
+        );
+
+
+    // FIX: this was used below but never declared
+    const createButton =
+        document.getElementById(
+            "createShipmentButton"
+        );
+
 
     try {
+
+        if (rateButton) {
+
+            rateButton.disabled =
+                true;
+
+            rateButton.textContent =
+                "Calculating...";
+
+        }
+
 
         const response =
             await fetch(
                 `${shippingApi}/rate`,
                 {
-                    method: "POST",
+                    method:
+                        "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json"
+
                     },
 
                     body:
                         JSON.stringify({
+
                             packageIds,
+
                             carrierServiceId
+
                         })
+
                 }
             );
+
 
         if (!response.ok) {
 
@@ -2187,29 +2052,129 @@ async function calculateShippingRate() {
                         () => null
                     );
 
+
             throw new Error(
                 errorData?.message ||
                 errorData?.error ||
                 "Failed to calculate shipping rate."
             );
+
         }
+
 
         const rate =
             await response.json();
 
-        displayShippingRate(
-            rate
+        const shippingCharge =
+            Number(
+                rate.totalCharge ??
+                rate.shippingCharge ??
+                rate.total ??
+                rate.amount ??
+                0
+            );
+
+        const setRateField =
+            (id, value) => {
+
+                const field =
+                    document.getElementById(id);
+
+                if (!field) {
+                    return;
+                }
+
+                if (
+                    value === null ||
+                    value === undefined ||
+                    value === ""
+                ) {
+                    field.value = "-";
+                    return;
+                }
+
+                field.value =
+                    Number(value).toFixed(2);
+            };
+
+
+        /*
+         * Populate complete shipping-rate information
+         */
+
+        setRateField(
+            "actualWeight",
+            rate.actualWeight
         );
 
-        if (createButton) {
-            createButton.disabled =
-                false;
+        setRateField(
+            "dimensionalWeight",
+            rate.dimensionalWeight
+        );
+
+        setRateField(
+            "chargeableWeight",
+            rate.chargeableWeight
+        );
+
+        setRateField(
+            "baseCharge",
+            rate.baseCharge
+        );
+
+        setRateField(
+            "chargePerKg",
+            rate.chargePerKg
+        );
+
+        setRateField(
+            "totalShippingCharge",
+            shippingCharge
+        );
+
+
+        /*
+         * Hidden field used when creating shipment
+         */
+
+        setRateField(
+            "shippingCharge",
+            shippingCharge
+        );
+
+
+        /*
+         * Optional display element
+         */
+
+        const display =
+            document.getElementById(
+                "shippingRateDisplay"
+            );
+
+        if (display) {
+
+            display.textContent =
+                formatCurrency(
+                    shippingCharge
+                );
         }
 
-        showMessage(
-            "Shipping rate calculated successfully.",
-            "success"
-        );
+
+        /*
+         * Rate has now been successfully calculated.
+         * Enable Create Shipment.
+         */
+
+        if (createButton) {
+
+            createButton.disabled =
+                false;
+
+            createButton.dataset.rateCalculated =
+                "true";
+        }
+
 
     } catch (error) {
 
@@ -2218,108 +2183,30 @@ async function calculateShippingRate() {
             error
         );
 
-        clearShippingRate();
-
-        if (createButton) {
-            createButton.disabled =
-                true;
-        }
 
         showMessage(
             error.message ||
             "Failed to calculate shipping rate.",
             "error"
         );
+
+
+    } finally {
+
+        if (rateButton) {
+
+            rateButton.disabled =
+                false;
+
+            rateButton.textContent =
+                "Calculate Shipping Rate";
+
+        }
+
     }
+
 }
 
-// =====================================================
-// DISPLAY SHIPPING RATE
-// =====================================================
-
-function displayShippingRate(
-    rate
-) {
-
-    setValue(
-        "actualWeight",
-        `${Number(
-            rate.actualWeight || 0
-        ).toFixed(2)} kg`
-    );
-
-    setValue(
-        "dimensionalWeight",
-        `${Number(
-            rate.dimensionalWeight || 0
-        ).toFixed(2)} kg`
-    );
-
-    setValue(
-        "chargeableWeight",
-        `${Number(
-            rate.chargeableWeight || 0
-        ).toFixed(2)} kg`
-    );
-
-    setValue(
-        "baseCharge",
-        formatCurrency(
-            rate.baseCharge
-        )
-    );
-
-    setValue(
-        "chargePerKg",
-        formatCurrency(
-            rate.chargePerKg
-        )
-    );
-
-    setValue(
-        "totalShippingCharge",
-        formatCurrency(
-            rate.totalCharge
-        )
-    );
-}
-
-// =====================================================
-// CLEAR SHIPPING RATE
-// =====================================================
-
-function clearShippingRate() {
-
-    setValue(
-        "actualWeight",
-        "-"
-    );
-
-    setValue(
-        "dimensionalWeight",
-        "-"
-    );
-
-    setValue(
-        "chargeableWeight",
-        "-"
-    );
-
-    setValue(
-        "baseCharge",
-        "-"
-    );
-
-    setValue(
-        "chargePerKg",
-        "-"
-    );
-
-    setValue(
-        "totalShippingCharge",
-        "-"
-    );
-}
 
 // =====================================================
 // CREATE MANUAL SHIPMENT
@@ -2327,12 +2214,32 @@ function clearShippingRate() {
 
 async function createShipment() {
 
+    const createButton =
+        document.getElementById("createShipmentButton");
+
+    if (!createButton) {
+        showMessage(
+            "Create Shipment button not found.",
+            "error"
+        );
+        return;
+    }
+
+    if (
+        createButton.dataset.rateCalculated !== "true"
+    ) {
+        showMessage(
+            "Please calculate the shipping rate before creating the shipment.",
+            "error"
+        );
+        return;
+    }
+
     const packageIds =
         getSelectedPackageIds();
 
-    if (
-        packageIds.length === 0
-    ) {
+
+    if (packageIds.length === 0) {
 
         showMessage(
             "Select at least one package.",
@@ -2341,231 +2248,18 @@ async function createShipment() {
 
         return;
     }
-    const shipmentDate =
-        document.getElementById("shipmentDate")?.value || "";
 
-    if (!shipmentDate) {
-        showMessage(
-            "Please select a shipment date.",
-            "error"
-        );
-        return;
-    }
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(shipmentDate)) {
-        showMessage(
-            "Shipment date must be in YYYY-MM-DD format.",
-            "error"
-        );
-        return;
-    }
-
-    const carrierServiceId =
-        Number(
-            document.getElementById(
-                "serviceSelect"
-            )?.value || 0
-        );
-
-    if (!carrierServiceId) {
-
-        showMessage(
-            "Select a carrier service.",
-            "error"
-        );
-
-        return;
-    }
-
-    const trackingNumber =
-        document.getElementById(
-            "trackingNumber"
-        )?.value.trim() || "";
-
-    const trackingUrl =
-        document.getElementById(
-            "trackingUrl"
-        )?.value.trim() || "";
-
-    const dispatchAddress =
-        document.getElementById(
-            "dispatchAddress"
-        )?.value.trim() || "";
-
-    const destinationAddress =
-        document.getElementById(
-            "destinationAddress"
-        )?.value.trim() || "";
-
-    const notes =
-        document.getElementById(
-            "shipmentNotes"
-        )?.value.trim() || "";
-
-    const createButton =
-        document.getElementById(
-            "createShipmentButton"
-        );
-
-    
-
-    const shipment = {
-
-        salesOrderId:
-            Number(salesOrderId),
-
-        packageIds,
-
-        carrierServiceId,
-        shipmentDate : shipmentDate,
-
-        shippingMethod:
-            "CARRIER",
-
-        trackingNumber,
-
-        trackingUrl,
-
-        dispatchAddress,
-
-        destinationAddress,
-
-        notes,
-        
-    };
-
-    try {
-
-        if (createButton) {
-
-            createButton.disabled =
-                true;
-
-            createButton.textContent =
-                "Creating Shipment...";
-        }
-
-        const response =
-            await fetch(
-                shippingApi,
-                {
-                    method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body:
-                        JSON.stringify(
-                            shipment
-                        )
-                }
-            );
-
-        if (!response.ok) {
-
-            const errorData =
-                await response
-                    .json()
-                    .catch(
-                        () => null
-                    );
-
-            throw new Error(
-                errorData?.message ||
-                errorData?.error ||
-                "Failed to create shipment."
-            );
-        }
-
-        const result =
-            await response.json();
-
-        showMessage(
-            "Shipment created successfully.",
-            "success"
-        );
-
-        await loadPackages();
-
-        const shippingSection =
-            document.getElementById(
-                "shippingSection"
-            );
-
-        if (shippingSection) {
-            shippingSection.style.display =
-                "none";
-        }
-
-        const shipmentId =
-            result.shipmentId ||
-            result.id;
-
-        if (shipmentId) {
-
-            window.location.href =
-                `/erpflow/salesOrderDetails.jsp?id=${encodeURIComponent(
-                    salesOrderId
-                )}`;
-
-        } else if (createButton) {
-
-            createButton.textContent =
-                "Create Shipment";
-        }
-
-    } catch (error) {
-
-        console.error(
-            "Create Shipment Error:",
-            error
-        );
-
-        showMessage(
-            error.message ||
-            "Failed to create shipment.",
-            "error"
-        );
-
-        if (createButton) {
-
-            createButton.disabled =
-                false;
-
-            createButton.textContent =
-                "Create Shipment";
-        }
-    }
-}
-
-// =====================================================
-// ONE-CLICK PACK & SHIP
-// =====================================================
-
-async function packAndShip() {
 
     const shipmentDateInput =
         document.getElementById(
-            "shipmentDate"
+            "manualShipmentDate"
         );
 
-    const deliveryStatusInput =
-        document.getElementById(
-            "deliveryStatus"
-        );
-
-    const packShipButton =
-        document.getElementById(
-            "packShipButton"
-        );
 
     const shipmentDate =
-        shipmentDateInput?.value || "";
+        shipmentDateInput?.value?.trim() ||
+        "";
 
-    const deliveryStatus =
-        deliveryStatusInput?.value || "";
 
     if (!shipmentDate) {
 
@@ -2574,18 +2268,13 @@ async function packAndShip() {
             "error"
         );
 
-        return;
-    }
 
-    if (!deliveryStatus) {
+        shipmentDateInput?.focus();
 
-        showMessage(
-            "Please select a delivery status.",
-            "error"
-        );
 
         return;
     }
+
 
     if (
         !/^\d{4}-\d{2}-\d{2}$/.test(
@@ -2601,35 +2290,172 @@ async function packAndShip() {
         return;
     }
 
+
+    const carrierServiceId =
+        Number(
+            document.getElementById(
+                "serviceSelect"
+            )?.value || 0
+        );
+
+
+    if (!carrierServiceId) {
+
+        showMessage(
+            "Select a carrier service.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    const shippingMethod =
+        document.getElementById(
+            "manualShippingMethod"
+        )?.value ||
+        "CARRIER";
+
+
+    const trackingNumber =
+        document.getElementById(
+            "trackingNumber"
+        )?.value.trim() ||
+        "";
+
+
+    const trackingUrl =
+        document.getElementById(
+            "trackingUrl"
+        )?.value.trim() ||
+        "";
+
+
+    const dispatchAddress =
+        document.getElementById(
+            "dispatchAddress"
+        )?.value.trim() ||
+        "";
+
+
+    const destinationAddress =
+        document.getElementById(
+            "destinationAddress"
+        )?.value.trim() ||
+        "";
+
+
+    const notes =
+        document.getElementById(
+            "shipmentNotes"
+        )?.value.trim() ||
+        "";
+
+
+    const shippingChargeInput =
+        document.getElementById(
+            "shippingCharge"
+        ) ||
+        document.getElementById(
+            "totalShippingCharge"
+        );
+
+    const shippingCharge =
+        shippingChargeInput &&
+            shippingChargeInput.value !== ""
+            ? Number(
+                shippingChargeInput.value
+            )
+            : 0;
+
+    if (
+        Number.isNaN(
+            shippingCharge
+        ) ||
+        shippingCharge < 0
+    ) {
+
+        showMessage(
+            "Shipping charge cannot be negative.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    const shipment = {
+
+        salesOrderId:
+            Number(
+                salesOrderId
+            ),
+
+        packageIds,
+
+        carrierServiceId,
+
+        shipmentDate,
+
+        shippingMethod,
+
+        trackingNumber,
+
+        trackingUrl,
+
+        shippingCharge,
+
+        dispatchAddress,
+
+        destinationAddress,
+
+        notes,
+
+        status:
+            "CREATED"
+
+    };
+
+
+    console.log(
+        "Creating Manual Shipment:",
+        shipment
+    );
+
+
     try {
 
-        if (packShipButton) {
+        createButton.disabled =
+            true;
 
-            packShipButton.disabled =
-                true;
+        createButton.textContent =
+            "Creating Shipment...";
 
-            packShipButton.textContent =
-                "Packing & Shipping...";
-        }
 
         const response =
             await fetch(
-                autoPackShipApi,
+                shippingApi,
                 {
-                    method: "POST",
+
+                    method:
+                        "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json"
+
                     },
 
                     body:
-                        JSON.stringify({
-                            shipmentDate,
-                            deliveryStatus
-                        })
+                        JSON.stringify(
+                            shipment
+                        )
+
                 }
             );
+
 
         if (!response.ok) {
 
@@ -2640,33 +2466,270 @@ async function packAndShip() {
                         () => null
                     );
 
+
+            throw new Error(
+                errorData?.message ||
+                errorData?.error ||
+                "Failed to create shipment."
+            );
+
+        }
+
+
+        const result =
+            await response.json();
+
+
+        console.log(
+            "Shipment Created:",
+            result
+        );
+
+
+        showMessage(
+            "Shipment created successfully.",
+            "success"
+        );
+
+
+        await loadPackages();
+
+        await loadSalesOrder();
+
+
+        const shippingSection =
+            document.getElementById(
+                "shippingSection"
+            );
+
+
+        if (shippingSection) {
+
+            shippingSection.style.display =
+                "none";
+
+        }
+
+
+        document
+            .querySelectorAll(
+                ".package-checkbox:checked"
+            )
+            .forEach(
+                checkbox => {
+
+                    checkbox.checked =
+                        false;
+
+                }
+            );
+
+
+        // Also resets the calculated rate
+        updateShipmentButtons();
+
+
+        updateSelectedPackagesDisplay();
+
+
+    } catch (error) {
+
+        console.error(
+            "Create Shipment Error:",
+            error
+        );
+
+
+        showMessage(
+            error.message ||
+            "Failed to create shipment.",
+            "error"
+        );
+
+
+    } finally {
+
+        createButton.textContent =
+            "Create Shipment";
+
+        // Stay enabled only while a valid rate is still calculated
+        createButton.disabled =
+            createButton.dataset.rateCalculated !== "true";
+
+    }
+
+}
+
+
+// =====================================================
+// AUTO PACK & SHIP
+// =====================================================
+
+async function packAndShip() {
+
+    const shipmentDateInput =
+        document.getElementById(
+            "autoShipmentDate"
+        );
+
+
+    const deliveryStatusInput =
+        document.getElementById(
+            "deliveryStatus"
+        );
+
+
+    const packShipButton =
+        document.getElementById(
+            "packShipButton"
+        );
+
+
+    const shipmentDate =
+        shipmentDateInput?.value?.trim() ||
+        "";
+
+
+    const deliveryStatus =
+        deliveryStatusInput?.value?.trim() ||
+        "";
+
+
+    if (!shipmentDate) {
+
+        showMessage(
+            "Please select a shipment date.",
+            "error"
+        );
+
+
+        shipmentDateInput?.focus();
+
+
+        return;
+    }
+
+
+    if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(
+            shipmentDate
+        )
+    ) {
+
+        showMessage(
+            "Shipment date must be in YYYY-MM-DD format.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    if (!deliveryStatus) {
+
+        showMessage(
+            "Please select a shipment status.",
+            "error"
+        );
+
+
+        deliveryStatusInput?.focus();
+
+
+        return;
+    }
+
+
+    try {
+
+        if (packShipButton) {
+
+            packShipButton.disabled =
+                true;
+
+            packShipButton.textContent =
+                "Packing & Shipping...";
+
+        }
+
+
+        const response =
+            await fetch(
+                autoPackShipApi,
+                {
+
+                    method:
+                        "POST",
+
+                    headers: {
+
+                        "Content-Type":
+                            "application/json"
+
+                    },
+
+                    body:
+                        JSON.stringify({
+
+                            shipmentDate,
+
+                            deliveryStatus
+
+                        })
+
+                }
+            );
+
+
+        if (!response.ok) {
+
+            const errorData =
+                await response
+                    .json()
+                    .catch(
+                        () => null
+                    );
+
+
             throw new Error(
                 errorData?.message ||
                 errorData?.error ||
                 "Pack & Ship operation failed."
             );
+
         }
+
 
         const result =
             await response.json();
+
 
         console.log(
             "Pack & Ship Result:",
             result
         );
 
+
         showMessage(
-            "Package and shipment created successfully.",
+            "Remaining items packed and shipped successfully.",
             "success"
         );
 
+
         await loadSalesOrder();
+
         await loadPackages();
 
-        window.location.href =
-            `/erpflow/salesOrderDetails.jsp?id=${encodeURIComponent(
-                salesOrderId
-            )}`;
+
+        setTimeout(
+            () => {
+
+                window.location.reload();
+
+            },
+            700
+        );
+
 
     } catch (error) {
 
@@ -2675,11 +2738,15 @@ async function packAndShip() {
             error
         );
 
+
         showMessage(
             error.message ||
             "Pack & Ship operation failed.",
             "error"
         );
+
+
+    } finally {
 
         if (packShipButton) {
 
@@ -2687,10 +2754,36 @@ async function packAndShip() {
                 false;
 
             packShipButton.textContent =
-                "Pack & Ship";
+                "Auto Pack & Ship";
+
         }
+
     }
+
 }
+
+
+// =====================================================
+// EDIT PACKAGE
+// =====================================================
+
+function editPackage(
+    packageId
+) {
+
+    if (!packageId) {
+
+        return;
+    }
+
+
+    window.location.href =
+        `/erpflow/packageDetails.jsp?id=${encodeURIComponent(
+            packageId
+        )}`;
+
+}
+
 
 // =====================================================
 // SAFE VALUE SETTER
@@ -2702,26 +2795,41 @@ function setValue(
 ) {
 
     const element =
-        document.getElementById(id);
+        document.getElementById(
+            id
+        );
+
 
     if (!element) {
+
         return;
     }
+
 
     const safeValue =
         value ?? "-";
 
-    if ("value" in element) {
+
+    if (
+        "value" in element
+    ) {
 
         element.value =
-            String(safeValue);
+            String(
+                safeValue
+            );
 
     } else {
 
         element.textContent =
-            String(safeValue);
+            String(
+                safeValue
+            );
+
     }
+
 }
+
 
 // =====================================================
 // DATE FORMAT
@@ -2732,49 +2840,43 @@ function formatDate(
 ) {
 
     if (!value) {
+
         return "-";
     }
 
-    /*
-     * Jackson LocalDate /
-     * LocalDateTime array.
-     */
-    if (Array.isArray(value)) {
+
+    if (
+        Array.isArray(
+            value
+        )
+    ) {
 
         const year =
             value[0];
 
+
         const month =
             String(
                 value[1] ?? 1
-            ).padStart(2, "0");
+            ).padStart(
+                2,
+                "0"
+            );
+
 
         const day =
             String(
                 value[2] ?? 1
-            ).padStart(2, "0");
+            ).padStart(
+                2,
+                "0"
+            );
 
-        let result =
-            `${year}-${month}-${day}`;
 
-        if (value.length >= 5) {
+        return `${year}-${month}-${day}`;
 
-            const hour =
-                String(
-                    value[3] ?? 0
-                ).padStart(2, "0");
-
-            const minute =
-                String(
-                    value[4] ?? 0
-                ).padStart(2, "0");
-
-            result +=
-                ` ${hour}:${minute}`;
-        }
-
-        return result;
     }
+
 
     if (
         typeof value ===
@@ -2782,12 +2884,24 @@ function formatDate(
     ) {
 
         return value
-            .replace("T", " ")
-            .slice(0, 16);
+            .replace(
+                "T",
+                " "
+            )
+            .slice(
+                0,
+                10
+            );
+
     }
 
-    return String(value);
+
+    return String(
+        value
+    );
+
 }
+
 
 // =====================================================
 // CURRENCY
@@ -2798,16 +2912,26 @@ function formatCurrency(
 ) {
 
     const amount =
-        Number(value || 0);
+        Number(
+            value || 0
+        );
+
 
     return amount.toLocaleString(
         "en-IN",
         {
-            style: "currency",
-            currency: "INR"
+
+            style:
+                "currency",
+
+            currency:
+                "INR"
+
         }
     );
+
 }
+
 
 // =====================================================
 // HTML ESCAPE
@@ -2840,7 +2964,9 @@ function escapeHtml(
             /'/g,
             "&#039;"
         );
+
 }
+
 
 // =====================================================
 // MESSAGE
@@ -2856,6 +2982,7 @@ function showMessage(
             "messageBox"
         );
 
+
     if (!messageBox) {
 
         console.log(
@@ -2865,24 +2992,36 @@ function showMessage(
         return;
     }
 
+
     const messageElement =
         document.createElement(
             "div"
         );
 
+
     messageElement.style.padding =
-        "12px";
+        "12px 16px";
+
 
     messageElement.style.marginBottom =
         "20px";
 
-    messageElement.style.borderRadius =
-        "6px";
 
-    if (type === "error") {
+    messageElement.style.borderRadius =
+        "8px";
+
+
+    messageElement.style.fontWeight =
+        "500";
+
+
+    if (
+        type === "error"
+    ) {
 
         messageElement.style.background =
             "#fee2e2";
+
 
         messageElement.style.color =
             "#991b1b";
@@ -2894,6 +3033,7 @@ function showMessage(
         messageElement.style.background =
             "#dcfce7";
 
+
         messageElement.style.color =
             "#166534";
 
@@ -2902,29 +3042,63 @@ function showMessage(
         messageElement.style.background =
             "#e0f2fe";
 
+
         messageElement.style.color =
             "#075985";
+
     }
+
 
     messageElement.textContent =
         message;
+
 
     messageBox.replaceChildren(
         messageElement
     );
 
-    setTimeout(() => {
 
-        if (
-            messageBox.contains(
-                messageElement
-            )
-        ) {
+    setTimeout(
+        () => {
 
-            messageBox.removeChild(
-                messageElement
-            );
-        }
+            if (
+                messageBox.contains(
+                    messageElement
+                )
+            ) {
 
-    }, 4000);
+                messageBox.removeChild(
+                    messageElement
+                );
+
+            }
+
+        },
+        4000
+    );
+
+}
+
+function initializeShipmentCreation() {
+
+    const createShipmentButton =
+        document.getElementById("createShipmentButton");
+
+    if (!createShipmentButton) {
+        console.warn(
+            "Create Shipment button not found."
+        );
+        return;
+    }
+
+    // Initially disabled until shipping rate is calculated
+    createShipmentButton.disabled = true;
+
+    createShipmentButton.dataset.rateCalculated =
+        "false";
+
+    createShipmentButton.addEventListener(
+        "click",
+        createShipment
+    );
 }

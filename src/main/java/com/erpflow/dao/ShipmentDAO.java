@@ -441,6 +441,7 @@ public class ShipmentDAO {
                     p.width,
                     p.height,
                     p.sales_order_id,
+                    so.orderDate AS sales_order_date,
 
                     so.id AS sales_order_id,
                     so.status AS sales_order_status,
@@ -520,6 +521,13 @@ public class ShipmentDAO {
 
                         salesOrder.setId(
                                 salesOrderId);
+                                Timestamp salesOrderDate =
+        rs.getTimestamp("sales_order_date");
+
+if (salesOrderDate != null) {
+    salesOrder.setOrderDate(
+            salesOrderDate.toLocalDateTime());
+}
 
                         salesOrder.setStatus(
                                 SalesOrderStatus.valueOf(rs.getString("sales_order_status")));

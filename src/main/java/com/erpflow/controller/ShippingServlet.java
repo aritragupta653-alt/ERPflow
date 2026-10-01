@@ -217,8 +217,7 @@ public class ShippingServlet extends HttpServlet {
                 salesOrderId,
                 packageIds,
                 carrierServiceId,
-                shipment,
-                shipmentDate
+                shipment
         );
 
                         response.setStatus(HttpServletResponse.SC_CREATED);

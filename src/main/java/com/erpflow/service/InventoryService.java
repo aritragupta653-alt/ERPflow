@@ -8,10 +8,15 @@ import com.erpflow.dao.ItemDAO;
 import java.time.LocalDateTime;
 import java.util.List;
 import com.erpflow.dao.ItemDAO;
+import com.erpflow.model.Item;
+
+import java.time.LocalDateTime;
+import com.erpflow.service.InventoryAlertService;
 
 public class InventoryService {
 
     private final InventoryDAO inventoryDAO = new InventoryDAO();
+    
 
    
    private final ItemDAO itemDAO = new ItemDAO();

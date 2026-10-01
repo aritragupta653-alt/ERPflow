@@ -1,31 +1,53 @@
-
 package com.erpflow.model;
 
 import com.erpflow.model.enums.ShipmentStatus;
+
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Shipment {
 
     private int id;
+
     private String shipmentNumber;
+
+    // DATE ONLY
     private LocalDate shipmentDate;
+
     private ShipmentStatus status;
+
     private String shippingMethod;
+
     private Carrier carrier;
+
     private CarrierService carrierService;
+
     private String trackingNumber;
+
     private String trackingUrl;
+
     private double shippingCharge;
+
     private String dispatchAddress;
+
     private String destinationAddress;
+
+    // DATE ONLY
     private LocalDate estimatedDeliveryDate;
+
+    // DATE ONLY
     private LocalDate actualDeliveryDate;
+
     private String notes;
-    
-    private List<Package> packages = new ArrayList<>();
+
+    private List<Package> packages =
+            new ArrayList<>();
+
+
+    // =====================================================
+    // GETTERS / SETTERS
+    // =====================================================
 
     public int getId() {
         return id;
@@ -35,6 +57,7 @@ public class Shipment {
         this.id = id;
     }
 
+
     public String getShipmentNumber() {
         return shipmentNumber;
     }
@@ -43,13 +66,15 @@ public class Shipment {
         this.shipmentNumber = shipmentNumber;
     }
 
-   public LocalDate getShipmentDate() {
-    return shipmentDate;
-}
 
-     public void setShipmentDate(LocalDate shipmentDate) {
-    this.shipmentDate = shipmentDate;
-}
+    public LocalDate getShipmentDate() {
+        return shipmentDate;
+    }
+
+    public void setShipmentDate(LocalDate shipmentDate) {
+        this.shipmentDate = shipmentDate;
+    }
+
 
     public ShipmentStatus getStatus() {
         return status;
@@ -59,6 +84,7 @@ public class Shipment {
         this.status = status;
     }
 
+
     public String getShippingMethod() {
         return shippingMethod;
     }
@@ -66,6 +92,7 @@ public class Shipment {
     public void setShippingMethod(String shippingMethod) {
         this.shippingMethod = shippingMethod;
     }
+
 
     public Carrier getCarrier() {
         return carrier;
@@ -75,6 +102,7 @@ public class Shipment {
         this.carrier = carrier;
     }
 
+
     public CarrierService getCarrierService() {
         return carrierService;
     }
@@ -82,6 +110,7 @@ public class Shipment {
     public void setCarrierService(CarrierService carrierService) {
         this.carrierService = carrierService;
     }
+
 
     public String getTrackingNumber() {
         return trackingNumber;
@@ -91,6 +120,7 @@ public class Shipment {
         this.trackingNumber = trackingNumber;
     }
 
+
     public String getTrackingUrl() {
         return trackingUrl;
     }
@@ -98,6 +128,7 @@ public class Shipment {
     public void setTrackingUrl(String trackingUrl) {
         this.trackingUrl = trackingUrl;
     }
+
 
     public double getShippingCharge() {
         return shippingCharge;
@@ -107,6 +138,7 @@ public class Shipment {
         this.shippingCharge = shippingCharge;
     }
 
+
     public String getDispatchAddress() {
         return dispatchAddress;
     }
@@ -114,6 +146,7 @@ public class Shipment {
     public void setDispatchAddress(String dispatchAddress) {
         this.dispatchAddress = dispatchAddress;
     }
+
 
     public String getDestinationAddress() {
         return destinationAddress;
@@ -123,21 +156,30 @@ public class Shipment {
         this.destinationAddress = destinationAddress;
     }
 
+
     public LocalDate getEstimatedDeliveryDate() {
         return estimatedDeliveryDate;
     }
 
-    public void setEstimatedDeliveryDate(LocalDate estimatedDeliveryDate) {
-        this.estimatedDeliveryDate = estimatedDeliveryDate;
+    public void setEstimatedDeliveryDate(
+            LocalDate estimatedDeliveryDate) {
+
+        this.estimatedDeliveryDate =
+                estimatedDeliveryDate;
     }
+
 
     public LocalDate getActualDeliveryDate() {
         return actualDeliveryDate;
     }
 
-    public void setActualDeliveryDate(LocalDate actualDeliveryDate) {
-        this.actualDeliveryDate = actualDeliveryDate;
+    public void setActualDeliveryDate(
+            LocalDate actualDeliveryDate) {
+
+        this.actualDeliveryDate =
+                actualDeliveryDate;
     }
+
 
     public String getNotes() {
         return notes;
@@ -147,11 +189,15 @@ public class Shipment {
         this.notes = notes;
     }
 
+
     public List<Package> getPackages() {
         return packages;
     }
 
     public void setPackages(List<Package> packages) {
-        this.packages = packages;
+        this.packages =
+                packages == null
+                        ? new ArrayList<>()
+                        : packages;
     }
 }

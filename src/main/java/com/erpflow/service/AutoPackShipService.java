@@ -1,11 +1,12 @@
-
 package com.erpflow.service;
 
 import com.erpflow.dao.CarrierDAO;
 import com.erpflow.dao.CarrierServiceDAO;
 import com.erpflow.dao.PackageDAO;
+import com.erpflow.dao.PackageItemDAO;
 import com.erpflow.dao.SalesOrderDAO;
 import com.erpflow.dao.SalesOrderItemDAO;
+import com.erpflow.dao.ShipmentDAO;
 
 import com.erpflow.model.Carrier;
 import com.erpflow.model.CarrierService;
@@ -15,35 +16,36 @@ import com.erpflow.model.PackageItem;
 import com.erpflow.model.SalesOrder;
 import com.erpflow.model.SalesOrderItem;
 import com.erpflow.model.Shipment;
+
+import com.erpflow.model.enums.PackageStatus;
 import com.erpflow.model.enums.ShipmentStatus;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import com.erpflow.model.enums.CartonSize;
-
+import java.util.Map;
+import java.util.Set;
 
 public class AutoPackShipService {
 
     // =====================================================
-    // DEFAULT PACKING AND DISPATCH VALUES
+    // DEFAULT PACKAGE VALUES
     // =====================================================
 
-    private static final double DEFAULT_LENGTH = 0;
-    private static final double DEFAULT_WIDTH = 0;
-    private static final double DEFAULT_HEIGHT = 0;
+    private static final double DEFAULT_LENGTH = 30.0;
+    private static final double DEFAULT_WIDTH = 20.0;
+    private static final double DEFAULT_HEIGHT = 15.0;
 
-    // Assumed weight when item-level shipping weight is unavailable.
     private static final double DEFAULT_WEIGHT_PER_UNIT = 1.0;
 
-    // Replace this with your actual warehouse/base address.
     private static final String DEFAULT_DISPATCH_ADDRESS =
             "ERPFlow Warehouse, Chennai, Tamil Nadu, India";
 
 
     // =====================================================
-    // DAOS AND SERVICES
+    // DAOS / SERVICES
     // =====================================================
 
     private final SalesOrderDAO salesOrderDAO =
@@ -54,6 +56,12 @@ public class AutoPackShipService {
 
     private final PackageDAO packageDAO =
             new PackageDAO();
+
+    private final PackageItemDAO packageItemDAO =
+            new PackageItemDAO();
+
+    private final ShipmentDAO shipmentDAO =
+            new ShipmentDAO();
 
     private final PackageService packageService =
             new PackageService();
@@ -66,12 +74,10 @@ public class AutoPackShipService {
 
     private final CarrierServiceDAO carrierServiceDAO =
             new CarrierServiceDAO();
-    private final CartonSelectionService cartonSelectionService =
-        new CartonSelectionService();
 
 
     // =====================================================
-    // PACK AND SHIP
+    // AUTO PACK & SHIP
     // =====================================================
 
     public AutoPackShipResult packAndShip(
@@ -79,23 +85,23 @@ public class AutoPackShipService {
             LocalDate shipmentDate,
             String deliveryStatus) {
 
-        // -------------------------------------------------
-        // 1. Validate request
-        // -------------------------------------------------
+        // =================================================
+        // 1. BASIC VALIDATION
+        // =================================================
 
         if (salesOrderId <= 0) {
+
             throw new RuntimeException(
                     "A valid Sales Order ID is required"
             );
         }
 
         if (shipmentDate == null) {
+
             throw new RuntimeException(
                     "Shipment date is required"
             );
         }
-
-        
 
         if (deliveryStatus == null ||
                 deliveryStatus.trim().isEmpty()) {
@@ -105,268 +111,637 @@ public class AutoPackShipService {
             );
         }
 
-        String normalizedStatus = deliveryStatus.trim().toUpperCase();
-        ShipmentStatus status = ShipmentStatus.valueOf(normalizedStatus);
 
-        /*
-         * The shipment creation process ships inventory
-         * immediately. Therefore, allow only statuses that
-         * represent a shipment that has actually been created
-         * or dispatched.
-         *
-         * DELIVERED is not accepted here because delivery
-         * confirmation should be a separate operation.
-         */
-       /*if ( !normalizedStatus.equals("IN_TRANSIT") || !normalizedStatus.equals("CREATED") || !normalizedStatus.equals("DELIVERED")) {
+        String normalizedStatus =
+                deliveryStatus
+                        .trim()
+                        .toUpperCase();
+
+
+        ShipmentStatus shipmentStatus;
+
+        try {
+
+            shipmentStatus =
+                    ShipmentStatus.valueOf(
+                            normalizedStatus
+                    );
+
+        } catch (Exception e) {
 
             throw new RuntimeException(
-                    "Delivery status must be CREATED or IN_TRANSIT OR DELIVERED"
+                    "Invalid shipment status: "
+                            + deliveryStatus
             );
-        }*/
+        }
 
 
-        // -------------------------------------------------
-        // 2. Load Sales Order
-        // -------------------------------------------------
+        // =================================================
+        // AUTO PACK & SHIP STATUS
+        // =================================================
+
+        /*
+         * Auto Pack & Ship can create a shipment as:
+         *
+         * CREATED
+         * IN_TRANSIT
+         *
+         * DELIVERED is NOT allowed here.
+         *
+         * Delivery must happen through the existing
+         * Mark As Delivered flow.
+         */
+
+        if (shipmentStatus != ShipmentStatus.CREATED &&
+                shipmentStatus != ShipmentStatus.IN_TRANSIT) {
+
+            throw new RuntimeException(
+                    "Auto Pack & Ship status must be CREATED or IN_TRANSIT"
+            );
+        }
+
+
+        // =================================================
+        // 2. FIND SALES ORDER
+        // =================================================
 
         SalesOrder salesOrder =
-                salesOrderDAO.findById(salesOrderId);
-        
+                salesOrderDAO.findById(
+                        salesOrderId
+                );
+
 
         if (salesOrder == null) {
+
             throw new RuntimeException(
                     "Sales Order not found"
             );
         }
 
-        if (salesOrder.getStatus().name() == null ||
-                !"CREATED".equalsIgnoreCase(
-                        salesOrder.getStatus().name())) {
+
+        // =================================================
+        // 3. VALIDATE SALES ORDER STATUS
+        // =================================================
+
+        String orderStatus =
+                salesOrder.getStatus() != null
+                        ? salesOrder
+                            .getStatus()
+                            .toString()
+                            .toUpperCase()
+                        : "";
+
+
+        if ("CANCELLED".equals(orderStatus) ||
+                "SHIPPED".equals(orderStatus) ||
+                "COMPLETED".equals(orderStatus) ||
+                "DELIVERED".equals(orderStatus)) {
 
             throw new RuntimeException(
-                    "Only CREATED Sales Orders can use Pack & Ship"
+                    "Cannot Auto Pack & Ship a Sales Order with status "
+                            + orderStatus
             );
         }
 
 
-        // -------------------------------------------------
-        // 3. Prevent duplicate package creation
-        // -------------------------------------------------
-
-        List<Package> existingPackages =
-                packageDAO.findBySalesOrder(salesOrderId);
-
-        if (existingPackages != null &&
-                !existingPackages.isEmpty()) {
-
-            throw new RuntimeException(
-                    "This Sales Order already has packages. "
-                    + "Use the existing package and shipment workflow."
-            );
-        }
-
-
-        // -------------------------------------------------
-        // 4. Load Sales Order items
-        // -------------------------------------------------
+        // =================================================
+        // 4. LOAD SALES ORDER ITEMS
+        // =================================================
 
         List<SalesOrderItem> orderLines =
-                salesOrderItemDAO.findBySalesOrder(salesOrder);
-        
+                salesOrderItemDAO.findBySalesOrder(
+                        salesOrder
+                );
 
-        if (orderLines == null || orderLines.isEmpty()) {
+
+        if (orderLines == null ||
+                orderLines.isEmpty()) {
+
             throw new RuntimeException(
                     "Sales Order contains no items"
             );
         }
-        //calculate volume for package dimensions
-        double requiredVolume = 0;
-
-for (SalesOrderItem orderLine : orderLines) {
-
-    Item item = orderLine.getItem();
-
-    if (!"GOODS".equalsIgnoreCase(item.getItemType())
-            || !item.isTrackInventory()) {
-        continue;
-    }
-    
-    double itemVolume =
-            item.getLength()
-                    * item.getWidth()
-                    * item.getHeight();
-
-    requiredVolume += itemVolume * orderLine.getQuantity();
-}
-CartonSize selectedCarton =
-        cartonSelectionService.selectCarton(requiredVolume);
 
 
+        // =================================================
+        // 5. CALCULATE ALREADY PACKAGED QUANTITY
+        // =================================================
 
-        // -------------------------------------------------
-        // 5. Build package items automatically
-        // -------------------------------------------------
+        Map<Integer, Integer> alreadyPacked =
+                getAlreadyPackagedQuantities(
+                        salesOrderId
+                );
 
-        List<PackageItem> packageItems =
+
+        // =================================================
+        // 6. BUILD REMAINING PACKAGE ITEMS
+        // =================================================
+
+        List<PackageItem> remainingPackageItems =
                 new ArrayList<>();
 
-        int totalUnits = 0;
 
-        for (SalesOrderItem orderLine : orderLines) {
+        int totalRemainingUnits = 0;
+
+
+        for (SalesOrderItem orderLine :
+                orderLines) {
 
             if (orderLine == null ||
                     orderLine.getItem() == null) {
 
                 throw new RuntimeException(
-                        "A Sales Order line has no associated item"
+                        "Sales Order contains an invalid item line"
                 );
             }
 
-            Item item = orderLine.getItem();
 
-            /*
-             * Only inventory-tracked goods are physically
-             * packed. Service and non-tracked items are skipped.
-             */
-            if (!"GOODS".equalsIgnoreCase(item.getItemType())) {
+            Item item =
+                    orderLine.getItem();
+
+
+            // -------------------------------------------------
+            // SERVICE / NON-INVENTORY ITEMS
+            // -------------------------------------------------
+
+            if (!"GOODS".equalsIgnoreCase(
+                    item.getItemType()
+            ) || !item.isTrackInventory()) {
 
                 continue;
             }
 
-            int quantity = orderLine.getQuantity();
 
-            if (quantity <= 0) {
+            int orderedQuantity =
+                    orderLine.getQuantity();
+
+
+            if (orderedQuantity <= 0) {
+
                 throw new RuntimeException(
-                        "Invalid quantity for item: " + item.getName()
+                        "Invalid quantity for item: "
+                                + item.getName()
                 );
             }
 
-            PackageItem packageItem = new PackageItem();
+
+            int packedQuantity =
+                    alreadyPacked.getOrDefault(
+                            orderLine.getId(),
+                            0
+                    );
+
+
+            if (packedQuantity < 0) {
+
+                throw new RuntimeException(
+                        "Invalid packaged quantity for item: "
+                                + item.getName()
+                );
+            }
+
+
+            // -------------------------------------------------
+            // REMAINING QUANTITY
+            // -------------------------------------------------
+
+            int remainingQuantity =
+                    orderedQuantity -
+                    packedQuantity;
+
+
+            if (remainingQuantity < 0) {
+
+                throw new RuntimeException(
+                        "Packed quantity exceeds Sales Order quantity for item: "
+                                + item.getName()
+                );
+            }
+
+
+            if (remainingQuantity == 0) {
+                continue;
+            }
+
+
+            // -------------------------------------------------
+            // CREATE PACKAGE ITEM
+            // -------------------------------------------------
+
+            PackageItem packageItem =
+                    new PackageItem();
+
 
             packageItem.setItem(item);
-            packageItem.setQuantity(quantity);
-            packageItem.setSalesOrderItemId(orderLine.getId());
 
-            packageItems.add(packageItem);
-
-            totalUnits += quantity;
-        }
-
-        if (packageItems.isEmpty()) {
-            throw new RuntimeException(
-                    "This Sales Order has no inventory-tracked goods to ship"
+            packageItem.setQuantity(
+                    remainingQuantity
             );
+
+            packageItem.setSalesOrderItemId(
+                    orderLine.getId()
+            );
+
+
+            remainingPackageItems.add(
+                    packageItem
+            );
+
+
+            totalRemainingUnits +=
+                    remainingQuantity;
         }
 
 
-        // -------------------------------------------------
-        // 6. Select a configured carrier service
-        // -------------------------------------------------
+        // =================================================
+        // 7. FIND CARRIER SERVICE
+        // =================================================
 
         CarrierService selectedService =
                 findDefaultCarrierService();
 
+
         if (selectedService == null) {
+
             throw new RuntimeException(
                     "No carrier service is configured. "
-                    + "Configure a carrier and carrier service first."
+                            + "Configure a carrier and carrier service first."
             );
         }
 
 
-        // -------------------------------------------------
-        // 7. Create one package
-        // -------------------------------------------------
+        // =================================================
+        // 8. CREATE PACKAGE IF ITEMS REMAIN
+        // =================================================
 
-        double estimatedWeight =
-                totalUnits * DEFAULT_WEIGHT_PER_UNIT;
+        Package createdPackage = null;
 
-        Package createdPackage =
-                packageService.createPackage(
-                        salesOrder,
-                        packageItems,
-                        estimatedWeight,
-                        selectedCarton.getLength(),
-                        selectedCarton.getWidth(),
-                        selectedCarton.getHeight(),
-                        shipmentDate
 
+        if (!remainingPackageItems.isEmpty()) {
+
+            double estimatedWeight =
+                    totalRemainingUnits *
+                    DEFAULT_WEIGHT_PER_UNIT;
+
+
+            /*
+             * IMPORTANT:
+             *
+             * Your current PackageService requires
+             * packageDate.
+             *
+             * Therefore Auto Pack & Ship must pass
+             * the SAME shipment date as the package date.
+             */
+
+            createdPackage =
+                    packageService.createPackage(
+                            salesOrder,
+                            remainingPackageItems,
+                            estimatedWeight,
+                            DEFAULT_LENGTH,
+                            DEFAULT_WIDTH,
+                            DEFAULT_HEIGHT,
+                            shipmentDate
+                    );
+        }
+
+
+        // =================================================
+        // 9. FIND ALL PACKED BUT UNSHIPPED PACKAGES
+        // =================================================
+
+        List<Package> existingPackages =
+                packageDAO.findBySalesOrder(
+                        salesOrderId
                 );
 
 
-        // -------------------------------------------------
-        // 8. Prepare shipment details
-        // -------------------------------------------------
+        List<Integer> packageIdsToShip =
+                new ArrayList<>();
 
-        Shipment shipment = new Shipment();
 
-        // Store the selected shipment date at midnight.
+        if (existingPackages != null) {
+
+            for (Package pkg :
+                    existingPackages) {
+
+                if (pkg == null) {
+                    continue;
+                }
+
+
+                // -----------------------------------------
+                // Only PACKED packages can be shipped
+                // -----------------------------------------
+
+                if (pkg.getStatus() != PackageStatus.PACKED) {
+                    continue;
+                }
+
+
+                // -----------------------------------------
+                // Don't ship an already shipped package
+                // -----------------------------------------
+
+                if (shipmentDAO.isPackageAlreadyShipped(
+                        pkg.getId()
+                )) {
+
+                    continue;
+                }
+
+
+                // -----------------------------------------
+                // Package date validation
+                // -----------------------------------------
+
+                if (pkg.getPackageDate() != null &&
+                        pkg.getPackageDate().isAfter(
+                                shipmentDate
+                        )) {
+
+                    throw new RuntimeException(
+                            "Shipment date cannot be before package date for "
+                                    + pkg.getPackageNumber()
+                    );
+                }
+
+
+                packageIdsToShip.add(
+                        pkg.getId()
+                );
+            }
+        }
+
+
+        // =================================================
+        // 10. NOTHING TO SHIP
+        // =================================================
+
+        if (packageIdsToShip.isEmpty()) {
+
+            throw new RuntimeException(
+                    "There are no unshipped packages remaining for this Sales Order"
+            );
+        }
+
+
+        // =================================================
+        // 11. PREPARE SHIPMENT
+        // =================================================
+
+        Shipment shipment =
+                new Shipment();
+
+
         shipment.setShipmentDate(
                 shipmentDate
         );
 
-        shipment.setStatus(status);
+
+        shipment.setStatus(
+                shipmentStatus
+        );
+
 
         shipment.setShippingMethod(
                 selectedService.getName()
         );
 
+
         shipment.setCarrier(
                 selectedService.getCarrier()
         );
+
 
         shipment.setCarrierService(
                 selectedService
         );
 
+
         shipment.setDispatchAddress(
                 DEFAULT_DISPATCH_ADDRESS
         );
 
-        /*
-         * Customer.address is the address stored on the
-         * Sales Order's associated customer.
-         */
+
+        // =================================================
+        // 12. CUSTOMER ADDRESS
+        // =================================================
+
         if (salesOrder.getCustomer() == null ||
                 salesOrder.getCustomer().getAddress() == null ||
-                salesOrder.getCustomer().getAddress().trim().isEmpty()) {
+                salesOrder.getCustomer()
+                        .getAddress()
+                        .trim()
+                        .isEmpty()) {
 
             throw new RuntimeException(
                     "The customer has no shipping address. "
-                    + "Update the customer details before shipping."
+                            + "Update the customer details before shipping."
             );
         }
 
+
         shipment.setDestinationAddress(
-                salesOrder.getCustomer().getAddress()
+                salesOrder
+                        .getCustomer()
+                        .getAddress()
         );
+
 
         shipment.setNotes(
                 "Created automatically using Pack & Ship"
         );
 
 
-        // -------------------------------------------------
-        // 9. Create shipment for the package
-        // -------------------------------------------------
+        // =================================================
+        // 13. ESTIMATED DELIVERY DATE
+        // =================================================
+
+        int estimatedDays =
+                selectedService.getEstimatedDays();
+
+
+        if (estimatedDays > 0) {
+
+            shipment.setEstimatedDeliveryDate(
+                    shipmentDate.plusDays(
+                            estimatedDays
+                    )
+            );
+        }
+
+
+        // =================================================
+        // 14. ACTUAL DELIVERY DATE
+        // =================================================
+
+        /*
+         * NEVER set this during Auto Pack & Ship.
+         *
+         * It is set only by Mark As Delivered.
+         */
+
+        shipment.setActualDeliveryDate(
+                null
+        );
+
+
+        // =================================================
+        // 15. SHIP ALL RELEVANT PACKAGES
+        // =================================================
 
         Shipment createdShipment =
                 shippingService.shipPackages(
                         salesOrderId,
-                        List.of(createdPackage.getId()),
+                        packageIdsToShip,
                         selectedService.getId(),
-                        shipment,shipmentDate
+                        shipment
                 );
 
 
-        // -------------------------------------------------
-        // 10. Return result
-        // -------------------------------------------------
+        // =================================================
+        // 16. RETURN RESULT
+        // =================================================
+
+        /*
+         * If a new package was created, return it.
+         *
+         * If everything was already packaged and Auto
+         * Pack & Ship only had to ship the existing
+         * packages, return the first package that was
+         * shipped.
+         */
+
+        Package resultPackage =
+                createdPackage;
+
+
+        if (resultPackage == null) {
+
+            for (Package pkg :
+                    existingPackages) {
+
+                if (pkg != null &&
+                        packageIdsToShip.contains(
+                                pkg.getId()
+                        )) {
+
+                    resultPackage = pkg;
+                    break;
+                }
+            }
+        }
+
 
         return new AutoPackShipResult(
-                createdPackage,
+                resultPackage,
                 createdShipment
         );
+    }
+
+
+    // =====================================================
+    // CALCULATE ALREADY PACKAGED QUANTITIES
+    // =====================================================
+
+    private Map<Integer, Integer>
+    getAlreadyPackagedQuantities(
+            int salesOrderId) {
+
+        Map<Integer, Integer> packedQuantities =
+                new HashMap<>();
+
+
+        List<Package> packages =
+                packageDAO.findBySalesOrder(
+                        salesOrderId
+                );
+
+
+        if (packages == null ||
+                packages.isEmpty()) {
+
+            return packedQuantities;
+        }
+
+
+        for (Package pkg :
+                packages) {
+
+            if (pkg == null) {
+                continue;
+            }
+
+
+            /*
+             * Every existing package consumes quantity.
+             *
+             * This is intentional:
+             *
+             * 10 ordered
+             * 4 already packaged
+             *
+             * Auto Pack & Ship creates only 6.
+             */
+
+            List<PackageItem> packageItems =
+                    packageItemDAO.findByPackage(
+                            pkg
+                    );
+
+
+            if (packageItems == null) {
+                continue;
+            }
+
+
+            for (PackageItem packageItem :
+                    packageItems) {
+
+                if (packageItem == null) {
+                    continue;
+                }
+
+
+                int salesOrderItemId =
+                        packageItem.getSalesOrderItemId();
+
+
+                if (salesOrderItemId <= 0) {
+
+                    throw new RuntimeException(
+                            "Package "
+                                    + pkg.getPackageNumber()
+                                    + " contains an item without a Sales Order line reference"
+                    );
+                }
+
+
+                int quantity =
+                        packageItem.getQuantity();
+
+
+                if (quantity <= 0) {
+
+                    throw new RuntimeException(
+                            "Invalid quantity in package "
+                                    + pkg.getPackageNumber()
+                    );
+                }
+
+
+                packedQuantities.merge(
+                        salesOrderItemId,
+                        quantity,
+                        Integer::sum
+                );
+            }
+        }
+
+
+        return packedQuantities;
     }
 
 
@@ -374,72 +749,96 @@ CartonSize selectedCarton =
     // FIND DEFAULT CARRIER SERVICE
     // =====================================================
 
-    private CarrierService findDefaultCarrierService() {
+    private CarrierService
+    findDefaultCarrierService() {
 
         List<Carrier> carriers =
                 carrierDAO.findAll();
 
-        if (carriers == null || carriers.isEmpty()) {
+
+        if (carriers == null ||
+                carriers.isEmpty()) {
+
             return null;
         }
 
-        for (Carrier carrier : carriers) {
+
+        for (Carrier carrier :
+                carriers) {
 
             if (carrier == null) {
                 continue;
             }
 
-            String carrierStatus = carrier.getStatus().name();
 
-            if (carrierStatus != null &&
-                    "INACTIVE".equalsIgnoreCase(carrierStatus)) {
+            if (carrier.getStatus() != null &&
+                    "INACTIVE".equalsIgnoreCase(
+                            carrier.getStatus().name()
+                    )) {
 
                 continue;
             }
+
 
             List<CarrierService> services =
                     carrierServiceDAO.findByCarrier(
                             carrier.getId()
                     );
 
-            if (services == null || services.isEmpty()) {
+
+            if (services == null ||
+                    services.isEmpty()) {
+
                 continue;
             }
 
-            for (CarrierService service : services) {
+
+            for (CarrierService service :
+                    services) {
 
                 if (service != null) {
+
                     return service;
                 }
             }
         }
+
 
         return null;
     }
 
 
     // =====================================================
-    // RESULT CLASS
+    // RESULT
     // =====================================================
 
     public static class AutoPackShipResult {
 
         private final Package packageEntity;
+
         private final Shipment shipment;
+
 
         public AutoPackShipResult(
                 Package packageEntity,
                 Shipment shipment) {
 
-            this.packageEntity = packageEntity;
-            this.shipment = shipment;
+            this.packageEntity =
+                    packageEntity;
+
+            this.shipment =
+                    shipment;
         }
 
+
         public Package getPackageEntity() {
+
             return packageEntity;
         }
 
+
         public Shipment getShipment() {
+
             return shipment;
         }
     }

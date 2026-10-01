@@ -1,4 +1,3 @@
-
 package com.erpflow.controller;
 
 import com.erpflow.dao.ReportsDAO;
@@ -22,77 +21,210 @@ import java.util.Map;
 })
 public class ReportsServlet extends HttpServlet {
 
-    private final ReportsDAO reportsDAO = new ReportsDAO();
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final ReportsDAO reportsDAO =
+            new ReportsDAO();
+
+    private final ObjectMapper mapper =
+            new ObjectMapper();
+
+
+    // =========================================================
+    // GET REPORT
+    // =========================================================
 
     @Override
     protected void doGet(
             HttpServletRequest request,
-            HttpServletResponse response) throws IOException {
+            HttpServletResponse response)
+            throws IOException {
 
-        response.setContentType("application/json;charset=UTF-8");
-        response.setHeader("Cache-Control", "no-store");
+        response.setContentType(
+                "application/json;charset=UTF-8"
+        );
 
-        String path = request.getServletPath();
+        response.setHeader(
+                "Cache-Control",
+                "no-store"
+        );
 
-        String search = parameter(request, "search");
-        String from = parameter(request, "from");
-        String to = parameter(request, "to");
+
+        String path =
+                request.getServletPath();
+
+
+        String search =
+                parameter(
+                        request,
+                        "search"
+                );
+
+        String from =
+                parameter(
+                        request,
+                        "from"
+                );
+
+        String to =
+                parameter(
+                        request,
+                        "to"
+                );
+
 
         try {
+
             List<Map<String, Object>> rows;
 
-            if (path.endsWith("/sales-by-item")) {
-                rows = reportsDAO.getSalesByItemReport(search, from, to);
 
-            } else if (path.endsWith("/sales-by-customer")) {
-                rows = reportsDAO.getSalesByCustomerReport(search, from, to);
+            // =================================================
+            // SALES BY ITEM
+            // =================================================
 
-            } else if (path.endsWith("/sales-order-summary")) {
-                rows = reportsDAO.getSalesOrderSummaryReport(search, from, to);
+            if (path.endsWith(
+                    "/sales-by-item")) {
 
-            } else {
-                String stock = parameter(request, "stock");
+                rows =
+                        reportsDAO.getSalesByItemReport(
+                                search,
+                                from,
+                                to
+                        );
+            }
+
+
+            // =================================================
+            // SALES BY CUSTOMER
+            // =================================================
+
+            else if (path.endsWith(
+                    "/sales-by-customer")) {
+
+                rows =
+                        reportsDAO.getSalesByCustomerReport(
+                                search,
+                                from,
+                                to
+                        );
+            }
+
+
+            // =================================================
+            // SALES ORDER SUMMARY
+            // =================================================
+
+            else if (path.endsWith(
+                    "/sales-order-summary")) {
+
+                rows =
+                        reportsDAO.getSalesOrderSummaryReport(
+                                search,
+                                from,
+                                to
+                        );
+            }
+
+
+            // =================================================
+            // INVENTORY STOCK SUMMARY
+            // =================================================
+
+            else {
+
+                String stock =
+                        parameter(
+                                request,
+                                "stock"
+                        );
+
 
                 if (stock.isBlank()) {
                     stock = "all";
                 }
 
-                rows = reportsDAO.getInventoryReport(
-                        search, stock, from, to
-                );
+
+                rows =
+                        reportsDAO.getInventoryReport(
+                                search,
+                                stock,
+                                from,
+                                to
+                        );
             }
 
-            mapper.writeValue(response.getWriter(), rows);
+
+            mapper.writeValue(
+                    response.getWriter(),
+                    rows
+            );
+
 
         } catch (IllegalArgumentException e) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            writeError(response, e.getMessage());
+
+            response.setStatus(
+                    HttpServletResponse.SC_BAD_REQUEST
+            );
+
+            writeError(
+                    response,
+                    e.getMessage()
+            );
+
 
         } catch (Exception e) {
+
             e.printStackTrace();
+
             response.setStatus(
                     HttpServletResponse.SC_INTERNAL_SERVER_ERROR
             );
-            writeError(response, "Unable to load report: " + e.getMessage());
+
+            writeError(
+                    response,
+                    "Unable to load report: "
+                            + e.getMessage()
+            );
         }
     }
+
+
+    // =========================================================
+    // GET REQUEST PARAMETER
+    // =========================================================
 
     private String parameter(
             HttpServletRequest request,
             String name) {
 
-        String value = request.getParameter(name);
-        return value == null ? "" : value.trim();
+        String value =
+                request.getParameter(name);
+
+        return value == null
+                ? ""
+                : value.trim();
     }
+
+
+    // =========================================================
+    // ERROR RESPONSE
+    // =========================================================
 
     private void writeError(
             HttpServletResponse response,
-            String message) throws IOException {
+            String message)
+            throws IOException {
 
-        Map<String, String> error = new LinkedHashMap<>();
-        error.put("message", message);
+        Map<String, String> error =
+                new LinkedHashMap<>();
 
-        mapper.writeValue(response.getWriter(), error);
+        error.put(
+                "message",
+                message
+        );
+
+
+        mapper.writeValue(
+                response.getWriter(),
+                error
+        );
     }
 }

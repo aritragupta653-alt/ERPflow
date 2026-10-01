@@ -1,7 +1,9 @@
 package com.erpflow.controller;
 
 import com.erpflow.model.Shipment;
+import com.erpflow.model.enums.ShipmentStatus;
 import com.erpflow.service.ShipmentService;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -17,8 +19,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-import com.erpflow.model.enums.ShipmentStatus;
-
 @WebServlet("/api/shipments/*")
 public class ShipmentServlet extends HttpServlet {
 
@@ -27,7 +27,10 @@ public class ShipmentServlet extends HttpServlet {
 
     private final ObjectMapper objectMapper =
             new ObjectMapper()
-                    .registerModule(new JavaTimeModule());
+                    .registerModule(
+                            new JavaTimeModule()
+                    );
+
 
     // =====================================================
     // GET
@@ -41,17 +44,20 @@ public class ShipmentServlet extends HttpServlet {
 
         setJsonHeaders(response);
 
-        String pathInfo = request.getPathInfo();
-
-        String status = request.getParameter("status");
+        String pathInfo =
+                request.getPathInfo();
 
         try {
 
+            // ---------------------------------------------
             // GET /api/shipments
-            if (pathInfo == null || pathInfo.equals("/")) {
+            // ---------------------------------------------
+
+            if (pathInfo == null ||
+                    pathInfo.equals("/")) {
 
                 List<Shipment> shipments =
-                        shipmentService.getAllShipments(status);
+                        shipmentService.getAllShipments();
 
                 objectMapper.writeValue(
                         response.getWriter(),
@@ -61,8 +67,12 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
+            // ---------------------------------------------
             // GET /api/shipments/{id}
-            int id = parseShipmentId(pathInfo);
+            // ---------------------------------------------
+
+            int id =
+                    parseShipmentId(pathInfo);
 
             Shipment shipment =
                     shipmentService.getShipmentById(id);
@@ -101,20 +111,10 @@ public class ShipmentServlet extends HttpServlet {
         }
     }
 
+
     // =====================================================
     // PUT
     // =====================================================
-
-    /*
-     * PUT /api/shipments/{id}
-     * Updates shipment details.
-     *
-     * PUT /api/shipments/{id}/packages
-     * Updates package assignments for a shipment.
-     *
-     * Delivered shipments cannot be edited or have
-     * their package assignments changed.
-     */
 
     @Override
     protected void doPut(
@@ -124,11 +124,13 @@ public class ShipmentServlet extends HttpServlet {
 
         setJsonHeaders(response);
 
-        String pathInfo = request.getPathInfo();
+        String pathInfo =
+                request.getPathInfo();
 
         try {
 
-            if (pathInfo == null || pathInfo.equals("/")) {
+            if (pathInfo == null ||
+                    pathInfo.equals("/")) {
 
                 sendError(
                         response,
@@ -139,9 +141,11 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            String[] parts = pathInfo.split("/");
+            String[] parts =
+                    pathInfo.split("/");
 
-            if (parts.length < 2 || parts[1].isBlank()) {
+            if (parts.length < 2 ||
+                    parts[1].isBlank()) {
 
                 sendError(
                         response,
@@ -152,7 +156,8 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            int id = Integer.parseInt(parts[1]);
+            int id =
+                    Integer.parseInt(parts[1]);
 
             Shipment existing =
                     shipmentService.getShipmentById(id);
@@ -168,9 +173,12 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            // Prevent all PUT modifications after delivery.
-            if (ShipmentStatus.DELIVERED ==
-                    existing.getStatus()) {
+            // ---------------------------------------------
+            // Delivered = completely locked
+            // ---------------------------------------------
+
+            if (existing.getStatus() ==
+                    ShipmentStatus.DELIVERED) {
 
                 sendError(
                         response,
@@ -181,12 +189,12 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            // =================================================
+            // ---------------------------------------------
             // PUT /api/shipments/{id}/packages
-            // =================================================
+            // ---------------------------------------------
 
             if (parts.length == 3 &&
-                    parts[2].equals("packages")) {
+                    "packages".equals(parts[2])) {
 
                 PackageUpdateRequest packageRequest =
                         objectMapper.readValue(
@@ -194,7 +202,8 @@ public class ShipmentServlet extends HttpServlet {
                                 PackageUpdateRequest.class
                         );
 
-                if (packageRequest.getPackageIds() == null) {
+                if (packageRequest.getPackageIds()
+                        == null) {
 
                     sendError(
                             response,
@@ -221,9 +230,9 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            // =================================================
+            // ---------------------------------------------
             // PUT /api/shipments/{id}
-            // =================================================
+            // ---------------------------------------------
 
             if (parts.length != 2) {
 
@@ -282,6 +291,8 @@ public class ShipmentServlet extends HttpServlet {
 
         } catch (Exception e) {
 
+            e.printStackTrace();
+
             sendError(
                     response,
                     HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -290,17 +301,18 @@ public class ShipmentServlet extends HttpServlet {
         }
     }
 
+
     // =====================================================
     // POST
     // =====================================================
 
     /*
      * POST /api/shipments/{id}/deliver
-     * Marks a shipment as delivered.
      *
-     * Request body:
+     * Request:
+     *
      * {
-     *     "actualDeliveryDate": "2026-09-25"
+     *     "actualDeliveryDate": "2026-09-30"
      * }
      */
 
@@ -312,7 +324,8 @@ public class ShipmentServlet extends HttpServlet {
 
         setJsonHeaders(response);
 
-        String pathInfo = request.getPathInfo();
+        String pathInfo =
+                request.getPathInfo();
 
         try {
 
@@ -327,10 +340,11 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            String[] parts = pathInfo.split("/");
+            String[] parts =
+                    pathInfo.split("/");
 
             if (parts.length != 3 ||
-                    !parts[2].equals("deliver")) {
+                    !"deliver".equals(parts[2])) {
 
                 sendError(
                         response,
@@ -341,11 +355,12 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            int id = Integer.parseInt(parts[1]);
+            int id =
+                    Integer.parseInt(parts[1]);
 
-            // =================================================
-            // FIND SHIPMENT
-            // =================================================
+            // ---------------------------------------------
+            // Find shipment
+            // ---------------------------------------------
 
             Shipment existing =
                     shipmentService.getShipmentById(id);
@@ -361,12 +376,12 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            // =================================================
-            // CHECK ALREADY DELIVERED
-            // =================================================
+            // ---------------------------------------------
+            // Already delivered
+            // ---------------------------------------------
 
-            if (ShipmentStatus.DELIVERED ==
-                    existing.getStatus()) {
+            if (existing.getStatus() ==
+                    ShipmentStatus.DELIVERED) {
 
                 sendError(
                         response,
@@ -377,26 +392,48 @@ public class ShipmentServlet extends HttpServlet {
                 return;
             }
 
-            // =================================================
-            // READ ACTUAL DELIVERY DATE
-            // =================================================
+            // ---------------------------------------------
+            // Read request body
+            // ---------------------------------------------
 
             JsonNode root =
                     objectMapper.readTree(
                             request.getReader()
                     );
 
-            JsonNode actualDeliveryDateNode =
-                    root.get("actualDeliveryDate");
+            if (root == null ||
+                    !root.isObject()) {
 
-            if (actualDeliveryDateNode == null
-                    || actualDeliveryDateNode.isNull()
-                    || actualDeliveryDateNode.asText().isBlank()) {
+                sendError(
+                        response,
+                        HttpServletResponse.SC_BAD_REQUEST,
+                        "Request body is required"
+                );
 
-                throw new IllegalArgumentException(
+                return;
+            }
+
+            JsonNode dateNode =
+                    root.get(
+                            "actualDeliveryDate"
+                    );
+
+            if (dateNode == null ||
+                    dateNode.isNull() ||
+                    dateNode.asText().isBlank()) {
+
+                sendError(
+                        response,
+                        HttpServletResponse.SC_BAD_REQUEST,
                         "Actual delivery date is required"
                 );
+
+                return;
             }
+
+            // ---------------------------------------------
+            // Parse LocalDate
+            // ---------------------------------------------
 
             LocalDate actualDeliveryDate;
 
@@ -404,28 +441,32 @@ public class ShipmentServlet extends HttpServlet {
 
                 actualDeliveryDate =
                         LocalDate.parse(
-                                actualDeliveryDateNode.asText()
+                                dateNode.asText()
                         );
 
             } catch (Exception e) {
 
-                throw new IllegalArgumentException(
-                        "Invalid actual delivery date. Use YYYY-MM-DD"
+                sendError(
+                        response,
+                        HttpServletResponse.SC_BAD_REQUEST,
+                        "Actual delivery date must use YYYY-MM-DD format"
                 );
+
+                return;
             }
 
-            // =================================================
-            // MARK AS DELIVERED
-            // =================================================
+            // ---------------------------------------------
+            // Mark delivered
+            // ---------------------------------------------
 
             shipmentService.markShipmentDelivered(
                     id,
                     actualDeliveryDate
             );
 
-            // =================================================
-            // RETURN UPDATED SHIPMENT
-            // =================================================
+            // ---------------------------------------------
+            // Return updated shipment
+            // ---------------------------------------------
 
             Shipment updated =
                     shipmentService.getShipmentById(id);
@@ -461,6 +502,8 @@ public class ShipmentServlet extends HttpServlet {
 
         } catch (Exception e) {
 
+            e.printStackTrace();
+
             sendError(
                     response,
                     HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -469,11 +512,13 @@ public class ShipmentServlet extends HttpServlet {
         }
     }
 
+
     // =====================================================
-    // PARSE SHIPMENT ID
+    // PARSE ID
     // =====================================================
 
-    private int parseShipmentId(String pathInfo) {
+    private int parseShipmentId(
+            String pathInfo) {
 
         String[] parts =
                 pathInfo.split("/");
@@ -486,8 +531,11 @@ public class ShipmentServlet extends HttpServlet {
             );
         }
 
-        return Integer.parseInt(parts[1]);
+        return Integer.parseInt(
+                parts[1]
+        );
     }
+
 
     // =====================================================
     // JSON HEADERS
@@ -505,8 +553,9 @@ public class ShipmentServlet extends HttpServlet {
         );
     }
 
+
     // =====================================================
-    // ERROR RESPONSE
+    // ERROR
     // =====================================================
 
     private void sendError(
@@ -528,8 +577,9 @@ public class ShipmentServlet extends HttpServlet {
         );
     }
 
+
     // =====================================================
-    // PACKAGE UPDATE REQUEST
+    // PACKAGE REQUEST
     // =====================================================
 
     public static class PackageUpdateRequest {
@@ -543,7 +593,8 @@ public class ShipmentServlet extends HttpServlet {
         public void setPackageIds(
                 List<Integer> packageIds) {
 
-            this.packageIds = packageIds;
+            this.packageIds =
+                    packageIds;
         }
     }
 }
